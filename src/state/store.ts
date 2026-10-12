@@ -25,18 +25,28 @@ export interface TabState {
   encoding?: string;
   layouts?: LayoutInfo[];
   layout?: string;
+  /** selected entity ids */
+  selection?: number[];
+  hiddenCount?: number;
+  isolatedCount?: number;
 }
 
 export interface ViewerSettings extends RenderSettings {
   /** decimals for coordinate display; -1 = from $LUPREC */
   coordPrecision: number;
   wheelZoomFactor: number;
+  /** two-finger trackpad scroll pans instead of zooming */
+  trackpadPan: boolean;
   preferLocalFonts: boolean;
   /** keyed by lower-case requested font name */
   fontOverrides: Record<string, FontOverrideInfo>;
 }
 
+export type Tool = 'select' | 'pan' | 'measure';
+
 export interface UiState {
+  tool: Tool;
+  setTool(t: Tool): void;
   tabs: TabState[];
   activeId: string | null;
   docks: Record<DockSide, DockState>;
@@ -45,6 +55,9 @@ export interface UiState {
   /** CSS px per world unit of the active view */
   scale: number;
   settings: ViewerSettings;
+  /** handle requested for inspection in the Document panel */
+  inspectHandle: string | null;
+  setInspectHandle(h: string | null): void;
   /** bumped whenever user fonts change */
   userFontsVersion: number;
   bumpUserFonts(): void;
@@ -79,13 +92,14 @@ const DEFAULT_SETTINGS: ViewerSettings = {
   monochrome: false,
   coordPrecision: -1,
   wheelZoomFactor: 1.2,
+  trackpadPan: true,
   preferLocalFonts: true,
   fontOverrides: {},
 };
 
 const DEFAULT_DOCKS: Record<DockSide, DockState> = {
   left: { open: true, size: 280, active: 'layers' },
-  right: { open: false, size: 320, active: 'document' },
+  right: { open: true, size: 340, active: 'properties' },
   bottom: { open: false, size: 240, active: 'texts' },
 };
 
@@ -109,6 +123,8 @@ function save(state: Persisted): void {
 const persisted = load();
 
 export const useUi = create<UiState>((set, get) => ({
+  tool: 'select',
+  setTool: (tool) => set({ tool }),
   tabs: [],
   activeId: null,
   docks: { ...DEFAULT_DOCKS, ...(persisted.docks ?? {}) },
@@ -116,6 +132,8 @@ export const useUi = create<UiState>((set, get) => ({
   cursor: null,
   scale: 1,
   settings: { ...DEFAULT_SETTINGS, ...(persisted.settings ?? {}) },
+  inspectHandle: null,
+  setInspectHandle: (h) => set({ inspectHandle: h }),
   userFontsVersion: 0,
   bumpUserFonts: () => set((s) => ({ userFontsVersion: s.userFontsVersion + 1 })),
   setTab: (id, patch) => set((s) => ({ tabs: s.tabs.map((t) => (t.id === id ? { ...t, ...patch } : t)) })),

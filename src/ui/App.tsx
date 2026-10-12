@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Activity, FileText, FolderOpen, Layers, Type, TextSearch } from 'lucide-react';
+import { Activity, Boxes, FileText, FolderOpen, Layers, ListChecks, ListTree, SlidersHorizontal, Type, TextSearch } from 'lucide-react';
 
 import { t } from '../i18n';
 import { UpdatePrompt } from '../pwa/UpdatePrompt';
@@ -16,12 +16,22 @@ import { Toolbar } from './layout/Toolbar';
 import { DiagnosticsPanel } from './panels/DiagnosticsPanel';
 import { DocumentPanel } from './panels/DocumentPanel';
 import { FontsPanel } from './panels/FontsPanel';
+import { PropertiesPanel } from './panels/PropertiesPanel';
+import { BlocksPanel } from './panels/BlocksPanel';
+import { StructurePanel } from './panels/StructurePanel';
+import { SelectionPanel } from './panels/SelectionPanel';
 import { TextsPanel } from './panels/TextsPanel';
 import { LayersPanel } from './panels/LayersPanel';
 import { DocTabs } from './tabs/DocTabs';
 
-const LEFT: PanelDef[] = [{ id: 'layers', title: 'panel.layers', icon: Layers, component: LayersPanel }];
+const LEFT: PanelDef[] = [
+  { id: 'layers', title: 'panel.layers', icon: Layers, component: LayersPanel },
+  { id: 'blocks', title: 'panel.blocks', icon: Boxes, component: BlocksPanel },
+  { id: 'structure', title: 'panel.structure', icon: ListTree, component: StructurePanel },
+];
 const RIGHT: PanelDef[] = [
+  { id: 'properties', title: 'panel.properties', icon: SlidersHorizontal, component: PropertiesPanel },
+  { id: 'selection', title: 'panel.selection', icon: ListChecks, component: SelectionPanel },
   { id: 'document', title: 'panel.document', icon: FileText, component: DocumentPanel },
   { id: 'fonts', title: 'panel.fonts', icon: Type, component: FontsPanel },
 ];
@@ -79,6 +89,11 @@ function useGlobalShortcuts(): void {
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.code === 'KeyF') {
         ui.setFocusMode(!ui.focusMode);
         e.preventDefault();
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.code === 'KeyA' && session) {
+        e.preventDefault();
+        void session.rpc.call('selectAll', undefined).then((ids) => session.setSelection(ids));
         return;
       }
       if (e.ctrlKey || e.metaKey || e.altKey) return;

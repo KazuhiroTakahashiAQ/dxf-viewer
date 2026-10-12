@@ -13,6 +13,7 @@ export class DocumentSession {
   readonly id: string;
   readonly name: string;
   readonly canvas: HTMLCanvasElement;
+  readonly highlight: HTMLCanvasElement;
   private worker: Worker;
   readonly rpc: RpcClient<DocApi, DocEvents>;
   private bytes: ArrayBuffer;
@@ -37,8 +38,11 @@ export class DocumentSession {
     this.rpc = new RpcClient<DocApi, DocEvents>(this.worker);
     this.canvas = document.createElement('canvas');
     this.canvas.className = 'doc-canvas';
+    this.highlight = document.createElement('canvas');
+    this.highlight.className = 'doc-canvas hl-canvas';
     const off = this.canvas.transferControlToOffscreen();
-    void this.rpc.call('attachCanvas', { canvas: off }, [off]);
+    const offHl = this.highlight.transferControlToOffscreen();
+    void this.rpc.call('attachCanvas', { canvas: off, highlight: offHl }, [off, offHl]);
 
     this.rpc.on('progress', (p) => useUi.getState().setTab(this.id, { phase: p.phase, progress: p.fraction }));
     this.rpc.on('frame', (f) => {
@@ -71,6 +75,7 @@ export class DocumentSession {
       );
       this.summary = summary;
       this.layout = 'Model';
+      useUi.getState().setTab(this.id, { selection: [] });
       this.layoutViews.clear();
       this.layoutExtents.clear();
       this.layoutExtents.set('Model', summary.extents);
@@ -109,6 +114,7 @@ export class DocumentSession {
     this.layoutExtents.set(name, res.extents);
     this.renderedView = null;
     useUi.getState().setTab(this.id, { layout: name });
+    this.setSelection([]);
     const saved = this.layoutViews.get(name);
     if (saved) this.setView(saved);
     else this.fit();
@@ -149,11 +155,14 @@ export class DocumentSession {
     const from = this.renderedView;
     if (!from) {
       this.canvas.style.transform = '';
+      this.highlight.style.transform = '';
       return;
     }
     const m = screenDelta(from, this.view, this.viewport);
     const identity = Math.abs(m[0] - 1) < 1e-9 && Math.abs(m[3] - 1) < 1e-9 && Math.abs(m[1]) < 1e-9 && Math.abs(m[2]) < 1e-9 && Math.abs(m[4]) < 0.01 && Math.abs(m[5]) < 0.01;
-    this.canvas.style.transform = identity ? '' : `matrix(${m.join(',')})`;
+    const tf = identity ? '' : `matrix(${m.join(',')})`;
+    this.canvas.style.transform = tf;
+    this.highlight.style.transform = tf;
   }
 
   async reopenWithEncoding(encoding: string | undefined): Promise<void> {
@@ -172,11 +181,26 @@ export class DocumentSession {
     return true;
   }
 
+  /** Hide / isolate / show top-level entities (scenes are rebuilt in the worker). */
+  async setVisibility(mode: 'hide' | 'isolate' | 'show', ids?: number[]): Promise<void> {
+    const r = await this.rpc.call('setVisibility', { mode, ids });
+    useUi.getState().setTab(this.id, { hiddenCount: r.hidden, isolatedCount: r.isolated });
+    if (mode !== 'show') this.setSelection([]);
+  }
+
+  /** Replace the selection (entity ids) and update the highlight overlay. */
+  setSelection(ids: number[]): void {
+    const unique = [...new Set(ids)];
+    useUi.getState().setTab(this.id, { selection: unique });
+    this.rpc.notify('setSelection', { ids: unique });
+  }
+
   dispose(): void {
     this.disposed = true;
     this.rpc.rejectAll('disposed');
     this.worker.terminate();
     this.canvas.remove();
+    this.highlight.remove();
   }
 }
 

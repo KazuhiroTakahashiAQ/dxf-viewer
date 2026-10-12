@@ -31,6 +31,8 @@ const evalJs = arg('eval');
 const evalBefore = arg('eval-before');
 /** --upload "css-selector|path" (repeatable): set files on an input after loading */
 const uploads = all('upload');
+/** --click "x,y[,modifier]" and --drag "x0,y0,x1,y1" (page coordinates, repeatable, in order) */
+const actions = args.flatMap((a, i) => (a === '--click' || a === '--drag' || a === '--rclick' ? [[a.slice(2), args[i + 1]] as const] : []));
 const chrome = process.env.CHROME_PATH ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 
 const engine = arg('browser', 'chrome');
@@ -65,6 +67,21 @@ for (const u of uploads) {
   const i = u.lastIndexOf('|');
   await page.locator(u.slice(0, i)).first().setInputFiles(u.slice(i + 1).split(','));
   await page.waitForTimeout(wait);
+}
+for (const [kind, spec] of actions) {
+  const v = spec.split(',');
+  if (kind === 'click' || kind === 'rclick') {
+    const mod = v[2] as 'Shift' | 'Control' | 'Meta' | undefined;
+    if (mod) await page.keyboard.down(mod);
+    await page.mouse.click(Number(v[0]), Number(v[1]), { button: kind === 'rclick' ? 'right' : 'left' });
+    if (mod) await page.keyboard.up(mod);
+  } else {
+    await page.mouse.move(Number(v[0]), Number(v[1]));
+    await page.mouse.down();
+    await page.mouse.move(Number(v[2]), Number(v[3]), { steps: 8 });
+    await page.mouse.up();
+  }
+  await page.waitForTimeout(700);
 }
 if (evalJs) {
   const r = await page.evaluate(evalJs);

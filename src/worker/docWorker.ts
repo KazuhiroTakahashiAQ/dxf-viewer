@@ -13,6 +13,10 @@ import { SceneBuilder, type Scene } from '../scene/scene';
 import { StyleResolver } from '../scene/style';
 import type { BuildInfo, DocApi, DocSummary, FontUsage, LayerInfo, LayoutInfo, RenderSettings } from '../shared/docApi';
 import { TextIndex } from './textIndex';
+import { entityInfo, rawTags } from './inspect';
+import { Picker } from './picking';
+import { blockInfos, makeContains, referencedBlock, treeChildren } from './blocks';
+import { fitView } from '../shared/view';
 import { emit, serve } from '../shared/rpc';
 import { DEFAULT_VIEW, worldToScreen, type BBox2, type ViewState, type Viewport } from '../shared/view';
 
@@ -31,6 +35,7 @@ interface LayoutState {
   gen: number;
   /** paper sheet rectangle (paper layouts) */
   sheet?: BBox2;
+  picker?: Picker;
 }
 
 let doc: DxfDocument | null = null;
@@ -63,6 +68,80 @@ let layerOn = new Uint8Array(0);
 let layerFrozen = new Uint8Array(0);
 let renderScheduled = false;
 let textIndex: TextIndex | null = null;
+let hlCanvas: OffscreenCanvas | null = null;
+let hlCtx: OffscreenCanvasRenderingContext2D | null = null;
+let selection: number[] = [];
+let hoverId: number | null = null;
+let hidden = new Set<number>();
+let isolated: Set<number> | null = null;
+
+function pickerOf(ls: LayoutState): Picker {
+  ls.picker ??= new Picker(doc!, ls.scene, styles!, measurer);
+  return ls.picker;
+}
+
+function entityVisible(id: number): boolean {
+  if (!doc || !styles) return false;
+  const e = doc.entities[id];
+  const li = styles.layerIdx(styles.effectiveLayer(e, { layer: null } as never));
+  return layerOn[li] === 1 && layerFrozen[li] === 0;
+}
+
+/** Selection/hover overlay drawn on its own canvas (base canvas untouched). */
+function drawHighlight(): void {
+  if (!hlCtx || !hlCanvas) return;
+  const c = hlCtx;
+  const dpr = viewport.dpr;
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.clearRect(0, 0, hlCanvas.width, hlCanvas.height);
+  const ls = layouts.get(active);
+  if (!ls || !doc || !hasView) return;
+  const picker = pickerOf(ls);
+  const toDev = (x: number, y: number): [number, number] => {
+    const p = worldToScreen(view, viewport, x, y);
+    return [p[0] * dpr, p[1] * dpr];
+  };
+  const draw = (ids: number[], color: string, width: number, glow: boolean) => {
+    c.beginPath();
+    let budget = 400_000;
+    for (const id of ids) {
+      const f = picker.flat(id);
+      for (const pl of f.polylines) {
+        if (budget <= 0) break;
+        const p0 = toDev(pl[0], pl[1]);
+        c.moveTo(p0[0], p0[1]);
+        if (pl.length === 2) {
+          c.arc(p0[0], p0[1], 3 * dpr, 0, Math.PI * 2);
+          continue;
+        }
+        for (let i = 2; i < pl.length; i += 2) {
+          const p = toDev(pl[i], pl[i + 1]);
+          c.lineTo(p[0], p[1]);
+        }
+        budget -= pl.length;
+      }
+      for (const l of f.infinite) {
+        const far = 1e7 / view.scale;
+        const a = toDev(l.x - (l.ray ? 0 : l.dx * far), l.y - (l.ray ? 0 : l.dy * far));
+        const b = toDev(l.x + l.dx * far, l.y + l.dy * far);
+        c.moveTo(a[0], a[1]);
+        c.lineTo(b[0], b[1]);
+      }
+    }
+    c.lineJoin = 'round';
+    c.lineCap = 'round';
+    if (glow) {
+      c.strokeStyle = color + '55';
+      c.lineWidth = (width + 4) * dpr;
+      c.stroke();
+    }
+    c.strokeStyle = color;
+    c.lineWidth = width * dpr;
+    c.stroke();
+  };
+  if (selection.length) draw(selection, '#4fc3f7', 1.5, true);
+  if (hoverId !== null && !selection.includes(hoverId)) draw([hoverId], '#ffe082', 1.2, false);
+}
 let lastProgressiveRender = 0;
 
 function syncLayerArrays(): void {
@@ -215,6 +294,7 @@ function renderNow(): void {
   const t0 = performance.now();
   const opts = renderOptions(doc);
   const stats = ls.kind === 'model' ? ls.renderer.render(ctx, view, viewport, opts) : renderPaper(ctx, ls, opts);
+  drawHighlight();
   emit(self, 'frame', { viewId, ms: performance.now() - t0, tiles: stats.tiles, batches: stats.batches, texts: stats.texts });
 }
 
@@ -270,6 +350,11 @@ function continueBuild(ls: LayoutState, gen: number): void {
 /** Entities of a layout (model space or a paper space layout). */
 function layoutItems(d: DxfDocument, name: string): { kind: 'model' | 'paper'; items: number[]; sheet?: BBox2 } | null {
   if (name === 'Model') return { kind: 'model', items: d.modelSpace };
+  if (name.startsWith('\u00A7')) {
+    // "§NAME": a block definition shown on its own
+    const b = d.blocks.get(nameKey(name.slice(1)));
+    return b ? { kind: 'model', items: b.entities } : null;
+  }
   const layout = d.layouts.find((l) => l.name === name);
   if (!layout && name === 'Paper' && d.paperSpace.length) return { kind: 'paper', items: d.paperSpace };
   if (!layout) return null;
@@ -300,8 +385,9 @@ function startLayout(name: string): LayoutState | null {
   if (existing) return existing;
   const li = layoutItems(doc, name);
   if (!li) return null;
-  const b = new SceneBuilder(doc, li.items, measurer, () => new Path2D(), undefined, styles);
-  const ls: LayoutState = { name, kind: li.kind, items: li.items, builder: b, scene: b.scene, renderer: new Renderer(b.scene), gen: generation, sheet: li.sheet };
+  const items = isolated || hidden.size ? li.items.filter((id) => (isolated ? isolated.has(id) : true) && !hidden.has(id)) : li.items;
+  const b = new SceneBuilder(doc, items, measurer, () => new Path2D(), undefined, styles);
+  const ls: LayoutState = { name, kind: li.kind, items, builder: b, scene: b.scene, renderer: new Renderer(b.scene), gen: generation, sheet: li.sheet };
   layouts.set(name, ls);
   b.prepare();
   syncLayerArrays();
@@ -495,6 +581,10 @@ const api: DocApi = {
 
     doc = d;
     textIndex = null;
+    selection = [];
+    hoverId = null;
+    hidden = new Set();
+    isolated = null;
     layouts.clear();
     styles = new StyleResolver(d);
     layerOn = new Uint8Array(0);
@@ -511,14 +601,21 @@ const api: DocApi = {
     ctx = canvas.getContext('2d', { alpha: false }) as OffscreenCanvasRenderingContext2D;
     canvas.width = Math.max(1, Math.round(viewport.width * viewport.dpr));
     canvas.height = Math.max(1, Math.round(viewport.height * viewport.dpr));
+    if (p.highlight) {
+      hlCanvas = p.highlight;
+      hlCtx = hlCanvas.getContext('2d') as OffscreenCanvasRenderingContext2D;
+      hlCanvas.width = canvas.width;
+      hlCanvas.height = canvas.height;
+    }
     scheduleRender();
   },
 
   resize(p) {
     viewport = p;
-    if (canvas) {
-      canvas.width = Math.max(1, Math.round(p.width * p.dpr));
-      canvas.height = Math.max(1, Math.round(p.height * p.dpr));
+    for (const cv of [canvas, hlCanvas]) {
+      if (!cv) continue;
+      cv.width = Math.max(1, Math.round(p.width * p.dpr));
+      cv.height = Math.max(1, Math.round(p.height * p.dpr));
     }
     renderNow();
   },
@@ -595,6 +692,178 @@ const api: DocApi = {
 
   getLayouts() {
     return doc ? layoutList(doc) : [];
+  },
+
+  hover(p) {
+    const ls = layouts.get(active);
+    if (!p || !ls || !doc || !hasView) {
+      if (hoverId !== null) {
+        hoverId = null;
+        drawHighlight();
+      }
+      return null;
+    }
+    const ids = pickerOf(ls).pick(view, viewport, p.x, p.y, 5, entityVisible);
+    const id = ids[0] ?? null;
+    if (id !== hoverId) {
+      hoverId = id;
+      drawHighlight();
+    }
+    if (id === null) return null;
+    const e = doc.entities[id];
+    return { id, handle: e.handle, type: e.type, layer: e.layer };
+  },
+
+  getBlocks() {
+    return doc ? blockInfos(doc) : [];
+  },
+
+  blockRefs(p) {
+    const ls = layouts.get(active);
+    if (!ls || !doc) return [];
+    const target = nameKey(p.name);
+    const contains = makeContains(doc);
+    return ls.items.filter((id) => {
+      const n = referencedBlock(doc!.entities[id]);
+      if (!n) return false;
+      return p.nested ? contains(nameKey(n), target) : nameKey(n) === target;
+    });
+  },
+
+  blockPreview(p) {
+    if (!doc) return null;
+    const block = doc.blocks.get(nameKey(p.name));
+    if (!block || !block.entities.length || block.entities.length > 20000) return null;
+    const previewStyles = new StyleResolver(doc);
+    const b = new SceneBuilder(doc, block.entities, measurer, () => new Path2D(), undefined, previewStyles);
+    b.prepare();
+    b.step(Infinity, () => 0);
+    const e = b.scene.extents;
+    if (!(e.minX <= e.maxX)) return null;
+    const canvasP = new OffscreenCanvas(p.size, p.size);
+    const c = canvasP.getContext('2d') as OffscreenCanvasRenderingContext2D;
+    const vp = { width: p.size, height: p.size, dpr: 1 };
+    const v = fitView(e, vp, DEFAULT_VIEW, 0.08);
+    const n = previewStyles.layers.length;
+    new Renderer(b.scene).render(c, v, vp, {
+      ...settings,
+      background: p.background,
+      minTextPx: 3,
+      layerOn: new Uint8Array(n).fill(1),
+      layerFrozen: new Uint8Array(n),
+      pdmode: 0,
+      pdsize: 0,
+      lwdisplay: false,
+    });
+    const bmp = canvasP.transferToImageBitmap();
+    return bmp;
+  },
+
+  treeChildren(p) {
+    if (!doc) return { total: 0, nodes: [] };
+    const d = doc;
+    const items = (name: string) => layoutItems(d, name)?.items ?? null;
+    return treeChildren(d, items, layoutList(d).map((l) => l.name), p.key, p.offset, p.limit);
+  },
+
+  describeIds(p) {
+    if (!doc) return [];
+    return p.ids.slice(0, 100_000).map((id) => {
+      const e = doc!.entities[id];
+      return { id, handle: e?.handle ?? '', type: e?.type ?? '?', layer: e?.layer ?? '' };
+    });
+  },
+
+  hoverInfo(p) {
+    const e = doc?.entities[p.id];
+    return e ? { id: p.id, handle: e.handle, type: e.type, layer: e.layer } : null;
+  },
+
+  pick(p) {
+    const ls = layouts.get(active);
+    if (!ls || !doc || !hasView) return [];
+    return pickerOf(ls).pick(view, viewport, p.x, p.y, p.tolerance ?? 5, entityVisible);
+  },
+
+  selectRect(p) {
+    const ls = layouts.get(active);
+    if (!ls || !doc || !hasView) return [];
+    return pickerOf(ls).rect(view, viewport, p.x0, p.y0, p.x1, p.y1, p.crossing, entityVisible);
+  },
+
+  setSelection(p) {
+    selection = p.ids;
+    drawHighlight();
+  },
+
+  selectAll() {
+    const ls = layouts.get(active);
+    if (!ls) return [];
+    return ls.items.filter((id) => entityVisible(id));
+  },
+
+  entityInfo(p) {
+    if (!doc || !styles) return null;
+    return entityInfo(doc, p.id, styles, measurer);
+  },
+
+  rawTags(p) {
+    if (!doc) return { total: 0, rows: [] };
+    return rawTags(doc, p.id, p.offset, p.limit);
+  },
+
+  findHandle(p) {
+    const r = doc?.handles.get(p.handle.trim().toUpperCase());
+    return r ? { kind: r.kind, id: r.index } : null;
+  },
+
+  selectSimilar(p) {
+    const ls = layouts.get(active);
+    if (!ls || !doc || !styles) return [];
+    const e = doc.entities[p.id];
+    const key = (x: typeof e): string => {
+      switch (p.by) {
+        case 'type':
+          return x.type;
+        case 'layer':
+          return nameKey(x.layer);
+        case 'block':
+          return x.type === 'INSERT' ? nameKey(String(x.name)) : '\u0000';
+        case 'color': {
+          const st = styles!.resolve(x, { layer: null } as never);
+          return st.fg ? 'fg' : String(st.rgb);
+        }
+      }
+    };
+    const k = key(e);
+    return ls.items.filter((id) => entityVisible(id) && key(doc!.entities[id]) === k);
+  },
+
+  selectionSummary(p) {
+    const byType = new Map<string, number>();
+    const byLayer = new Map<string, number>();
+    for (const id of p.ids) {
+      const e = doc?.entities[id];
+      if (!e) continue;
+      byType.set(e.type, (byType.get(e.type) ?? 0) + 1);
+      byLayer.set(e.layer, (byLayer.get(e.layer) ?? 0) + 1);
+    }
+    const sort = (m: Map<string, number>) => [...m.entries()].sort((a, b) => b[1] - a[1]);
+    return { count: p.ids.length, byType: sort(byType), byLayer: sort(byLayer) };
+  },
+
+  setVisibility(p) {
+    if (p.mode === 'show') {
+      hidden = new Set();
+      isolated = null;
+    } else if (p.mode === 'hide') {
+      for (const id of p.ids ?? []) hidden.add(id);
+    } else {
+      isolated = new Set(p.ids ?? []);
+    }
+    selection = selection.filter((id) => !hidden.has(id) && (!isolated || isolated.has(id)));
+    rebuild();
+    return { hidden: hidden.size, isolated: isolated?.size ?? 0 };
   },
 
   setLayout(p) {

@@ -5,7 +5,9 @@ import { activeTab, useUi } from '../../state/store';
 /** Model / paper space layout tabs shown at the bottom edge of the drawing. */
 export function LayoutTabs() {
   const tab = useUi(activeTab);
-  const layouts = tab?.layouts ?? [];
+  const base = tab?.layouts ?? [];
+  const current = tab?.layout ?? 'Model';
+  const layouts = current.startsWith('\u00A7') ? [...base, { name: current, kind: 'model' as const, count: 0 }] : base;
   if (!tab || layouts.length < 2) return null;
   const session = sessions.get(tab.id);
   return (
@@ -20,7 +22,7 @@ export function LayoutTabs() {
           title={t('layouts.count', { count: l.count })}
           onClick={() => void session?.setLayout(l.name)}
         >
-          {l.kind === 'model' ? t('layouts.model') : l.name}
+          {l.name.startsWith('\u00A7') ? t('layouts.block', { name: l.name.slice(1) }) : l.kind === 'model' ? t('layouts.model') : l.name}
         </button>
       ))}
     </div>

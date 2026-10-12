@@ -152,6 +152,77 @@ export interface FontOptions {
   overrides: Record<string, FontOverrideInfo>;
 }
 
+export interface PropRow {
+  group: string;
+  key: string;
+  label: string;
+  value: string | number | boolean | null;
+  kind?: 'handle' | 'color' | 'layer' | 'block' | 'text';
+  /** css color swatch */
+  color?: string;
+  link?: { entity?: number; handle?: string };
+}
+
+export interface EntityInfo {
+  id: number;
+  handle: string;
+  type: string;
+  layer: string;
+  rows: PropRow[];
+  xdata: { app: string; tags: { code: number; value: string }[] }[];
+  tagCount: number;
+  line?: number;
+}
+
+export interface RawTagRow {
+  index: number;
+  line: number;
+  code: number;
+  value: string;
+  desc: string;
+}
+
+export interface HoverInfo {
+  id: number;
+  handle: string;
+  type: string;
+  layer: string;
+}
+
+export interface SelectionSummary {
+  count: number;
+  byType: [string, number][];
+  byLayer: [string, number][];
+}
+
+export interface BlockInfo {
+  name: string;
+  handle?: string;
+  flags: number;
+  anonymous: boolean;
+  xref: boolean;
+  xrefPath?: string;
+  /** source block name of a dynamic block representation */
+  dynamicSource?: string;
+  base: [number, number, number];
+  entityCount: number;
+  /** INSERT/DIMENSION/TABLE references anywhere in the drawing */
+  refCount: number;
+  /** references directly in model/paper space */
+  topRefCount: number;
+  description?: string;
+  attdefs: string[];
+}
+
+export interface TreeNode {
+  key: string;
+  label: string;
+  count?: number;
+  id?: number;
+  type?: string;
+  hasChildren: boolean;
+}
+
 export interface LayoutInfo {
   name: string;
   kind: 'model' | 'paper';
@@ -161,7 +232,7 @@ export interface LayoutInfo {
 /** Methods exposed by the document worker. */
 export type DocApi = {
   open(p: OpenParams): Promise<DocSummary>;
-  attachCanvas(p: { canvas: OffscreenCanvas }): void;
+  attachCanvas(p: { canvas: OffscreenCanvas; highlight?: OffscreenCanvas }): void;
   resize(p: Viewport): void;
   setView(p: { view: ViewState; viewId: number }): void;
   setRenderSettings(p: RenderSettings): void;
@@ -172,6 +243,23 @@ export type DocApi = {
   entityBounds(p: { ids: number[] }): BBox2 | null;
   getFonts(p: void): FontUsage[];
   getLayouts(p: void): LayoutInfo[];
+  hover(p: { x: number; y: number } | null): HoverInfo | null;
+  pick(p: { x: number; y: number; tolerance?: number }): number[];
+  selectRect(p: { x0: number; y0: number; x1: number; y1: number; crossing: boolean }): number[];
+  setSelection(p: { ids: number[] }): void;
+  entityInfo(p: { id: number }): EntityInfo | null;
+  rawTags(p: { id: number; offset: number; limit: number }): { total: number; rows: RawTagRow[] };
+  findHandle(p: { handle: string }): { kind: string; id: number } | null;
+  selectSimilar(p: { id: number; by: 'type' | 'layer' | 'block' | 'color' }): number[];
+  selectionSummary(p: { ids: number[] }): SelectionSummary;
+  selectAll(p: void): number[];
+  setVisibility(p: { mode: 'hide' | 'isolate' | 'show'; ids?: number[] }): { hidden: number; isolated: number };
+  hoverInfo(p: { id: number }): HoverInfo | null;
+  describeIds(p: { ids: number[] }): HoverInfo[];
+  getBlocks(p: void): BlockInfo[];
+  blockRefs(p: { name: string; nested: boolean }): number[];
+  blockPreview(p: { name: string; size: number; background: number }): ImageBitmap | null;
+  treeChildren(p: { key: string; offset: number; limit: number }): { total: number; nodes: TreeNode[] };
   setLayout(p: { name: string }): { extents: BBox2 | null; kind: 'model' | 'paper' } | null;
   setFontOptions(p: FontOptions): Promise<void>;
   /** re-read user fonts from IndexedDB; returns load errors */
