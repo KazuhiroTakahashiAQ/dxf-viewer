@@ -403,6 +403,44 @@ def layouts():
     record(name, doc, {"layouts": [l.name for l in doc.layouts]})
 
 
+def views_layer_states():
+    """Named views (VIEW table) and AutoCAD layer states (LAYER table xdict → ACAD_LAYERSTATES)."""
+    doc = ezdxf.new("R2018", setup=True)
+    doc.layers.add("A", color=1)
+    doc.layers.add("B", color=3)
+    doc.layers.add("C", color=5, linetype="DASHED")
+    msp = doc.modelspace()
+    msp.add_lwpolyline([(0, 0), (200, 0), (200, 100), (0, 100)], close=True, dxfattribs={"layer": "A"})
+    msp.add_circle((50, 50), 30, dxfattribs={"layer": "B"})
+    msp.add_line((120, 20), (180, 80), dxfattribs={"layer": "C"})
+    msp.add_text("North-east detail", height=4, dxfattribs={"insert": (150, 85), "layer": "B"})
+    # a line at 30 degrees, used for "align view to selection"
+    msp.add_line((20, 110), (20 + 60 * math.cos(math.radians(30)), 110 + 60 * math.sin(math.radians(30))), dxfattribs={"layer": "A"})
+    doc.views.new("DETAIL_NE", dxfattribs={"center": (165, 70), "height": 40, "width": 60, "direction": (0, 0, 1)})
+    # VIEW center is in DCS = R(twist)·(p − target); this view is centered on world (100, 50)
+    tw = math.radians(30)
+    dcs = (100 * math.cos(tw) - 50 * math.sin(tw), 100 * math.sin(tw) + 50 * math.cos(tw))
+    doc.views.new("ROTATED_30", dxfattribs={"center": dcs, "height": 120, "width": 220, "view_twist": 30, "direction": (0, 0, 1)})
+    xd = doc.layers.head.new_extension_dict()
+    states = xd.add_dictionary("ACAD_LAYERSTATES", hard_owned=True)
+
+    def layer_state(name: str, description: str, layers: list[tuple[str, int, int]], restore: int = 2047):
+        xr = doc.objects.add_xrecord(states.dxf.handle)
+        tags = [(91, restore), (301, description), (290, 0), (302, "0")]
+        for layer, flags, color in layers:
+            lt = doc.layers.get(layer).dxf.linetype
+            tags += [(8, layer), (90, flags), (62, color), (370, -3), (6, lt), (440, 0)]
+        xr.extend(tags)
+        states[name] = xr
+
+    # flags: 1 off, 2 frozen, 4 locked, 8 plot
+    layer_state("Only A", "A on; B off; C frozen", [("0", 8, 7), ("A", 8, 1), ("B", 9, 3), ("C", 10, 5)])
+    layer_state("Recolor", "all on, A drawn in blue", [("0", 8, 7), ("A", 8, 5), ("B", 8, 3), ("C", 8, 5)])
+    name = "views_layerstates.dxf"
+    doc.saveas(OUT / name)
+    record(name, doc, {"views": ["DETAIL_NE", "ROTATED_30"], "layerStates": ["Only A", "Recolor"]})
+
+
 def perf(n: int = 500_000):
     PERF_OUT.mkdir(parents=True, exist_ok=True)
     doc = ezdxf.new("R2018")
@@ -439,6 +477,7 @@ def main():
     large_offset()
     minsert_bomb()
     layouts()
+    views_layer_states()
     (ROOT / "tests" / "fixtures").mkdir(parents=True, exist_ok=True)
     (ROOT / "tests" / "fixtures" / "samples-manifest.json").write_text(
         json.dumps(manifest, indent=1, ensure_ascii=False) + "\n", encoding="utf-8"

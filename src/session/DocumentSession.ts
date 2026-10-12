@@ -1,7 +1,7 @@
 import type { DocApi, DocEvents, DocSummary, RenderSettings } from '../shared/docApi';
 import type { FilterSpec } from '../shared/filterSpec';
 import { RpcClient } from '../shared/rpc';
-import { DEFAULT_VIEW, fitView, screenDelta, type BBox2, type ViewState, type Viewport } from '../shared/view';
+import { DEFAULT_VIEW, fitView, sameView, screenDelta, type BBox2, type ViewState, type Viewport } from '../shared/view';
 import { useUi } from '../state/store';
 
 let seq = 0;
@@ -30,6 +30,11 @@ export class DocumentSession {
   private pendingSend = false;
   private disposed = false;
   private listeners = new Set<() => void>();
+  /** view history (back / forward), recorded after the view settles */
+  private history: { layout: string; view: ViewState }[] = [];
+  private historyIndex = -1;
+  private historyTimer = 0;
+  private navigating = false;
 
   constructor(name: string, bytes: ArrayBuffer) {
     this.id = `doc-${++seq}-${Date.now().toString(36)}`;
@@ -131,10 +136,14 @@ export class DocumentSession {
   }
 
   setView(v: ViewState): void {
+    const prev = this.view;
     this.view = v;
     useUi.getState().setScale(v.scale);
+    if (prev.rotation !== v.rotation || prev.mirrorX !== v.mirrorX || prev.mirrorY !== v.mirrorY || !useUi.getState().tabs.find((t) => t.id === this.id)?.viewOrient)
+      useUi.getState().setTab(this.id, { viewOrient: { rotation: v.rotation, mirrorX: v.mirrorX, mirrorY: v.mirrorY } });
     this.applyPreview();
     this.listeners.forEach((fn) => fn());
+    this.scheduleHistory();
     if (this.pendingSend) return;
     this.pendingSend = true;
     requestAnimationFrame(() => {
@@ -144,6 +153,45 @@ export class DocumentSession {
       this.sentViews.set(id, this.view);
       this.rpc.notify('setView', { view: this.view, viewId: id });
     });
+  }
+
+  private scheduleHistory(): void {
+    if (this.navigating || !this.summary) return;
+    clearTimeout(this.historyTimer);
+    this.historyTimer = window.setTimeout(() => this.recordHistory(), 500);
+  }
+
+  private recordHistory(): void {
+    clearTimeout(this.historyTimer);
+    this.historyTimer = 0;
+    const last = this.history[this.historyIndex];
+    if (last && last.layout === this.layout && sameView(last.view, this.view)) return;
+    this.history = this.history.slice(0, this.historyIndex + 1);
+    this.history.push({ layout: this.layout, view: this.view });
+    if (this.history.length > 100) this.history.shift();
+    this.historyIndex = this.history.length - 1;
+    this.publishNav();
+  }
+
+  private publishNav(): void {
+    useUi.getState().setTab(this.id, { viewNav: { back: this.historyIndex > 0, forward: this.historyIndex < this.history.length - 1 } });
+  }
+
+  /** Go back (-1) or forward (+1) in the view history. */
+  async historyGo(delta: number): Promise<void> {
+    if (this.historyTimer) this.recordHistory();
+    const idx = this.historyIndex + delta;
+    const entry = this.history[idx];
+    if (!entry) return;
+    this.navigating = true;
+    try {
+      if (entry.layout !== this.layout) await this.setLayout(entry.layout);
+      this.setView(entry.view);
+      this.historyIndex = idx;
+    } finally {
+      this.navigating = false;
+    }
+    this.publishNav();
   }
 
   onViewChange(fn: () => void): () => void {
@@ -206,6 +254,7 @@ export class DocumentSession {
 
   dispose(): void {
     this.disposed = true;
+    clearTimeout(this.historyTimer);
     this.rpc.rejectAll('disposed');
     this.worker.terminate();
     this.canvas.remove();

@@ -261,5 +261,38 @@
    "Layout1",
    "Layout2"
   ]
+ },
+ "views_layerstates.dxf": {
+  "version": "AC1032",
+  "encoding": "cp1252",
+  "modelspace": {
+   "LWPOLYLINE": 1,
+   "CIRCLE": 1,
+   "LINE": 2,
+   "TEXT": 1
+  },
+  "layers": [
+   "0",
+   "A",
+   "B",
+   "C",
+   "Defpoints"
+  ],
+  "blocks": [
+   "_ARCHTICK",
+   "_CLOSEDBLANK",
+   "_CLOSEDFILLED"
+  ],
+  "texts": [
+   "North-east detail"
+  ],
+  "views": [
+   "DETAIL_NE",
+   "ROTATED_30"
+  ],
+  "layerStates": [
+   "Only A",
+   "Recolor"
+  ]
  }
 }

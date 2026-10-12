@@ -10,11 +10,14 @@ import { registerStrokeFont, unregisterStrokeFonts } from '../fonts/strokeFont';
 import { fontKey, getAllUserFonts } from '../storage/userFonts';
 import { Renderer, type RenderOptions } from '../render/renderer';
 import { SceneBuilder, type Scene } from '../scene/scene';
-import { StyleResolver } from '../scene/style';
-import type { BuildInfo, DocApi, DocSummary, FontUsage, LayerInfo, LayoutInfo, RenderSettings } from '../shared/docApi';
+import { StyleResolver, TOP_CTX, type LayerOverride } from '../scene/style';
+import { LS_FROZEN, LS_OFF, LSR_COLOR, LSR_FROZEN, LSR_LINETYPE, LSR_LINEWEIGHT, LSR_ON, LSR_TRANSPARENCY, readLayerStates } from '../dxf/layerStates';
+import { transparencyToAlpha } from '../dxf/colors';
+import type { BuildInfo, DocApi, DocSummary, EntityMeasure, FontUsage, LayerInfo, LayoutInfo, RenderSettings } from '../shared/docApi';
 import { TextIndex } from './textIndex';
 import { entityInfo, rawTags } from './inspect';
 import { Picker } from './picking';
+import { snapAt } from './snap';
 import { blockInfos, makeContains, referencedBlock, treeChildren } from './blocks';
 import { FilterEngine, type CompiledFilter } from './filtering';
 import { regexIssues } from '../shared/filterSpec';
@@ -78,6 +81,9 @@ let hidden = new Set<number>();
 let isolated: Set<number> | null = null;
 let filterEngine: FilterEngine | null = null;
 let activeFilter: CompiledFilter | null = null;
+/** layer property replacements from an applied layer state */
+let layerOverrides = new Map<string, LayerOverride>();
+let fileHash = '';
 
 function engine(): FilterEngine {
   filterEngine ??= new FilterEngine(doc!, styles!, measurer);
@@ -196,7 +202,23 @@ function layerInfos(): LayerInfo[] {
     plot: l.plot,
     count: l.count,
     undefinedInFile: l.undefinedInFile,
+    propsOverridden: l.overridden,
   }));
+}
+
+/** VPORT *Active as a plan view: DCS center → world (p = target + R(−twist)·center). */
+function initialViewOf(vport: Record<string, unknown>): DocSummary['initialView'] {
+  const c = (vport.center as number[]) ?? [0, 0, 0];
+  const tgt = (vport.target as number[]) ?? [0, 0, 0];
+  const twist = Number(vport.twist) || 0;
+  const r = (-twist * Math.PI) / 180;
+  return {
+    cx: tgt[0] + c[0] * Math.cos(r) - c[1] * Math.sin(r),
+    cy: tgt[1] + c[0] * Math.sin(r) + c[1] * Math.cos(r),
+    height: Number(vport.height) || 0,
+    aspect: Number(vport.aspect) || 1,
+    twist,
+  };
 }
 
 function buildInfo(): BuildInfo {
@@ -436,7 +458,7 @@ function rebuild(): void {
   ++generation;
   const names = [...layouts.keys()];
   layouts.clear();
-  styles = new StyleResolver(doc);
+  styles = new StyleResolver(doc, layerOverrides);
   filterEngine = null;
   if (activeFilter) activeFilter = engine().compile(activeFilter.spec);
   for (const n of ['Model', ...names.filter((x) => x !== 'Model')]) startLayout(n);
@@ -556,6 +578,7 @@ function summarize(d: DxfDocument, s: Scene, parseMs: number): DocSummary {
   return {
     name: d.source.name,
     size: d.source.size,
+    hash: fileHash,
     binary: d.source.binary,
     version: d.source.version,
     release: d.source.release,
@@ -576,14 +599,7 @@ function summarize(d: DxfDocument, s: Scene, parseMs: number): DocSummary {
     insUnits: headerNumber(d, '$INSUNITS', 0),
     lunits: headerNumber(d, '$LUNITS', 2),
     luprec: headerNumber(d, '$LUPREC', 4),
-    initialView: vport
-      ? {
-          cx: (vport.center as number[])[0],
-          cy: (vport.center as number[])[1],
-          height: Number(vport.height) || 0,
-          twist: Number(vport.twist) || 0,
-        }
-      : undefined,
+    initialView: vport ? initialViewOf(vport) : undefined,
     parseMs,
     diagnostics: d.diagnostics.slice(0, 2000),
   };
@@ -593,6 +609,8 @@ const api: DocApi = {
   async open(p) {
     const gen = ++generation;
     if (p.fontOptions) configureFonts({ preferLocal: p.fontOptions.preferLocal, overrides: Object.fromEntries(Object.entries(p.fontOptions.overrides).map(([k, v]) => [k.toLowerCase(), v])) });
+    const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', p.bytes));
+    fileHash = Array.from(digest, (b) => b.toString(16).padStart(2, '0')).join('');
     const t0 = performance.now();
     const d = parseDxf(new Uint8Array(p.bytes), {
       name: p.name,
@@ -618,7 +636,8 @@ const api: DocApi = {
     filterEngine = null;
     activeFilter = null;
     layouts.clear();
-    styles = new StyleResolver(d);
+    layerOverrides = new Map();
+    styles = new StyleResolver(d, layerOverrides);
     layerOn = new Uint8Array(0);
     layerFrozen = new Uint8Array(0);
     emit(self, 'progress', { phase: 'layout', fraction: 0.55 });
@@ -671,6 +690,10 @@ const api: DocApi = {
         layerOn[i] = l.fileOn ? 1 : 0;
         layerFrozen[i] = l.fileFrozen ? 1 : 0;
       });
+      if (layerOverrides.size) {
+        layerOverrides = new Map();
+        rebuild();
+      }
     } else if ('all' in p) {
       for (let i = 0; i < layerOn.length; i++) {
         if (p.all.on !== undefined) layerOn[i] = p.all.on ? 1 : 0;
@@ -689,6 +712,104 @@ const api: DocApi = {
 
   getLayers() {
     return layerInfos();
+  },
+
+  layerStates() {
+    if (!doc) return [];
+    return readLayerStates(doc).map((d) => ({ name: d.name, description: d.description, layerCount: d.layers.length, restoreFlags: d.restoreFlags, paperSpace: d.paperSpace }));
+  },
+
+  applyLayerState(p) {
+    if (!doc || !styles) return [];
+    syncLayerArrays();
+    if ('custom' in p) {
+      for (const c of p.custom) {
+        const idx = styles.layers.findIndex((l) => nameKey(l.name) === nameKey(c.name));
+        if (idx < 0) continue;
+        layerOn[idx] = c.on ? 1 : 0;
+        layerFrozen[idx] = c.frozen ? 1 : 0;
+      }
+      scheduleRender();
+      return layerInfos();
+    }
+    const def = readLayerStates(doc).find((d) => d.name === p.name);
+    if (!def) return layerInfos();
+    const rf = def.restoreFlags;
+    const next = new Map<string, LayerOverride>();
+    for (const l of def.layers) {
+      const key = nameKey(l.name);
+      const idx = styles.layers.findIndex((x) => nameKey(x.name) === key);
+      const file = doc.layers.get(key);
+      if (idx < 0 || !file) continue;
+      if (rf & LSR_ON) layerOn[idx] = l.flags & LS_OFF ? 0 : 1;
+      if (rf & LSR_FROZEN) layerFrozen[idx] = l.flags & LS_FROZEN ? 1 : 0;
+      const o: LayerOverride = {};
+      if (rf & LSR_COLOR && l.color !== undefined) {
+        const differs = l.trueColor !== undefined ? l.trueColor !== file.trueColor : file.trueColor !== undefined || l.color !== Math.abs(file.color);
+        if (differs) {
+          o.color = l.color || 7;
+          o.trueColor = l.trueColor ?? null;
+        }
+      }
+      if (rf & LSR_LINETYPE && l.linetype && nameKey(l.linetype) !== nameKey(file.linetype)) o.linetype = l.linetype;
+      if (rf & LSR_LINEWEIGHT && l.lineweight !== undefined && l.lineweight !== file.lineweight) o.lineweight = l.lineweight;
+      if (rf & LSR_TRANSPARENCY && l.transparency !== undefined) {
+        const a = l.transparency ? (transparencyToAlpha(l.transparency) ?? 1) : 1;
+        if (a !== (transparencyToAlpha(file.transparency) ?? 1)) o.alpha = a;
+      }
+      if (Object.keys(o).length) next.set(key, o);
+    }
+    const changed = JSON.stringify([...next]) !== JSON.stringify([...layerOverrides]);
+    layerOverrides = next;
+    if (changed) rebuild();
+    scheduleRender();
+    return layerInfos();
+  },
+
+  namedViews() {
+    if (!doc) return [];
+    return doc.tableRecords
+      .filter((r) => r.table === 'VIEW')
+      .map((r) => {
+        const c = (r.center as number[]) ?? [0, 0, 0];
+        const tgt = (r.target as number[]) ?? [0, 0, 0];
+        const dir = (r.direction as number[]) ?? [0, 0, 1];
+        const tw = ((Number(r.twist) || 0) * Math.PI) / 180;
+        // DCS = R(twist)·(p − target)  →  p = target + R(−twist)·center
+        const cos = Math.cos(-tw);
+        const sin = Math.sin(-tw);
+        return {
+          name: r.name,
+          cx: tgt[0] + c[0] * cos - c[1] * sin,
+          cy: tgt[1] + c[0] * sin + c[1] * cos,
+          width: Number(r.width) || 0,
+          height: Number(r.height) || 0,
+          twist: tw,
+          paperSpace: ((Number(r.flags) || 0) & 1) !== 0,
+          nonPlan: Math.hypot(dir[0], dir[1]) > 1e-9 * Math.max(1, Math.abs(dir[2])) || dir[2] < 0,
+        };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+  },
+
+  entityAngle(p) {
+    if (!doc) return null;
+    const g = engine().reader.geometry(doc.entities[p.id]);
+    if (!g) return null;
+    if (g.infinite.length) return Math.atan2(g.infinite[0].dy, g.infinite[0].dx);
+    let best = 0;
+    let angle: number | null = null;
+    for (const pl of g.polylines)
+      for (let i = 0; i + 3 < pl.length; i += 2) {
+        const dx = pl[i + 2] - pl[i];
+        const dy = pl[i + 3] - pl[i + 1];
+        const len = Math.hypot(dx, dy);
+        if (len > best * (1 + 1e-9)) {
+          best = len;
+          angle = Math.atan2(dy, dx);
+        }
+      }
+    return angle;
   },
 
   getBuildInfo() {
@@ -766,7 +887,7 @@ const api: DocApi = {
     if (!doc) return null;
     const block = doc.blocks.get(nameKey(p.name));
     if (!block || !block.entities.length || block.entities.length > 20000) return null;
-    const previewStyles = new StyleResolver(doc);
+    const previewStyles = new StyleResolver(doc, layerOverrides);
     const b = new SceneBuilder(doc, block.entities, measurer, () => new Path2D(), undefined, previewStyles);
     b.prepare();
     b.step(Infinity, () => 0);
@@ -868,6 +989,45 @@ const api: DocApi = {
     const ls = layouts.get(active);
     if (!ls || !doc || !hasView) return [];
     return pickerOf(ls).pick(view, viewport, p.x, p.y, p.tolerance ?? 5, entityVisible);
+  },
+
+  snap(p) {
+    const ls = layouts.get(active);
+    if (!ls || !doc || !hasView) return null;
+    return snapAt(doc, pickerOf(ls), view, viewport, p.x, p.y, p.tolerance, p.kinds, entityVisible);
+  },
+
+  measureAt(p) {
+    const ls = layouts.get(active);
+    if (!ls || !doc || !hasView) return null;
+    const id = pickerOf(ls).pick(view, viewport, p.x, p.y, 6, entityVisible)[0];
+    if (id === undefined) return null;
+    const e = doc.entities[id];
+    const r = engine().reader;
+    const num = (k: string) => {
+      const v = r.get(e, k, TOP_CTX, []);
+      return typeof v === 'number' && Number.isFinite(v) ? v : undefined;
+    };
+    const out: EntityMeasure = { type: e.type, handle: e.handle, length: num('length'), area: num('area'), radius: num('radius'), closed: r.get(e, 'closed', TOP_CTX, []) === true };
+    if (out.radius !== undefined) {
+      // center from the flattened curve (handles OCS / extrusion)
+      const g = r.geometry(e);
+      const pl = g?.polylines.find((x) => x.length >= 8);
+      if (pl) {
+        const n = pl.length / 2;
+        const i1 = Math.floor(n / 3) * 2;
+        const i2 = Math.floor((2 * n) / 3) * 2;
+        const [ax, ay, bx, by, cx, cy] = [pl[0], pl[1], pl[i1], pl[i1 + 1], pl[i2], pl[i2 + 1]];
+        const d = 2 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by));
+        if (d !== 0) {
+          const a2 = ax * ax + ay * ay;
+          const b2 = bx * bx + by * by;
+          const c2 = cx * cx + cy * cy;
+          out.center = [(a2 * (by - cy) + b2 * (cy - ay) + c2 * (ay - by)) / d, (a2 * (cx - bx) + b2 * (ax - cx) + c2 * (bx - ax)) / d];
+        }
+      }
+    }
+    return out;
   },
 
   selectRect(p) {

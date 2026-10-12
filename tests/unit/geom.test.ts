@@ -5,6 +5,7 @@ import { evaluate, toBezierSegments, type SplineDef } from '../../src/geom/nurbs
 import { ocsAxes, ocsToWcs } from '../../src/geom/ocs';
 import { applyPoint, invert, multiply, rotationZ, translation } from '../../src/geom/matrix';
 import type { Vec3 } from '../../src/geom/vec';
+import { DEFAULT_VIEW, normalizeAngle, rotateView, rotationForDirection, worldToScreen, type ViewState } from '../../src/shared/view';
 
 function canvasPoint(e: ReturnType<typeof affineArcToCanvas>, theta: number): [number, number] {
   const x = e.rx * Math.cos(theta);
@@ -148,4 +149,32 @@ describe('B-spline Bezier decomposition', () => {
   it('rational splines are not decomposed', () => {
     expect(toBezierSegments({ ...spline, weights: [1, 2, 1, 1, 1] })).toBeNull();
   });
+});
+
+describe('view orientation', () => {
+  const vp = { width: 800, height: 600, dpr: 1 };
+  /** on-screen angle (y up) of a world direction */
+  const screenAngle = (v: ViewState, theta: number) => {
+    const a = worldToScreen(v, vp, 0, 0);
+    const b = worldToScreen(v, vp, Math.cos(theta), Math.sin(theta));
+    return Math.atan2(-(b[1] - a[1]), b[0] - a[0]);
+  };
+  for (const [mx, my] of [
+    [false, false],
+    [true, false],
+    [false, true],
+    [true, true],
+  ]) {
+    it(`rotateView turns content counter-clockwise (mirrorX=${mx}, mirrorY=${my})`, () => {
+      const v = { ...DEFAULT_VIEW, scale: 2, mirrorX: mx, mirrorY: my, rotation: 0.3 };
+      const before = screenAngle(v, 0.7);
+      const after = screenAngle(rotateView(v, Math.PI / 2), 0.7);
+      expect(normalizeAngle(after - before)).toBeCloseTo(Math.PI / 2, 12);
+    });
+    it(`rotationForDirection makes a direction horizontal (mirrorX=${mx}, mirrorY=${my})`, () => {
+      const theta = 0.5236;
+      const v = { ...DEFAULT_VIEW, scale: 2, mirrorX: mx, mirrorY: my, rotation: rotationForDirection(theta, mx !== my) };
+      expect(Math.abs(Math.sin(screenAngle(v, theta)))).toBeLessThan(1e-12);
+    });
+  }
 });

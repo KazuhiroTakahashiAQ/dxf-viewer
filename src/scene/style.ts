@@ -20,6 +20,8 @@ export interface SceneLayer {
   alpha: number;
   /** true if referenced but not defined in the LAYER table */
   undefinedInFile: boolean;
+  /** properties replaced by a layer state */
+  overridden?: boolean;
   /** entities (top-level and nested) using this effective layer */
   count: number;
 }
@@ -57,6 +59,16 @@ export interface InheritCtx {
   chain: number;
 }
 
+/** Layer property replacements (e.g. from a layer state); keyed by nameKey(layer). */
+export interface LayerOverride {
+  color?: number;
+  /** null: drop the file's true color */
+  trueColor?: number | null;
+  linetype?: string;
+  lineweight?: number;
+  alpha?: number;
+}
+
 export const TOP_CTX: InheritCtx = { layer: null, rgb: 0xffffff, fg: true, linetype: 'CONTINUOUS', lw: -3, alpha: 1, ltsFactor: 1, chain: 0 };
 
 export class StyleResolver {
@@ -71,7 +83,10 @@ export class StyleResolver {
   readonly lwDefault: number;
   readonly missingLinetypes = new Set<string>();
 
-  constructor(private doc: DxfDocument) {
+  constructor(
+    private doc: DxfDocument,
+    private overrides?: Map<string, LayerOverride>,
+  ) {
     for (const layer of doc.layers.values()) this.addLayer(layer, false);
     for (const lt of doc.linetypes.values()) {
       const key = nameKey(lt.name);
@@ -88,21 +103,24 @@ export class StyleResolver {
 
   private addLayer(layer: Layer, undefinedInFile: boolean): number {
     const idx = this.layers.length;
-    const aci = Math.abs(layer.color) || 7;
+    const o = undefinedInFile ? undefined : this.overrides?.get(nameKey(layer.name));
+    const aci = o?.color ?? (Math.abs(layer.color) || 7);
+    const trueColor = o?.trueColor === null ? undefined : (o?.trueColor ?? layer.trueColor);
     this.layers.push({
       name: layer.name,
-      rgb: layer.trueColor ?? aciToRgb(aci),
-      fg: layer.trueColor === undefined && aci === 7,
+      rgb: trueColor ?? aciToRgb(aci),
+      fg: trueColor === undefined && aci === 7,
       aci,
-      trueColor: layer.trueColor,
-      linetype: layer.linetype,
-      lineweight: layer.lineweight,
+      trueColor,
+      linetype: o?.linetype ?? layer.linetype,
+      lineweight: o?.lineweight ?? layer.lineweight,
       fileOn: layer.color >= 0,
       fileFrozen: (layer.flags & 1) !== 0,
       locked: (layer.flags & 4) !== 0,
       plot: layer.plot,
-      alpha: transparencyToAlpha(layer.transparency) ?? 1,
+      alpha: o?.alpha ?? transparencyToAlpha(layer.transparency) ?? 1,
       undefinedInFile,
+      overridden: !!o,
       count: 0,
     });
     this.layerIndex.set(nameKey(layer.name), idx);

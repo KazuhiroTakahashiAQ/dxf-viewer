@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Activity, Boxes, FileText, Filter, FolderOpen, Layers, ListChecks, ListTree, Search, SlidersHorizontal, Table2, Type, TextSearch } from 'lucide-react';
+import { Activity, Boxes, Camera, Ruler, FileText, Filter, FolderOpen, Layers, ListChecks, ListTree, Search, SlidersHorizontal, Table2, Type, TextSearch } from 'lucide-react';
 
 import { t } from '../i18n';
 import { UpdatePrompt } from '../pwa/UpdatePrompt';
@@ -25,7 +25,9 @@ import { BlocksPanel } from './panels/BlocksPanel';
 import { StructurePanel } from './panels/StructurePanel';
 import { SelectionPanel } from './panels/SelectionPanel';
 import { TextsPanel } from './panels/TextsPanel';
+import { ViewsPanel } from './panels/ViewsPanel';
 import { LayersPanel } from './panels/LayersPanel';
+import { MeasurePanel } from './panels/MeasurePanel';
 import { DocTabs } from './tabs/DocTabs';
 
 const LEFT: PanelDef[] = [
@@ -33,11 +35,13 @@ const LEFT: PanelDef[] = [
   { id: 'blocks', title: 'panel.blocks', icon: Boxes, component: BlocksPanel },
   { id: 'filter', title: 'panel.filter', icon: Filter, component: FilterPanel },
   { id: 'search', title: 'panel.search', icon: Search, component: SearchPanel },
+  { id: 'views', title: 'panel.views', icon: Camera, component: ViewsPanel },
   { id: 'structure', title: 'panel.structure', icon: ListTree, component: StructurePanel },
 ];
 const RIGHT: PanelDef[] = [
   { id: 'properties', title: 'panel.properties', icon: SlidersHorizontal, component: PropertiesPanel },
   { id: 'selection', title: 'panel.selection', icon: ListChecks, component: SelectionPanel },
+  { id: 'measure', title: 'panel.measure', icon: Ruler, component: MeasurePanel },
   { id: 'document', title: 'panel.document', icon: FileText, component: DocumentPanel },
   { id: 'fonts', title: 'panel.fonts', icon: Type, component: FontsPanel },
 ];
@@ -88,6 +92,11 @@ function useGlobalShortcuts(): void {
       const tab = activeTab(ui);
       const session = tab ? sessions.get(tab.id) : undefined;
       if (e.altKey && !e.ctrlKey && !e.metaKey) {
+        if (e.code === 'ArrowLeft' || e.code === 'ArrowRight') {
+          if (session) void session.historyGo(e.code === 'ArrowLeft' ? -1 : 1);
+          e.preventDefault();
+          return;
+        }
         if (e.code === 'Digit1') ui.toggleDock('left');
         else if (e.code === 'Digit2') ui.toggleDock('bottom');
         else if (e.code === 'Digit3') ui.toggleDock('right');
@@ -109,7 +118,11 @@ function useGlobalShortcuts(): void {
       if (e.key === 'Escape' && ui.focusMode) ui.setFocusMode(false);
       if (!session) return;
       const { width, height } = session.viewport;
-      if (e.key === 'f' || e.key === 'F' || e.key === 'Home') session.fit();
+      if (e.key === 'm' || e.key === 'M') {
+        const on = ui.tool !== 'measure';
+        ui.setTool(on ? 'measure' : 'select');
+        if (on) ui.setDock('right', { open: true, active: 'measure' });
+      } else if (e.key === 'f' || e.key === 'F' || e.key === 'Home') session.fit();
       else if (e.key === '+' || e.key === '=') session.setView(zoomAt(session.view, session.viewport, width / 2, height / 2, 1.25));
       else if (e.key === '-' || e.key === '_') session.setView(zoomAt(session.view, session.viewport, width / 2, height / 2, 0.8));
     };

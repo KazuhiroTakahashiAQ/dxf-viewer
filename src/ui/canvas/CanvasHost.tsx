@@ -2,10 +2,15 @@ import { useEffect, useRef, useState } from 'react';
 
 import { t } from '../../i18n';
 import { sessions, type DocumentSession } from '../../session/DocumentSession';
-import type { HoverInfo } from '../../shared/docApi';
+import type { HoverInfo, SnapResult } from '../../shared/docApi';
 import { emptyFilter, type SpatialSpec } from '../../shared/filterSpec';
 import { panBy, screenToWorld, worldToScreen, zoomAt, type ViewState } from '../../shared/view';
-import { useUi } from '../../state/store';
+import { useUi, type MeasureState } from '../../state/store';
+import { measureFormat } from '../format';
+import { measureText, POINTS_NEEDED } from '../measure';
+import { drawGuides } from './guides';
+import { drawMeasure, drawSnap } from './overlayDraw';
+import { unitName } from '../format';
 import { ContextMenu, type MenuItem } from './ContextMenu';
 
 interface PointerInfo {
@@ -97,6 +102,10 @@ export function CanvasHost({ tabId }: { tabId: string }) {
     let box: { x0: number; y0: number; x1: number; y1: number } | null = null;
     let poly: number[] = [];
     let polyHover: { x: number; y: number } | null = null;
+    /** measure tool: current snap and hover point (world) */
+    let snapMark: SnapResult | null = null;
+    let measureHover: [number, number] | null = null;
+    let snapBusy = false;
 
     const spatialOfTab = (): SpatialSpec | undefined => useUi.getState().tabs.find((x) => x.id === tabId)?.filter?.spatial;
 
@@ -116,6 +125,18 @@ export function CanvasHost({ tabId }: { tabId: string }) {
       octx.clearRect(0, 0, el.width, el.height);
       octx.setTransform(dpr, 0, 0, dpr, 0, 0);
       octx.lineWidth = 1;
+      {
+        const st = useUi.getState();
+        const g = st.settings;
+        if (g.showGrid || g.showAxes || g.showScaleBar || session.view.rotation || session.view.mirrorX || session.view.mirrorY)
+          drawGuides(octx, session.view, session.viewport, {
+            grid: g.showGrid,
+            axes: g.showAxes,
+            scaleBar: g.showScaleBar,
+            background: g.background,
+            unit: unitName(st.tabs.find((x) => x.id === tabId)?.summary?.insUnits),
+          });
+      }
       // spatial filter region of the tab
       const sp = spatialOfTab();
       if (sp) {
@@ -139,6 +160,14 @@ export function CanvasHost({ tabId }: { tabId: string }) {
           octx.fillRect(x - 2.5, y - 2.5, 5, 5);
         }
       }
+      const ui = useUi.getState();
+      const m = ui.measure;
+      if (m && m.tabId === tabId && m.layout === session.layout) {
+        const tab = ui.tabs.find((x) => x.id === tabId);
+        const f = measureFormat(tab?.summary?.insUnits, tab?.summary?.luprec, ui.settings.coordPrecision);
+        drawMeasure(octx, m, measureHover, session.view, session.viewport, measureText(m.mode, m.points, f, m.entity));
+      }
+      if (snapMark && ui.tool === 'measure') drawSnap(octx, snapMark, session.view, session.viewport);
       if (box) {
         const { x0, y0, x1, y1 } = box;
         const region = !!useUi.getState().regionPick;
@@ -179,8 +208,25 @@ export function CanvasHost({ tabId }: { tabId: string }) {
     const unsubView = session.onViewChange(render);
     let lastSpatial = spatialOfTab();
     let lastPickMode = useUi.getState().regionPick;
+    let lastMeasure = useUi.getState().measure;
+    let lastTool = useUi.getState().tool;
+    let lastSettings = useUi.getState().settings;
     const unsubUi = useUi.subscribe((st) => {
+      if (st.settings !== lastSettings) {
+        lastSettings = st.settings;
+        render();
+      }
       const sp = st.tabs.find((x) => x.id === tabId)?.filter?.spatial;
+      if (st.measure !== lastMeasure || st.tool !== lastTool) {
+        lastMeasure = st.measure;
+        lastTool = st.tool;
+        if (st.tool !== 'measure') {
+          snapMark = null;
+          measureHover = null;
+        }
+        el.classList.toggle('measuring', st.tool === 'measure');
+        render();
+      }
       if (sp !== lastSpatial || st.regionPick !== lastPickMode) {
         if (st.regionPick !== lastPickMode && !st.regionPick) {
           poly = [];
@@ -198,6 +244,28 @@ export function CanvasHost({ tabId }: { tabId: string }) {
       const p = local(lastMove);
       const [wx, wy] = screenToWorld(session.view, session.viewport, p.x, p.y);
       setCursor({ x: wx, y: wy });
+      const st = useUi.getState();
+      if (st.tool === 'measure' && !pan && !pinch) {
+        measureHover = [wx, wy];
+        if (st.settings.snap && !snapBusy && lastMove.pointerType !== 'touch') {
+          snapBusy = true;
+          void session.rpc
+            .call('snap', { x: p.x, y: p.y, tolerance: 10, kinds: st.settings.snapKinds })
+            .then((r) => {
+              snapMark = r;
+              if (r) {
+                measureHover = [r.x, r.y];
+                setCursor({ x: r.x, y: r.y });
+              }
+              render();
+            })
+            .finally(() => (snapBusy = false));
+        } else {
+          if (!st.settings.snap) snapMark = null;
+          render();
+        }
+        return;
+      }
       if (!pan && !pinch && !press?.box && !hoverBusy && lastMove.pointerType !== 'touch' && !useUi.getState().regionPick) {
         hoverBusy = true;
         void session.rpc
@@ -234,10 +302,10 @@ export function CanvasHost({ tabId }: { tabId: string }) {
         return;
       }
       const tool = useUi.getState().tool;
-      if (e.button === 1 || spaceDown || e.pointerType === 'touch' || tool === 'pan') {
+      if (e.button === 1 || spaceDown || e.pointerType === 'touch' || tool === 'pan' || (tool === 'measure' && e.button === 0)) {
         pan = { x: p.x, y: p.y, view: session.view };
         el.classList.add('panning');
-        if (e.pointerType === 'touch' && tool !== 'pan') press = { x: p.x, y: p.y, box: false, ev: e };
+        if ((e.pointerType === 'touch' && tool !== 'pan') || (tool === 'measure' && e.button === 0)) press = { x: p.x, y: p.y, box: false, ev: e };
         if (e.button === 1) e.preventDefault();
         return;
       }
@@ -279,6 +347,50 @@ export function CanvasHost({ tabId }: { tabId: string }) {
       }
     };
 
+    const recordMeasure = (m: MeasureState) => {
+      const ui = useUi.getState();
+      const tab = ui.tabs.find((x) => x.id === tabId);
+      const f = measureFormat(tab?.summary?.insUnits, tab?.summary?.luprec, ui.settings.coordPrecision);
+      const text = measureText(m.mode, m.points, f, m.entity);
+      if (text) ui.addMeasureRecord({ mode: m.mode, file: tab?.name ?? '', points: m.points, text });
+    };
+
+    const measureClick = async (p: { x: number; y: number }, s: DocumentSession) => {
+      const ui = useUi.getState();
+      const mode = ui.measureMode;
+      if (mode === 'entity') {
+        const r = await s.rpc.call('measureAt', p);
+        const m: MeasureState = { tabId, layout: s.layout, mode, points: r?.center ? [...r.center] : [], done: true, entity: r ?? undefined };
+        ui.setMeasure(r ? m : null);
+        if (r) recordMeasure(m);
+        return;
+      }
+      const pt = snapMark && ui.settings.snap ? [snapMark.x, snapMark.y] : screenToWorld(s.view, s.viewport, p.x, p.y);
+      let m = ui.measure;
+      if (!m || m.done || m.mode !== mode || m.tabId !== tabId || m.layout !== s.layout) m = { tabId, layout: s.layout, mode, points: [], done: false };
+      const n = m.points.length;
+      // ignore the second click of a double-click (same spot)
+      if (n && Math.hypot(m.points[n - 2] - pt[0], m.points[n - 1] - pt[1]) * s.view.scale < 2) return;
+      const points = [...m.points, ...pt];
+      const done = points.length / 2 >= POINTS_NEEDED[mode];
+      const next = { ...m, points, done };
+      ui.setMeasure(next);
+      if (done) recordMeasure(next);
+    };
+
+    /** Finish an open path/area measurement (double-click or Enter). */
+    const finishMeasure = () => {
+      const ui = useUi.getState();
+      const m = ui.measure;
+      if (!m || m.done || m.tabId !== tabId) return;
+      const n = m.points.length / 2;
+      if ((m.mode === 'path' && n >= 2) || (m.mode === 'area' && n >= 3)) {
+        const next = { ...m, done: true };
+        ui.setMeasure(next);
+        recordMeasure(next);
+      }
+    };
+
     const finishPress = async (e: PointerEvent, s: DocumentSession) => {
       const pr = press;
       press = null;
@@ -307,6 +419,10 @@ export function CanvasHost({ tabId }: { tabId: string }) {
         return;
       }
       if (pickMode) return;
+      if (useUi.getState().tool === 'measure') {
+        await measureClick(p, s);
+        return;
+      }
       const current = useUi.getState().tabs.find((x) => x.id === tabId)?.selection ?? [];
       if (pr.box) {
         clearOverlay();
@@ -350,6 +466,7 @@ export function CanvasHost({ tabId }: { tabId: string }) {
 
     const onDblClick = (e: MouseEvent) => {
       if (e.button === 1) session.fit();
+      if (e.button === 0 && useUi.getState().tool === 'measure') finishMeasure();
       if (e.button === 0 && useUi.getState().regionPick === 'polygon' && poly.length >= 6) finishRegion({ kind: 'polygon', points: [...poly], mode: 'crossing' });
     };
 
@@ -382,6 +499,19 @@ export function CanvasHost({ tabId }: { tabId: string }) {
           render();
         }
         return;
+      }
+      if (e.type === 'keydown' && useUi.getState().tool === 'measure') {
+        const ui = useUi.getState();
+        if (e.key === 'Enter') return finishMeasure();
+        if (e.key === 'Backspace' && ui.measure && !ui.measure.done && ui.measure.points.length) {
+          ui.setMeasure({ ...ui.measure, points: ui.measure.points.slice(0, -2) });
+          return;
+        }
+        if (e.key === 'Escape') {
+          if (ui.measure) ui.setMeasure(null);
+          else ui.setTool('select');
+          return;
+        }
       }
       if (e.type === 'keydown' && e.key === 'Escape') {
         session.setSelection([]);

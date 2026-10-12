@@ -28,6 +28,8 @@ export interface CoverageInfo {
 export interface DocSummary {
   name: string;
   size: number;
+  /** SHA-256 of the file bytes (hex) */
+  hash: string;
   binary: boolean;
   version?: string;
   release?: string;
@@ -51,7 +53,7 @@ export interface DocSummary {
   lunits: number;
   luprec: number;
   /** initial view from VPORT *Active (if any) */
-  initialView?: { cx: number; cy: number; height: number; twist: number };
+  initialView?: { cx: number; cy: number; height: number; aspect: number; twist: number };
   parseMs: number;
   diagnostics: DiagnosticInfo[];
 }
@@ -73,6 +75,49 @@ export interface LayerInfo {
   plot: boolean;
   count: number;
   undefinedInFile: boolean;
+  /** color / linetype / lineweight replaced by a layer state */
+  propsOverridden?: boolean;
+}
+
+export type SnapKind = 'endpoint' | 'midpoint' | 'center' | 'quadrant' | 'intersection' | 'insertion' | 'node' | 'nearest';
+
+export interface SnapResult {
+  x: number;
+  y: number;
+  kind: SnapKind;
+  id: number;
+}
+
+export interface EntityMeasure {
+  type: string;
+  handle: string;
+  length?: number;
+  area?: number;
+  radius?: number;
+  center?: [number, number];
+  closed?: boolean;
+}
+
+export interface LayerStateInfo {
+  name: string;
+  description: string;
+  layerCount: number;
+  restoreFlags: number;
+  paperSpace: boolean;
+}
+
+export interface NamedView {
+  name: string;
+  /** world center (plan projection) */
+  cx: number;
+  cy: number;
+  width: number;
+  height: number;
+  /** view twist, radians */
+  twist: number;
+  paperSpace: boolean;
+  /** the view direction is not the plan view (shown as plan here) */
+  nonPlan: boolean;
 }
 
 export interface RenderSettings {
@@ -274,6 +319,17 @@ export type DocApi = {
   setRenderSettings(p: RenderSettings): void;
   setLayerState(p: { changes: { index: number; on?: boolean; frozen?: boolean }[] } | { reset: true } | { all: { on?: boolean; frozen?: boolean } }): LayerInfo[];
   getLayers(p: void): LayerInfo[];
+  /** layer states stored in the file (ACAD_LAYERSTATES) */
+  layerStates(p: void): LayerStateInfo[];
+  /** apply a file layer state, or on/off/frozen of a viewer-saved state */
+  applyLayerState(p: { name: string } | { custom: { name: string; on: boolean; frozen: boolean }[] }): LayerInfo[];
+  namedViews(p: void): NamedView[];
+  /** direction of the longest straight segment of an entity (radians, world) */
+  entityAngle(p: { id: number }): number | null;
+  /** object snap near a screen point */
+  snap(p: { x: number; y: number; tolerance: number; kinds: SnapKind[] }): SnapResult | null;
+  /** length / area / radius of an entity under a screen point */
+  measureAt(p: { x: number; y: number }): EntityMeasure | null;
   getBuildInfo(p: void): BuildInfo;
   queryTexts(p: TextQuery): { total: number; rows: TextRow[]; error?: string };
   entityBounds(p: { ids: number[] }): BBox2 | null;

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 
-import type { BuildInfo, DocSummary, FilterResult, FontOverrideInfo, LayerInfo, LayoutInfo, RenderSettings } from '../shared/docApi';
+import type { BuildInfo, DocSummary, EntityMeasure, FilterResult, FontOverrideInfo, LayerInfo, LayoutInfo, RenderSettings, SnapKind } from '../shared/docApi';
+import type { MeasureMode } from '../ui/measure';
 import type { FilterSpec } from '../shared/filterSpec';
 
 export type DockSide = 'left' | 'right' | 'bottom';
@@ -34,6 +35,12 @@ export interface TabState {
   filter?: FilterSpec;
   filterApplied?: FilterSpec | null;
   filterResult?: FilterResult | null;
+  /** view history availability */
+  viewNav?: { back: boolean; forward: boolean };
+  /** name of the last applied layer state (file or saved) */
+  layerState?: string;
+  /** view rotation (radians) and mirroring, mirrored for the toolbar */
+  viewOrient?: { rotation: number; mirrorX: boolean; mirrorY: boolean };
 }
 
 export interface ViewerSettings extends RenderSettings {
@@ -45,6 +52,28 @@ export interface ViewerSettings extends RenderSettings {
   preferLocalFonts: boolean;
   /** keyed by lower-case requested font name */
   fontOverrides: Record<string, FontOverrideInfo>;
+  snap: boolean;
+  snapKinds: SnapKind[];
+  showGrid: boolean;
+  showAxes: boolean;
+  showScaleBar: boolean;
+}
+
+/** Measurement in progress or just finished (world coordinates). */
+export interface MeasureState {
+  tabId: string;
+  layout: string;
+  mode: MeasureMode;
+  points: number[];
+  done: boolean;
+  entity?: EntityMeasure;
+}
+
+export interface MeasureRecord {
+  mode: MeasureMode;
+  file: string;
+  points: number[];
+  text: string;
 }
 
 export type Tool = 'select' | 'pan' | 'measure';
@@ -60,6 +89,13 @@ export interface UiState {
   /** CSS px per world unit of the active view */
   scale: number;
   settings: ViewerSettings;
+  measureMode: MeasureMode;
+  setMeasureMode(m: MeasureMode): void;
+  measure: MeasureState | null;
+  setMeasure(m: MeasureState | null): void;
+  measureHistory: MeasureRecord[];
+  addMeasureRecord(r: MeasureRecord): void;
+  clearMeasureHistory(): void;
   /** drawing a spatial filter region on the canvas */
   regionPick: 'rect' | 'polygon' | null;
   setRegionPick(k: 'rect' | 'polygon' | null): void;
@@ -106,6 +142,11 @@ const DEFAULT_SETTINGS: ViewerSettings = {
   trackpadPan: true,
   preferLocalFonts: true,
   fontOverrides: {},
+  snap: true,
+  snapKinds: ['endpoint', 'midpoint', 'center', 'quadrant', 'intersection', 'insertion', 'node', 'nearest'],
+  showGrid: false,
+  showAxes: false,
+  showScaleBar: true,
 };
 
 const DEFAULT_DOCKS: Record<DockSide, DockState> = {
@@ -135,7 +176,7 @@ const persisted = load();
 
 export const useUi = create<UiState>((set, get) => ({
   tool: 'select',
-  setTool: (tool) => set({ tool }),
+  setTool: (tool) => set((s) => ({ tool, measure: tool === 'measure' ? s.measure : null })),
   tabs: [],
   activeId: null,
   docks: { ...DEFAULT_DOCKS, ...(persisted.docks ?? {}) },
@@ -143,6 +184,13 @@ export const useUi = create<UiState>((set, get) => ({
   cursor: null,
   scale: 1,
   settings: { ...DEFAULT_SETTINGS, ...(persisted.settings ?? {}) },
+  measureMode: 'distance',
+  setMeasureMode: (m) => set({ measureMode: m, measure: null }),
+  measure: null,
+  setMeasure: (m) => set({ measure: m }),
+  measureHistory: [],
+  addMeasureRecord: (r) => set((s) => ({ measureHistory: [r, ...s.measureHistory].slice(0, 50) })),
+  clearMeasureHistory: () => set({ measureHistory: [] }),
   regionPick: null,
   setRegionPick: (k) => set({ regionPick: k }),
   pendingFilter: null,
@@ -161,7 +209,7 @@ export const useUi = create<UiState>((set, get) => ({
       if (activeId === id) activeId = tabs[Math.min(idx, tabs.length - 1)]?.id ?? null;
       return { tabs, activeId };
     }),
-  activate: (id) => set({ activeId: id, cursor: null, regionPick: null }),
+  activate: (id) => set({ activeId: id, cursor: null, regionPick: null, measure: null }),
   moveTab: (from, to) =>
     set((s) => {
       const tabs = [...s.tabs];

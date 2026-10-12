@@ -1299,3 +1299,99 @@ label.check {
   background: color-mix(in srgb, var(--warn) 25%, transparent);
   border-color: var(--warn);
 }
+.menu-pop .menu-item {
+  text-align: left;
+  border: 0;
+  background: transparent;
+  padding: 3px 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.menu-pop .menu-item:hover:not(:disabled) {
+  background: var(--hover);
+}
+.menu-pop .menu-item:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+.menu-pop p {
+  margin: 0;
+  max-width: 280px;
+  white-space: normal;
+}
+.num-input {
+  width: 80px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 4px;
+}
+.tb-menu > summary.tb-active {
+  color: var(--accent);
+}
+
+.view-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+  min-width: 0;
+}
+.view-row .link-inline {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+.view-row .icon-btn {
+  margin-left: auto;
+  width: 22px;
+  height: 22px;
+}
+
+.layer-states {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.layer-states select {
+  flex: 1;
+  min-width: 0;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 4px;
+}
+
+.measure-modes {
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+.snap-kinds {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px 8px;
+  margin-top: 4px;
+}
+.measure-hist {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  gap: 6px;
+  align-items: center;
+  padding: 1px 0;
+}
+.measure-hist .mono {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.overlay-canvas.measuring {
+  cursor: crosshair;
+}
+.menu-pop hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+  margin: 2px 0;
+  width: 100%;
+}

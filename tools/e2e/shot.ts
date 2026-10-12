@@ -4,6 +4,7 @@
  *
  * node tools/e2e/shot.ts --url http://localhost:5173/ --file public/samples/basic_entities.dxf --out shot.png
  *   [--width 1400 --height 900] [--keys "f,Alt+1"] [--wait 1500] [--eval "js"]
+ *   actions in order: [--move x,y] [--click x,y[,Mod]] [--dblclick x,y] [--rclick x,y] [--drag x0,y0,x1,y1] [--press Key]
  */
 import { chromium, firefox, webkit } from 'playwright-core';
 
@@ -32,7 +33,7 @@ const evalBefore = arg('eval-before');
 /** --upload "css-selector|path" (repeatable): set files on an input after loading */
 const uploads = all('upload');
 /** --click "x,y[,modifier]" and --drag "x0,y0,x1,y1" (page coordinates, repeatable, in order) */
-const actions = args.flatMap((a, i) => (a === '--click' || a === '--drag' || a === '--rclick' ? [[a.slice(2), args[i + 1]] as const] : []));
+const actions = args.flatMap((a, i) => (a === '--click' || a === '--drag' || a === '--rclick' || a === '--move' || a === '--dblclick' || a === '--press' ? [[a.slice(2), args[i + 1]] as const] : []));
 const chrome = process.env.CHROME_PATH ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 
 const engine = arg('browser', 'chrome');
@@ -70,7 +71,13 @@ for (const u of uploads) {
 }
 for (const [kind, spec] of actions) {
   const v = spec.split(',');
-  if (kind === 'click' || kind === 'rclick') {
+  if (kind === 'move') {
+    await page.mouse.move(Number(v[0]), Number(v[1]), { steps: 4 });
+  } else if (kind === 'press') {
+    await page.keyboard.press(spec);
+  } else if (kind === 'dblclick') {
+    await page.mouse.dblclick(Number(v[0]), Number(v[1]));
+  } else if (kind === 'click' || kind === 'rclick') {
     const mod = v[2] as 'Shift' | 'Control' | 'Meta' | undefined;
     if (mod) await page.keyboard.down(mod);
     await page.mouse.click(Number(v[0]), Number(v[1]), { button: kind === 'rclick' ? 'right' : 'left' });

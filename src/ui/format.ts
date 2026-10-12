@@ -50,3 +50,14 @@ export function formatScale(unitsPerPx: number): string {
 export function rgbCss(rgb: number): string {
   return '#' + (rgb & 0xffffff).toString(16).padStart(6, '0');
 }
+
+/** Number formatting for measurements: drawing precision ($LUPREC) and unit name. */
+export function measureFormat(insUnits: number | undefined, luprec: number | undefined, coordPrecision: number): { len: (v: number) => string; area: (v: number) => string; coord: (v: number) => string } {
+  const p = coordPrecision >= 0 ? coordPrecision : Math.max(2, Math.min(8, luprec ?? 4));
+  const u = unitName(insUnits);
+  return {
+    len: (v) => `${formatNumber(v, p)}${u ? ` ${u}` : ''}`,
+    area: (v) => `${formatNumber(v, p)}${u ? ` ${u}²` : ''}`,
+    coord: (v) => formatNumber(v, p),
+  };
+}

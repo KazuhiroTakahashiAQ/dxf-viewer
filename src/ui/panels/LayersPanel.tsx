@@ -1,10 +1,11 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Eye, EyeOff, Focus, Lock, RotateCcw, Snowflake, Sun, TriangleAlert } from 'lucide-react';
+import { BookmarkPlus, Eye, EyeOff, Focus, Lock, Palette, RotateCcw, Snowflake, Sun, Trash2, TriangleAlert } from 'lucide-react';
 
 import { t } from '../../i18n';
 import { sessions } from '../../session/DocumentSession';
-import type { DocApi } from '../../shared/docApi';
+import type { DocApi, LayerStateInfo } from '../../shared/docApi';
+import { savedLayerStates, setSavedLayerStates, type SavedLayerState } from '../../storage/perFile';
 import { activeTab, useUi } from '../../state/store';
 import { rgbCss } from '../format';
 
@@ -14,6 +15,20 @@ export function LayersPanel() {
   const background = useUi((s) => s.settings.background);
   const [filter, setFilter] = useState('');
   const parentRef = useRef<HTMLDivElement>(null);
+  const [fileStates, setFileStates] = useState<LayerStateInfo[]>([]);
+  const [saved, setSaved] = useState<SavedLayerState[]>([]);
+  const hash = tab?.summary?.hash;
+  const ready = tab?.status === 'ready';
+  const tabSession = tab ? sessions.get(tab.id) : undefined;
+  useEffect(() => {
+    if (!tabSession || !ready) return;
+    let alive = true;
+    void tabSession.rpc.call('layerStates', undefined).then((v) => alive && setFileStates(v));
+    return () => {
+      alive = false;
+    };
+  }, [tabSession, ready]);
+  useEffect(() => setSaved(savedLayerStates(hash)), [hash]);
 
   const layers = useMemo(() => {
     const all = tab?.layers ?? [];
@@ -35,8 +50,31 @@ export function LayersPanel() {
   const apply = async (p: Parameters<DocApi['setLayerState']>[0]) => {
     if (!session) return;
     const layers = await session.rpc.call('setLayerState', p);
-    setTab(tab.id, { layers });
+    setTab(tab.id, { layers, layerState: 'reset' in p ? undefined : tab.layerState ? `${tab.layerState.replace(/ \*$/, '')} *` : undefined });
   };
+  const applyState = async (value: string) => {
+    if (!session || !value) return;
+    const [kind, name] = [value.slice(0, 2), value.slice(2)];
+    let layers;
+    if (kind === 'f:') layers = await session.rpc.call('applyLayerState', { name });
+    else {
+      const st = saved.find((x) => x.name === name);
+      if (!st) return;
+      layers = await session.rpc.call('applyLayerState', { custom: st.layers });
+    }
+    setTab(tab.id, { layers, layerState: value });
+  };
+  const saveState = () => {
+    if (!hash) return;
+    const name = prompt(t('layers.stateName'), t('layers.stateDefault', { n: saved.length + 1 }));
+    if (!name) return;
+    const next = [...saved.filter((x) => x.name !== name), { name, layers: (tab.layers ?? []).map((l) => ({ name: l.name, on: l.on, frozen: l.frozen })) }];
+    setSaved(next);
+    setSavedLayerStates(hash, next);
+    setTab(tab.id, { layerState: `s:${name}` });
+  };
+  const current = tab.layerState ?? '';
+  const overridden = (tab.layers ?? []).some((l) => l.propsOverridden);
 
   const fg = ((background >> 16) & 0xff) * 0.299 + ((background >> 8) & 0xff) * 0.587 + (background & 0xff) * 0.114 < 128 ? 0xffffff : 0x000000;
 
@@ -54,6 +92,56 @@ export function LayersPanel() {
           <RotateCcw size={15} />
         </button>
       </div>
+      <div className="panel-sub layer-states">
+        <select value={current.endsWith(' *') ? '' : current} onChange={(e) => void applyState(e.target.value)} title={t('layers.states')} aria-label={t('layers.states')}>
+          <option value="">{current.endsWith(' *') ? t('layers.stateModified', { name: current.slice(2, -2) }) : t('layers.stateNone')}</option>
+          {fileStates.length > 0 && (
+            <optgroup label={t('layers.statesFile')}>
+              {fileStates.map((s) => (
+                <option key={s.name} value={`f:${s.name}`} title={s.description}>
+                  {s.name}
+                </option>
+              ))}
+            </optgroup>
+          )}
+          {saved.length > 0 && (
+            <optgroup label={t('layers.statesSaved')}>
+              {saved.map((s) => (
+                <option key={s.name} value={`s:${s.name}`}>
+                  {s.name}
+                </option>
+              ))}
+            </optgroup>
+          )}
+        </select>
+        <button type="button" className="icon-btn" title={t('layers.saveState')} disabled={!hash} onClick={saveState}>
+          <BookmarkPlus size={15} />
+        </button>
+        {current.startsWith('s:') && (
+          <button
+            type="button"
+            className="icon-btn"
+            title={t('layers.deleteState')}
+            onClick={() => {
+              if (!hash) return;
+              const next = saved.filter((x) => `s:${x.name}` !== current);
+              setSaved(next);
+              setSavedLayerStates(hash, next);
+              setTab(tab.id, { layerState: undefined });
+            }}
+          >
+            <Trash2 size={14} />
+          </button>
+        )}
+        {overridden && (
+          <span className="muted small" title={t('layers.propsOverridden')}>
+            <Palette size={13} />
+          </span>
+        )}
+      </div>
+      {current.startsWith('f:') && fileStates.find((s) => `f:${s.name}` === current)?.description && (
+        <div className="panel-sub muted small">{fileStates.find((s) => `f:${s.name}` === current)?.description}</div>
+      )}
       <div className="panel-scroll" ref={parentRef}>
         <div style={{ height: rowVirtualizer.getTotalSize(), position: 'relative' }}>
           {rowVirtualizer.getVirtualItems().map((vi) => {

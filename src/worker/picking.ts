@@ -93,6 +93,12 @@ export class Picker {
     return best;
   }
 
+  /** Ids whose bounding box touches the world box around (wx, wy), plus unbounded lines. */
+  candidates(wx: number, wy: number, tol: number): number[] {
+    const ids = this.tree.search({ minX: wx - tol, minY: wy - tol, maxX: wx + tol, maxY: wy + tol }).map((i) => i.id);
+    return ids.concat(this.unbounded);
+  }
+
   /**
    * Entities under a screen point, nearest first (ties: smaller first).
    * `visible` filters by layer visibility.

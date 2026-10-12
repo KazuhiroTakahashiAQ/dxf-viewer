@@ -1,5 +1,9 @@
 import { useRef } from 'react';
 import {
+  ArrowLeft,
+  ArrowRight,
+  FlipHorizontal2,
+  FlipVertical2,
   FolderOpen,
   Maximize,
   Minus,
@@ -7,13 +11,16 @@ import {
   PanelLeft,
   PanelRight,
   Plus,
+  RotateCcw,
+  RotateCw,
+  Ruler,
   Scan,
 } from 'lucide-react';
 
 import { t } from '../../i18n';
 import { ENCODING_CHOICES } from '../../dxf/reader/encoding';
 import { openFiles, sessions } from '../../session/DocumentSession';
-import { zoomAt } from '../../shared/view';
+import { normalizeAngle, rotateView, rotationForDirection, zoomAt } from '../../shared/view';
 import { activeTab, useUi, type ViewerSettings } from '../../state/store';
 import { rgbCss } from '../format';
 
@@ -23,6 +30,8 @@ export function Toolbar() {
   const fileRef = useRef<HTMLInputElement>(null);
   const tab = useUi(activeTab);
   const toggleDock = useUi((s) => s.toggleDock);
+  const tool = useUi((s) => s.tool);
+  const setTool = useUi((s) => s.setTool);
   const setFocusMode = useUi((s) => s.setFocusMode);
   const settings = useUi((s) => s.settings);
   const updateSettings = useUi((s) => s.updateSettings);
@@ -32,6 +41,18 @@ export function Toolbar() {
     if (!session) return;
     session.setView(zoomAt(session.view, session.viewport, session.viewport.width / 2, session.viewport.height / 2, f));
   };
+
+  const orient = tab?.viewOrient ?? { rotation: 0, mirrorX: false, mirrorY: false };
+  const rotDeg = Number(((normalizeAngle(orient.rotation) * 180) / Math.PI).toFixed(4));
+  const rotate = (delta: number) => session && session.setView(rotateView(session.view, delta));
+  const setRotation = (rad: number) => session && session.setView({ ...session.view, rotation: normalizeAngle(rad) });
+  const alignToSelection = async () => {
+    const id = tab?.selection?.[0];
+    if (!session || id === undefined) return;
+    const a = await session.rpc.call('entityAngle', { id });
+    if (a !== null) setRotation(rotationForDirection(a, session.view.mirrorX !== session.view.mirrorY));
+  };
+  const fileTwist = tab?.summary?.initialView?.twist ?? 0;
 
   const setSetting = (patch: Partial<ViewerSettings>) => {
     updateSettings(patch);
@@ -66,6 +87,78 @@ export function Toolbar() {
       <button type="button" className="icon-btn" disabled={!session} onClick={() => zoom(1 / 1.5)} title={t('toolbar.zoomOut')}>
         <Minus size={16} />
       </button>
+      <button type="button" className="icon-btn" disabled={!tab?.viewNav?.back} onClick={() => void session?.historyGo(-1)} title={t('toolbar.viewBack')}>
+        <ArrowLeft size={16} />
+      </button>
+      <button type="button" className="icon-btn" disabled={!tab?.viewNav?.forward} onClick={() => void session?.historyGo(1)} title={t('toolbar.viewForward')}>
+        <ArrowRight size={16} />
+      </button>
+      <span className="tb-sep" />
+      <button
+        type="button"
+        className={`icon-btn toggle ${tool === 'measure' ? 'on' : ''}`}
+        aria-pressed={tool === 'measure'}
+        disabled={!session}
+        onClick={() => {
+          const on = tool !== 'measure';
+          setTool(on ? 'measure' : 'select');
+          if (on) useUi.getState().setDock('right', { open: true, active: 'measure' });
+        }}
+        title={t('toolbar.measure')}
+      >
+        <Ruler size={16} />
+      </button>
+      <span className="tb-sep" />
+      <button type="button" className="icon-btn" disabled={!session} onClick={() => rotate(Math.PI / 2)} title={t('toolbar.rotateCcw')}>
+        <RotateCcw size={16} />
+      </button>
+      <button type="button" className="icon-btn" disabled={!session} onClick={() => rotate(-Math.PI / 2)} title={t('toolbar.rotateCw')}>
+        <RotateCw size={16} />
+      </button>
+      <details className="tb-menu">
+        <summary className={rotDeg !== 0 || orient.mirrorX || orient.mirrorY ? 'tb-active' : ''}>
+          {t('toolbar.view')}
+          {rotDeg !== 0 && <span className="muted small"> {rotDeg}°</span>}
+          {(orient.mirrorX || orient.mirrorY) && <span className="muted small"> ⇋</span>}
+        </summary>
+        <div className="menu-pop">
+          <label>
+            {t('view.rotation')}
+            <input
+              type="number"
+              step={1}
+              className="num-input"
+              disabled={!session}
+              value={rotDeg}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                if (Number.isFinite(v)) setRotation((v * Math.PI) / 180);
+              }}
+            />
+            °
+          </label>
+          <button type="button" className="menu-item" disabled={!tab?.selection?.length} onClick={() => void alignToSelection()}>
+            {t('view.alignSelection')}
+          </button>
+          <button type="button" className="menu-item" disabled={!session || !fileTwist} onClick={() => setRotation((fileTwist * Math.PI) / 180)}>
+            {t('view.alignFile', { deg: Number(fileTwist.toFixed(4)) })}
+          </button>
+          <label>
+            <input type="checkbox" disabled={!session} checked={orient.mirrorX} onChange={(e) => session?.setView({ ...session.view, mirrorX: e.target.checked })} />
+            <FlipHorizontal2 size={14} />
+            {t('view.mirrorX')}
+          </label>
+          <label>
+            <input type="checkbox" disabled={!session} checked={orient.mirrorY} onChange={(e) => session?.setView({ ...session.view, mirrorY: e.target.checked })} />
+            <FlipVertical2 size={14} />
+            {t('view.mirrorY')}
+          </label>
+          <button type="button" className="menu-item" disabled={!session} onClick={() => session?.setView({ ...session.view, rotation: 0, mirrorX: false, mirrorY: false })}>
+            {t('view.resetOrientation')}
+          </button>
+          <p className="muted small">{t('view.wcsNote')}</p>
+        </div>
+      </details>
       <span className="tb-sep" />
       <label className="tb-field" title={t('toolbar.encoding')}>
         <span className="tb-label">{t('toolbar.encoding')}</span>
@@ -125,6 +218,19 @@ export function Toolbar() {
           <label>
             <input type="checkbox" checked={settings.monochrome} onChange={(e) => setSetting({ monochrome: e.target.checked })} />
             {t('display.monochrome')}
+          </label>
+          <hr />
+          <label>
+            <input type="checkbox" checked={settings.showGrid} onChange={(e) => updateSettings({ showGrid: e.target.checked })} />
+            {t('display.grid')}
+          </label>
+          <label>
+            <input type="checkbox" checked={settings.showAxes} onChange={(e) => updateSettings({ showAxes: e.target.checked })} />
+            {t('display.axes')}
+          </label>
+          <label>
+            <input type="checkbox" checked={settings.showScaleBar} onChange={(e) => updateSettings({ showScaleBar: e.target.checked })} />
+            {t('display.scaleBar')}
           </label>
         </div>
       </details>

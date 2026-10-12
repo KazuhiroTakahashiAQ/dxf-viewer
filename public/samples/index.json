@@ -38,5 +38,9 @@
  {
   "file": "layouts.dxf",
   "version": "AC1032"
+ },
+ {
+  "file": "views_layerstates.dxf",
+  "version": "AC1032"
  }
 ]

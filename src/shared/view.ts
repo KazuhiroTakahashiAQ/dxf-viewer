@@ -124,3 +124,45 @@ export function screenDelta(from: ViewState, to: ViewState, vp: Viewport): [numb
   const d = (q2[1] - q0[1]) / vp.height;
   return [a, b, c, d, q0[0], q0[1]];
 }
+
+/** Normalize an angle to (-π, π]. */
+export function normalizeAngle(a: number): number {
+  let r = a % (2 * Math.PI);
+  if (r <= -Math.PI) r += 2 * Math.PI;
+  if (r > Math.PI) r -= 2 * Math.PI;
+  return r;
+}
+
+/**
+ * Rotate the view content on screen by `delta`. Increasing `rotation` turns the
+ * content counter-clockwise on screen with or without mirroring (see viewLinear).
+ */
+export function rotateView(v: ViewState, delta: number): ViewState {
+  return { ...v, rotation: normalizeAngle(v.rotation + delta) };
+}
+
+/**
+ * View rotation that shows a world direction `angle` horizontally. On-screen
+ * angle of a world direction θ is r + θ (no or double mirroring) or π + r − θ /
+ * r − θ (single mirroring), so the solution is r = ∓θ. The result is kept within
+ * (-π/2, π/2] so text stays upright.
+ */
+export function rotationForDirection(angle: number, mirrored = false): number {
+  let r = normalizeAngle(mirrored ? angle : -angle);
+  if (r > Math.PI / 2) r -= Math.PI;
+  else if (r <= -Math.PI / 2) r += Math.PI;
+  return r;
+}
+
+/** Views are equal up to a fraction of a pixel. */
+export function sameView(a: ViewState, b: ViewState): boolean {
+  const tol = 0.5 / Math.max(a.scale, 1e-300);
+  return (
+    Math.abs(a.cx - b.cx) <= tol &&
+    Math.abs(a.cy - b.cy) <= tol &&
+    Math.abs(a.scale / b.scale - 1) < 1e-6 &&
+    Math.abs(normalizeAngle(a.rotation - b.rotation)) < 1e-9 &&
+    a.mirrorX === b.mirrorX &&
+    a.mirrorY === b.mirrorY
+  );
+}
