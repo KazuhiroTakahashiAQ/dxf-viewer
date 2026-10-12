@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-import type { BuildInfo, DocSummary, FontOverrideInfo, LayerInfo, RenderSettings } from '../shared/docApi';
+import type { BuildInfo, DocSummary, FontOverrideInfo, LayerInfo, LayoutInfo, RenderSettings } from '../shared/docApi';
 
 export type DockSide = 'left' | 'right' | 'bottom';
 
@@ -23,6 +23,8 @@ export interface TabState {
   frameMs?: number;
   /** manual encoding override */
   encoding?: string;
+  layouts?: LayoutInfo[];
+  layout?: string;
 }
 
 export interface ViewerSettings extends RenderSettings {

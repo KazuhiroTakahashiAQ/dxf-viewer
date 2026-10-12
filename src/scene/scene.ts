@@ -104,6 +104,29 @@ export interface InfiniteItem {
 
 export type RunKind = 'geom' | 'text' | 'hatch' | 'image' | 'point' | 'clip';
 
+/** A paper space viewport showing model space. */
+export interface ViewportItem {
+  entity: number;
+  /** paper coordinates */
+  cx: number;
+  cy: number;
+  width: number;
+  height: number;
+  /** model view */
+  viewCx: number;
+  viewCy: number;
+  viewHeight: number;
+  /** radians */
+  twist: number;
+  target: Vec3;
+  frozenLayers: string[];
+  /** non-rectangular clip boundary (paper coordinates, absolute) */
+  clip?: PathLike;
+  /** plan view (direction = +Z); other views are approximated */
+  plan: boolean;
+  style: Style;
+}
+
 export interface Tile {
   key: string;
   level: number;
@@ -207,6 +230,34 @@ class TileOut extends Projector {
   }
 }
 
+/** Projector writing all geometry into one path (absolute coordinates). */
+class SinglePathOut extends Projector {
+  constructor(private path: PathLike) {
+    super();
+  }
+  beginPath(): void {}
+  endPath(): void {}
+  closePath(): void {
+    this.path.closePath();
+  }
+  protected move2(x: number, y: number): void {
+    this.path.moveTo(x, y);
+  }
+  protected line2(x: number, y: number): void {
+    this.path.lineTo(x, y);
+  }
+  protected arc2(cx: number, cy: number, ux: number, uy: number, vx: number, vy: number, t0: number, t1: number): void {
+    const e = affineArcToCanvas(cx, cy, ux, uy, vx, vy, t0, t1);
+    this.path.ellipse(e.cx, e.cy, e.rx, e.ry, e.rotation, e.start, e.end, e.anticlockwise);
+  }
+  protected cubic2(x1: number, y1: number, x2: number, y2: number, x: number, y: number): void {
+    this.path.bezierCurveTo(x1, y1, x2, y2, x, y);
+  }
+  protected quad2(x1: number, y1: number, x: number, y: number): void {
+    this.path.quadraticCurveTo(x1, y1, x, y);
+  }
+}
+
 const TEXT_TYPES = new Set(['TEXT', 'MTEXT', 'ATTRIB', 'ATTDEF']);
 const DIM_TYPES = new Set(['DIMENSION', 'ARC_DIMENSION', 'LARGE_RADIAL_DIMENSION']);
 const NATIVE_TYPES = new Set(['LINE', 'CIRCLE', 'ARC', 'ELLIPSE', 'LWPOLYLINE', 'POLYLINE', 'SOLID', 'TRACE', '3DFACE', 'SPLINE', 'HELIX', 'POINT']);
@@ -221,6 +272,7 @@ export interface Scene {
   tileList: Tile[];
   strict: boolean;
   infinite: InfiniteItem[];
+  viewports: ViewportItem[];
   /** top-level entity ids in drawing order */
   items: number[];
   /** per item: minX, minY, maxX, maxY (NaN if none) */
@@ -346,6 +398,7 @@ export class SceneBuilder implements EmitHost {
     readonly measurer: TextMeasurer,
     private factory: PathFactory,
     private opts: SceneOptions = DEFAULT_SCENE_OPTIONS,
+    sharedStyles?: StyleResolver,
   ) {
     items.forEach((id, k) => this.itemIndex.set(id, k));
     this.out = new TileOut(factory);
@@ -357,11 +410,12 @@ export class SceneBuilder implements EmitHost {
     const strict = opts.drawOrder === 'strict' || (opts.drawOrder === 'auto' && hasOccluders(doc));
     this.scene = {
       doc,
-      styles: new StyleResolver(doc),
+      styles: sharedStyles ?? new StyleResolver(doc),
       tiles: new Map(),
       tileList: [],
       strict,
       infinite: [],
+      viewports: [],
       items,
       itemBBox: new Float64Array(items.length * 4).fill(NaN),
       extents: emptyBBox(),
@@ -731,6 +785,12 @@ export class SceneBuilder implements EmitHost {
     } else if (e.type === 'POINT') {
       const p = applyPoint(m, ...(e as PointEntity).position);
       bboxAddPoint(b, p[0], p[1]);
+    } else if (e.type === 'VIEWPORT') {
+      const v = e as Entity & { center: Vec3; width: number; height: number; vpId: number };
+      if (v.vpId === 1 || !(v.width > 0)) return null;
+      const c = applyPoint(m, v.center[0], v.center[1], v.center[2]);
+      bboxAddPoint(b, c[0] - v.width / 2, c[1] - v.height / 2);
+      bboxAddPoint(b, c[0] + v.width / 2, c[1] + v.height / 2);
     } else if (NATIVE_TYPES.has(e.type)) {
       const out = this.bboxHost.out;
       out.reset();
@@ -907,6 +967,11 @@ export class SceneBuilder implements EmitHost {
       this.emitInsert(e as InsertEntity, m, ctx, depth);
       return;
     }
+    if (e.type === 'VIEWPORT') {
+      this.emitViewport(e, m, ctx);
+      if (depth === 0) this.cover(e.type, 'native', true);
+      return;
+    }
     if (DIM_TYPES.has(e.type)) {
       const d = e as DimensionEntity;
       const block = this.doc.blocks.get(nameKey(d.blockName));
@@ -948,6 +1013,72 @@ export class SceneBuilder implements EmitHost {
     this.scene.primitives += this.out.emitted - before;
     if (depth === 0) this.cover(e.type, COMPLEX_TYPES.has(e.type) ? complexMethod(e.type) : 'proxy', ok);
     if (!ok) this.diag('not-rendered', `${e.type} entities are not rendered`);
+  }
+
+  private emitViewport(e: Entity, m: Mat34, ctx: InheritCtx): void {
+    const v = e as Entity & {
+      center: Vec3;
+      width: number;
+      height: number;
+      status: number;
+      vpId: number;
+      viewCenter: Vec3;
+      viewHeight: number;
+      twist: number;
+      viewTarget?: Vec3;
+      viewDirection?: Vec3;
+      frozenLayers: string[];
+      clipBoundary?: string;
+      statusFlags?: number;
+    };
+    // id 1 is the paper space "overall" viewport; status 0 = off
+    if (v.vpId === 1 || v.status === 0 || !(v.width > 0) || !(v.height > 0)) return;
+    const st = this.use(e, ctx);
+    const layerNames: string[] = [];
+    for (const h of v.frozenLayers) {
+      const hu = h.toUpperCase();
+      for (const l of this.doc.layers.values()) if (l.handle?.toUpperCase() === hu) layerNames.push(l.name);
+    }
+    let clip: PathLike | undefined;
+    const clipEntity = v.clipBoundary && (v.statusFlags ?? 0) & 0x10000 ? this.doc.handles.get(v.clipBoundary.toUpperCase()) : undefined;
+    if (clipEntity?.kind === 'entity') {
+      const path = this.factory();
+      const po = new SinglePathOut(path);
+      emitEntity(this.doc.entities[clipEntity.index], po, m, { fill: false });
+      clip = path;
+    }
+    const c = applyPoint(m, v.center[0], v.center[1], v.center[2]);
+    const dir = v.viewDirection ?? [0, 0, 1];
+    this.scene.viewports.push({
+      entity: e.id,
+      cx: c[0],
+      cy: c[1],
+      width: v.width,
+      height: v.height,
+      viewCx: v.viewCenter[0],
+      viewCy: v.viewCenter[1],
+      viewHeight: v.viewHeight || v.height,
+      twist: (v.twist || 0) * DEG,
+      target: v.viewTarget ?? [0, 0, 0],
+      frozenLayers: layerNames,
+      clip,
+      plan: Math.abs(dir[0]) < 1e-9 && Math.abs(dir[1]) < 1e-9,
+      style: st,
+    });
+    if (!clip) {
+      // viewport border (the clip entity draws itself when present)
+      this.out.setMatrix(identity());
+      this.out.beginPath('stroke');
+      const hw = v.width / 2;
+      const hh = v.height / 2;
+      this.out.moveTo(c[0] - hw, c[1] - hh, 0);
+      this.out.lineTo(c[0] + hw, c[1] - hh, 0);
+      this.out.lineTo(c[0] + hw, c[1] + hh, 0);
+      this.out.lineTo(c[0] - hw, c[1] + hh, 0);
+      this.out.closePath();
+      this.out.endPath();
+    }
+    if (!(Math.abs(dir[0]) < 1e-9 && Math.abs(dir[1]) < 1e-9)) this.diag('viewport-3d', 'Viewport with a non-plan view direction is shown as plan view', e.handle);
   }
 
   private emitInsert(ins: InsertEntity, m: Mat34, ctx: InheritCtx, depth: number): void {

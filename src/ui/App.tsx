@@ -9,6 +9,7 @@ import { fontKind } from '../storage/userFonts';
 import { zoomAt } from '../shared/view';
 import { activeTab, useUi } from '../state/store';
 import { CanvasHost } from './canvas/CanvasHost';
+import { LayoutTabs } from './canvas/LayoutTabs';
 import { Dock, type PanelDef } from './layout/Dock';
 import { StatusBar } from './layout/StatusBar';
 import { Toolbar } from './layout/Toolbar';
@@ -176,6 +177,7 @@ export function App() {
             {tab ? (
               <>
                 <CanvasHost key={tab.id} tabId={tab.id} />
+                <LayoutTabs />
                 {tab.status === 'error' && (
                   <div className="canvas-message error">
                     <h3>{t('error.title')}</h3>

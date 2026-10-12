@@ -152,6 +152,12 @@ export interface FontOptions {
   overrides: Record<string, FontOverrideInfo>;
 }
 
+export interface LayoutInfo {
+  name: string;
+  kind: 'model' | 'paper';
+  count: number;
+}
+
 /** Methods exposed by the document worker. */
 export type DocApi = {
   open(p: OpenParams): Promise<DocSummary>;
@@ -165,6 +171,8 @@ export type DocApi = {
   queryTexts(p: TextQuery): { total: number; rows: TextRow[]; error?: string };
   entityBounds(p: { ids: number[] }): BBox2 | null;
   getFonts(p: void): FontUsage[];
+  getLayouts(p: void): LayoutInfo[];
+  setLayout(p: { name: string }): { extents: BBox2 | null; kind: 'model' | 'paper' } | null;
   setFontOptions(p: FontOptions): Promise<void>;
   /** re-read user fonts from IndexedDB; returns load errors */
   reloadUserFonts(p: void): Promise<string[]>;

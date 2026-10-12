@@ -5,7 +5,7 @@ import { strokeProvider } from '../fonts/strokeFont';
 import type { HatchItem, ImageItem, Scene, TextItem, Tile } from '../scene/scene';
 import type { Style } from '../scene/style';
 import { REF_PX } from '../scene/textLayout';
-import { viewLinear, visibleWorldBBox, type ViewState, type Viewport } from '../shared/view';
+import { viewLinear, type ViewState, type Viewport } from '../shared/view';
 
 export type Ctx2D = OffscreenCanvasRenderingContext2D;
 
@@ -28,6 +28,18 @@ export interface RenderOptions {
   lwdisplay: boolean;
 }
 
+/** Options for drawing into part of the canvas (paper space viewports). */
+export interface RenderExtra {
+  /** clear the canvas with the background color (default true) */
+  clear?: boolean;
+  /** device px where the view center maps (default: canvas center) */
+  origin?: [number, number];
+  /** device px area that is visible (for culling) */
+  rect?: Box;
+  /** additional frozen layers (viewport freeze) */
+  extraFrozen?: Uint8Array;
+}
+
 export interface RenderStats {
   tiles: number;
   batches: number;
@@ -45,7 +57,7 @@ function css(rgb: number): string {
   return s;
 }
 
-type Box = { minX: number; minY: number; maxX: number; maxY: number };
+export type Box = { minX: number; minY: number; maxX: number; maxY: number };
 
 function intersects(a: Box, b: Box): boolean {
   return a.minX <= b.maxX && a.maxX >= b.minX && a.minY <= b.maxY && a.maxY >= b.minY;
@@ -102,13 +114,16 @@ interface Frame {
   chainVis: Uint8Array;
   stats: RenderStats;
   font: string;
+  ox: number;
+  oy: number;
+  frozen: Uint8Array;
 }
 
 export class Renderer {
   constructor(private scene: Scene) {}
 
   private visible(f: Frame, st: Style): boolean {
-    return f.opts.layerOn[st.layer] === 1 && f.opts.layerFrozen[st.layer] === 0 && f.chainVis[st.chain] === 1;
+    return f.opts.layerOn[st.layer] === 1 && f.frozen[st.layer] === 0 && f.chainVis[st.chain] === 1;
   }
 
   private colorOf(f: Frame, st: Style): string {
@@ -116,10 +131,10 @@ export class Renderer {
     return css(st.rgb);
   }
 
-  private chainVisible(opts: RenderOptions): Uint8Array {
+  private chainVisible(frozen: Uint8Array): Uint8Array {
     const chains = this.scene.styles.chains;
     const vis = new Uint8Array(chains.length);
-    for (let i = 0; i < chains.length; i++) vis[i] = chains[i].every((l) => !opts.layerFrozen[l]) ? 1 : 0;
+    for (let i = 0; i < chains.length; i++) vis[i] = chains[i].every((l) => !frozen[l]) ? 1 : 0;
     return vis;
   }
 
@@ -159,18 +174,46 @@ export class Renderer {
     const [a, b, c, d] = f.lin;
     const dx = t.ox - f.view.cx;
     const dy = t.oy - f.view.cy;
-    return [a * f.dpr, b * f.dpr, c * f.dpr, d * f.dpr, f.W / 2 + (a * dx + c * dy) * f.dpr, f.H / 2 + (b * dx + d * dy) * f.dpr];
+    return [a * f.dpr, b * f.dpr, c * f.dpr, d * f.dpr, f.ox + (a * dx + c * dy) * f.dpr, f.oy + (b * dx + d * dy) * f.dpr];
   }
 
-  render(ctx: Ctx2D, view: ViewState, vp: Viewport, opts: RenderOptions): RenderStats {
+  render(ctx: Ctx2D, view: ViewState, vp: Viewport, opts: RenderOptions, extra: RenderExtra = {}): RenderStats {
     const t0 = performance.now();
     const dpr = vp.dpr;
     const W = vp.width * dpr;
     const H = vp.height * dpr;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalAlpha = 1;
-    ctx.fillStyle = css(opts.background);
-    ctx.fillRect(0, 0, W, H);
+    if (extra.clear !== false) {
+      ctx.fillStyle = css(opts.background);
+      ctx.fillRect(0, 0, W, H);
+    }
+    const [ox, oy] = extra.origin ?? [W / 2, H / 2];
+    let frozen = opts.layerFrozen;
+    if (extra.extraFrozen) {
+      frozen = new Uint8Array(Math.max(frozen.length, extra.extraFrozen.length));
+      for (let i = 0; i < frozen.length; i++) frozen[i] = (opts.layerFrozen[i] || extra.extraFrozen[i]) ? 1 : 0;
+    }
+    const lin = viewLinear(view);
+    const rect = extra.rect ?? { minX: 0, minY: 0, maxX: W, maxY: H };
+    // visible world box: invert the device mapping at the rect corners
+    const det = lin[0] * lin[3] - lin[1] * lin[2];
+    const corners = [
+      [rect.minX, rect.minY],
+      [rect.maxX, rect.minY],
+      [rect.minX, rect.maxY],
+      [rect.maxX, rect.maxY],
+    ].map(([x, y]) => {
+      const X = (x - ox) / dpr;
+      const Y = (y - oy) / dpr;
+      return [view.cx + (lin[3] * X - lin[2] * Y) / det, view.cy + (-lin[1] * X + lin[0] * Y) / det];
+    });
+    const vb = {
+      minX: Math.min(...corners.map((p) => p[0])),
+      maxX: Math.max(...corners.map((p) => p[0])),
+      minY: Math.min(...corners.map((p) => p[1])),
+      maxY: Math.max(...corners.map((p) => p[1])),
+    };
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
     const f: Frame = {
@@ -181,12 +224,15 @@ export class Renderer {
       W,
       H,
       scaleDev: view.scale * dpr,
-      vb: visibleWorldBBox(view, vp),
+      vb,
       view,
-      lin: viewLinear(view),
-      chainVis: this.chainVisible(opts),
+      lin,
+      chainVis: this.chainVisible(frozen),
       stats: { tiles: 0, batches: 0, texts: 0, ms: 0 },
       font: '',
+      ox,
+      oy,
+      frozen,
     };
     const tiles = this.scene.tileList.filter((t) => t.count > 0 && intersects(t.bbox, f.vb));
     f.stats.tiles = tiles.length;
@@ -502,7 +548,7 @@ export class Renderer {
     const toDev = (x: number, y: number): [number, number] => {
       const dx = x - f.view.cx;
       const dy = y - f.view.cy;
-      return [f.W / 2 + (a * dx + c * dy) * f.dpr, f.H / 2 + (b * dx + d * dy) * f.dpr];
+      return [f.ox + (a * dx + c * dy) * f.dpr, f.oy + (b * dx + d * dy) * f.dpr];
     };
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.setLineDash([]);

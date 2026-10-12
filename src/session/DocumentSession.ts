@@ -1,6 +1,6 @@
 import type { DocApi, DocEvents, DocSummary, RenderSettings } from '../shared/docApi';
 import { RpcClient } from '../shared/rpc';
-import { DEFAULT_VIEW, fitView, screenDelta, type ViewState, type Viewport } from '../shared/view';
+import { DEFAULT_VIEW, fitView, screenDelta, type BBox2, type ViewState, type Viewport } from '../shared/view';
 import { useUi } from '../state/store';
 
 let seq = 0;
@@ -19,6 +19,9 @@ export class DocumentSession {
   view: ViewState = DEFAULT_VIEW;
   viewport: Viewport = { width: 1, height: 1, dpr: 1 };
   summary: DocSummary | null = null;
+  layout = 'Model';
+  private layoutViews = new Map<string, ViewState>();
+  private layoutExtents = new Map<string, BBox2 | null>();
   private viewSeq = 0;
   private sentViews = new Map<number, ViewState>();
   private renderedView: ViewState | null = null;
@@ -67,11 +70,15 @@ export class DocumentSession {
         [copy],
       );
       this.summary = summary;
-      ui.setTab(this.id, { status: 'ready', summary });
+      this.layout = 'Model';
+      this.layoutViews.clear();
+      this.layoutExtents.clear();
+      this.layoutExtents.set('Model', summary.extents);
+      ui.setTab(this.id, { status: 'ready', summary, layout: 'Model' });
       this.sendSettings(useUi.getState().settings);
       this.fit();
-      const layers = await this.rpc.call('getLayers', undefined);
-      useUi.getState().setTab(this.id, { layers });
+      const [layers, layouts] = await Promise.all([this.rpc.call('getLayers', undefined), this.rpc.call('getLayouts', undefined)]);
+      useUi.getState().setTab(this.id, { layers, layouts });
     } catch (err) {
       if ((err as Error).message === 'superseded') return;
       ui.setTab(this.id, { status: 'error', error: (err as Error).message });
@@ -92,8 +99,23 @@ export class DocumentSession {
     else this.setView(this.view);
   }
 
+  /** Switch between model space and paper space layouts (views are remembered per layout). */
+  async setLayout(name: string): Promise<void> {
+    if (name === this.layout) return;
+    this.layoutViews.set(this.layout, this.view);
+    const res = await this.rpc.call('setLayout', { name });
+    if (!res) return;
+    this.layout = name;
+    this.layoutExtents.set(name, res.extents);
+    this.renderedView = null;
+    useUi.getState().setTab(this.id, { layout: name });
+    const saved = this.layoutViews.get(name);
+    if (saved) this.setView(saved);
+    else this.fit();
+  }
+
   fit(): void {
-    const ext = this.summary?.extents;
+    const ext = this.layoutExtents.get(this.layout) ?? (this.layout === 'Model' ? this.summary?.extents : null);
     if (!ext) {
       this.setView({ ...DEFAULT_VIEW, rotation: this.view.rotation, mirrorX: this.view.mirrorX, mirrorY: this.view.mirrorY });
       return;

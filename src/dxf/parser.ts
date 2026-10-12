@@ -440,6 +440,24 @@ function parseObjects(doc: DxfDocument, tags: TagStore, s: SectionRange): void {
         if (c === 1) obj.name = decodeEscapes(tags.str(i));
         else if (c === 71) obj.tabOrder = tags.num(i);
         else if (c === 330) obj.blockRecord = tags.str(i).trim();
+        else if (c === 10) obj.limMinX = tags.num(i);
+        else if (c === 20) obj.limMinY = tags.num(i);
+        else if (c === 11) obj.limMaxX = tags.num(i);
+        else if (c === 21) obj.limMaxY = tags.num(i);
+        else if (c === 14) obj.extMinX = tags.num(i);
+        else if (c === 24) obj.extMinY = tags.num(i);
+        else if (c === 15) obj.extMaxX = tags.num(i);
+        else if (c === 25) obj.extMaxY = tags.num(i);
+      }
+      if (rec.type === 'LAYOUT' && subclass === 'AcDbPlotSettings') {
+        if (c === 44) obj.paperWidth = tags.num(i);
+        else if (c === 45) obj.paperHeight = tags.num(i);
+        else if (c === 40) obj.marginLeft = tags.num(i);
+        else if (c === 41) obj.marginBottom = tags.num(i);
+        else if (c === 46) obj.plotOriginX = tags.num(i);
+        else if (c === 47) obj.plotOriginY = tags.num(i);
+        else if (c === 72) obj.paperUnits = tags.num(i);
+        else if (c === 73) obj.plotRotation = tags.num(i);
       }
       if (rec.type === 'IMAGEDEF' || rec.type === 'IMAGEDEF_REACTOR') {
         if (c === 1) obj.fileName = decodeEscapes(tags.str(i));
@@ -480,12 +498,21 @@ function buildLayouts(doc: DxfDocument): void {
   for (const o of doc.objects) {
     if (o.type !== 'LAYOUT') continue;
     const br = o.blockRecord ? records.get(String(o.blockRecord).toUpperCase()) : undefined;
+    const num = (k: string) => (typeof o[k] === 'number' ? (o[k] as number) : undefined);
     layouts.push({
       name: String(o.name ?? ''),
       handle: o.handle,
       tabOrder: Number(o.tabOrder ?? 0),
       blockRecord: o.blockRecord as string | undefined,
       blockName: br?.name,
+      limits:
+        num('limMinX') !== undefined && num('limMaxX') !== undefined
+          ? { minX: num('limMinX')!, minY: num('limMinY') ?? 0, maxX: num('limMaxX')!, maxY: num('limMaxY') ?? 0 }
+          : undefined,
+      paper:
+        num('paperWidth') && num('paperHeight')
+          ? { width: num('paperWidth')!, height: num('paperHeight')!, units: num('paperUnits') ?? 1, rotation: num('plotRotation') ?? 0 }
+          : undefined,
     });
   }
   layouts.sort((a, b) => a.tabOrder - b.tabOrder);

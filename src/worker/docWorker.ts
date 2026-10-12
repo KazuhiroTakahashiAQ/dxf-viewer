@@ -10,20 +10,36 @@ import { registerStrokeFont, unregisterStrokeFonts } from '../fonts/strokeFont';
 import { fontKey, getAllUserFonts } from '../storage/userFonts';
 import { Renderer, type RenderOptions } from '../render/renderer';
 import { SceneBuilder, type Scene } from '../scene/scene';
-import type { BuildInfo, DocApi, DocSummary, FontUsage, LayerInfo, RenderSettings } from '../shared/docApi';
+import { StyleResolver } from '../scene/style';
+import type { BuildInfo, DocApi, DocSummary, FontUsage, LayerInfo, LayoutInfo, RenderSettings } from '../shared/docApi';
 import { TextIndex } from './textIndex';
 import { emit, serve } from '../shared/rpc';
-import { DEFAULT_VIEW, type ViewState, type Viewport } from '../shared/view';
+import { DEFAULT_VIEW, worldToScreen, type BBox2, type ViewState, type Viewport } from '../shared/view';
 
 declare const self: DedicatedWorkerGlobalScope;
 
 const BUILD_SLICE_MS = 30;
 const PROGRESSIVE_RENDER_MS = 350;
 
+interface LayoutState {
+  name: string;
+  kind: 'model' | 'paper';
+  items: number[];
+  builder: SceneBuilder;
+  scene: Scene;
+  renderer: Renderer;
+  gen: number;
+  /** paper sheet rectangle (paper layouts) */
+  sheet?: BBox2;
+}
+
 let doc: DxfDocument | null = null;
+let styles: StyleResolver | null = null;
+const layouts = new Map<string, LayoutState>();
+let active = 'Model';
+/** active layout's builder/scene (convenience) */
 let builder: SceneBuilder | null = null;
 let scene: Scene | null = null;
-let renderer: Renderer | null = null;
 let fonts: FontRegistry | null = null;
 const measurer = new CanvasMeasurer();
 let canvas: OffscreenCanvas | null = null;
@@ -50,25 +66,25 @@ let textIndex: TextIndex | null = null;
 let lastProgressiveRender = 0;
 
 function syncLayerArrays(): void {
-  if (!scene) return;
-  const n = scene.styles.layers.length;
+  if (!styles) return;
+  const n = styles.layers.length;
   if (layerOn.length === n) return;
   const on = new Uint8Array(n);
   const fr = new Uint8Array(n);
   on.set(layerOn.subarray(0, Math.min(n, layerOn.length)));
   fr.set(layerFrozen.subarray(0, Math.min(n, layerFrozen.length)));
   for (let i = layerOn.length; i < n; i++) {
-    on[i] = scene.styles.layers[i].fileOn ? 1 : 0;
-    fr[i] = scene.styles.layers[i].fileFrozen ? 1 : 0;
+    on[i] = styles.layers[i].fileOn ? 1 : 0;
+    fr[i] = styles.layers[i].fileFrozen ? 1 : 0;
   }
   layerOn = on;
   layerFrozen = fr;
 }
 
 function layerInfos(): LayerInfo[] {
-  if (!scene) return [];
+  if (!styles) return [];
   syncLayerArrays();
-  return scene.styles.layers.map((l, index) => ({
+  return styles.layers.map((l, index) => ({
     index,
     name: l.name,
     rgb: l.rgb,
@@ -99,20 +115,107 @@ function buildInfo(): BuildInfo {
   };
 }
 
-function renderNow(): void {
-  renderScheduled = false;
-  if (!ctx || !canvas || !renderer || !scene || !doc || !hasView) return;
-  syncLayerArrays();
-  const opts: RenderOptions = {
+function renderOptions(d: DxfDocument): RenderOptions {
+  return {
     ...settings,
     layerOn,
     layerFrozen,
-    pdmode: headerNumber(doc, '$PDMODE', 0),
-    pdsize: headerNumber(doc, '$PDSIZE', 0),
-    lwdisplay: headerNumber(doc, '$LWDISPLAY', 0) !== 0,
+    pdmode: headerNumber(d, '$PDMODE', 0),
+    pdsize: headerNumber(d, '$PDSIZE', 0),
+    lwdisplay: headerNumber(d, '$LWDISPLAY', 0) !== 0,
   };
-  const stats = renderer.render(ctx, view, viewport, opts);
-  emit(self, 'frame', { viewId, ms: stats.ms, tiles: stats.tiles, batches: stats.batches, texts: stats.texts });
+}
+
+/** Paper layout: sheet, model space through viewports, then paper space entities. */
+function renderPaper(c: OffscreenCanvasRenderingContext2D, ls: LayoutState, opts: RenderOptions) {
+  const dpr = viewport.dpr;
+  const W = viewport.width * dpr;
+  const H = viewport.height * dpr;
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.globalAlpha = 1;
+  const bg = settings.background;
+  const lum = ((bg >> 16) & 0xff) * 0.299 + ((bg >> 8) & 0xff) * 0.587 + (bg & 0xff) * 0.114;
+  const shade = (k: number) => {
+    const ch = (v: number) => Math.max(0, Math.min(255, Math.round(v + k)));
+    return `rgb(${ch((bg >> 16) & 0xff)},${ch((bg >> 8) & 0xff)},${ch(bg & 0xff)})`;
+  };
+  c.fillStyle = shade(lum < 128 ? -8 : -24);
+  c.fillRect(0, 0, W, H);
+  const toDev = (x: number, y: number): [number, number] => {
+    const p = worldToScreen(view, viewport, x, y);
+    return [p[0] * dpr, p[1] * dpr];
+  };
+  if (ls.sheet) {
+    const s = ls.sheet;
+    const pts = [toDev(s.minX, s.minY), toDev(s.maxX, s.minY), toDev(s.maxX, s.maxY), toDev(s.minX, s.maxY)];
+    c.beginPath();
+    pts.forEach((p, i) => (i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1])));
+    c.closePath();
+    c.fillStyle = `#${bg.toString(16).padStart(6, '0')}`;
+    c.fill();
+    c.strokeStyle = shade(lum < 128 ? 40 : -60);
+    c.lineWidth = dpr;
+    c.stroke();
+  }
+  const model = layouts.get('Model');
+  let stats = { tiles: 0, batches: 0, texts: 0, ms: 0 };
+  if (model && styles) {
+    for (const vp of ls.scene.viewports) {
+      const s = vp.height / (vp.viewHeight || vp.height);
+      const tw = vp.twist;
+      const cmx = vp.target[0] + Math.cos(-tw) * vp.viewCx - Math.sin(-tw) * vp.viewCy;
+      const cmy = vp.target[1] + Math.sin(-tw) * vp.viewCx + Math.cos(-tw) * vp.viewCy;
+      const modelView: ViewState = {
+        cx: cmx,
+        cy: cmy,
+        scale: view.scale * s,
+        rotation: view.rotation + (view.mirrorX !== view.mirrorY ? -tw : tw),
+        mirrorX: view.mirrorX,
+        mirrorY: view.mirrorY,
+      };
+      const rect = [toDev(vp.cx - vp.width / 2, vp.cy - vp.height / 2), toDev(vp.cx + vp.width / 2, vp.cy - vp.height / 2), toDev(vp.cx + vp.width / 2, vp.cy + vp.height / 2), toDev(vp.cx - vp.width / 2, vp.cy + vp.height / 2)];
+      const box = {
+        minX: Math.max(0, Math.min(...rect.map((p) => p[0]))),
+        minY: Math.max(0, Math.min(...rect.map((p) => p[1]))),
+        maxX: Math.min(W, Math.max(...rect.map((p) => p[0]))),
+        maxY: Math.min(H, Math.max(...rect.map((p) => p[1]))),
+      };
+      if (box.minX >= box.maxX || box.minY >= box.maxY) continue;
+      const frozen = new Uint8Array(styles.layers.length);
+      for (const name of vp.frozenLayers) frozen[styles.layerIdx(name)] = 1;
+      c.save();
+      c.setTransform(1, 0, 0, 1, 0, 0);
+      c.beginPath();
+      rect.forEach((p, i) => (i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1])));
+      c.closePath();
+      c.clip();
+      if (vp.clip) {
+        // non-rectangular viewport: clip with the boundary entity (paper coordinates)
+        const o = toDev(0, 0);
+        const ex = toDev(1, 0);
+        const ey = toDev(0, 1);
+        c.setTransform(ex[0] - o[0], ex[1] - o[1], ey[0] - o[0], ey[1] - o[1], o[0], o[1]);
+        c.clip(vp.clip as Path2D);
+        c.setTransform(1, 0, 0, 1, 0, 0);
+      }
+      const r = model.renderer.render(c, modelView, viewport, { ...opts, layerOn, layerFrozen }, { clear: false, origin: toDev(vp.cx, vp.cy), rect: box, extraFrozen: frozen });
+      c.restore();
+      stats = { tiles: stats.tiles + r.tiles, batches: stats.batches + r.batches, texts: stats.texts + r.texts, ms: stats.ms };
+    }
+  }
+  const r = ls.renderer.render(c, view, viewport, opts, { clear: false });
+  return { tiles: stats.tiles + r.tiles, batches: stats.batches + r.batches, texts: stats.texts + r.texts, ms: r.ms };
+}
+
+function renderNow(): void {
+  renderScheduled = false;
+  const ls = layouts.get(active);
+  if (!ctx || !canvas || !ls || !doc || !hasView) return;
+  syncLayerArrays();
+  const t0 = performance.now();
+  const opts = renderOptions(doc);
+  const stats = ls.kind === 'model' ? ls.renderer.render(ctx, view, viewport, opts) : renderPaper(ctx, ls, opts);
+  emit(self, 'frame', { viewId, ms: performance.now() - t0, tiles: stats.tiles, batches: stats.batches, texts: stats.texts });
 }
 
 function scheduleRender(): void {
@@ -146,35 +249,94 @@ function collectFonts(d: DxfDocument): { specs: FontSpec[]; text: string } {
   return { specs: [...specs.values()], text: parts.join('') };
 }
 
-function continueBuild(gen: number): void {
-  if (gen !== generation || !builder) return;
+function continueBuild(ls: LayoutState, gen: number): void {
+  if (gen !== generation || layouts.get(ls.name) !== ls) return;
   const start = performance.now();
-  const done = builder.step(start + BUILD_SLICE_MS, () => performance.now());
-  emit(self, 'progress', { phase: done ? 'ready' : 'building', fraction: 0.6 + 0.4 * builder.progress });
+  const done = ls.builder.step(start + BUILD_SLICE_MS, () => performance.now());
+  if (ls.name === active) emit(self, 'progress', { phase: done ? 'ready' : 'building', fraction: 0.6 + 0.4 * ls.builder.progress });
   if (done) {
-    emit(self, 'build', buildInfo());
+    if (ls.name === active) emit(self, 'build', buildInfo());
     emit(self, 'layers', layerInfos());
     scheduleRender();
     return;
   }
-  if (start - lastProgressiveRender > PROGRESSIVE_RENDER_MS) {
+  if (start - lastProgressiveRender > PROGRESSIVE_RENDER_MS && (ls.name === active || ls.kind === 'model')) {
     lastProgressiveRender = start;
     renderNow();
   }
-  setTimeout(() => continueBuild(gen), 0);
+  setTimeout(() => continueBuild(ls, gen), 0);
 }
 
-/** Rebuild the scene (after font option changes) keeping layer states. */
+/** Entities of a layout (model space or a paper space layout). */
+function layoutItems(d: DxfDocument, name: string): { kind: 'model' | 'paper'; items: number[]; sheet?: BBox2 } | null {
+  if (name === 'Model') return { kind: 'model', items: d.modelSpace };
+  const layout = d.layouts.find((l) => l.name === name);
+  if (!layout && name === 'Paper' && d.paperSpace.length) return { kind: 'paper', items: d.paperSpace };
+  if (!layout) return null;
+  const bn = layout.blockName ?? '';
+  let items: number[] = [];
+  if (/^\*paper_space$/i.test(bn)) items = d.paperSpace;
+  else {
+    const block = d.blocks.get(nameKey(bn));
+    items = block ? block.entities : [];
+  }
+  let sheet: BBox2 | undefined;
+  if (layout.paper) {
+    const k = layout.paper.units === 0 ? 1 / 25.4 : 1;
+    const rot = layout.paper.rotation === 1 || layout.paper.rotation === 3;
+    const w = (rot ? layout.paper.height : layout.paper.width) * k;
+    const h = (rot ? layout.paper.width : layout.paper.height) * k;
+    const lim = layout.limits;
+    const x0 = lim ? lim.minX : 0;
+    const y0 = lim ? lim.minY : 0;
+    sheet = { minX: x0, minY: y0, maxX: x0 + w, maxY: y0 + h };
+  } else if (layout.limits && layout.limits.maxX > layout.limits.minX) sheet = layout.limits;
+  return { kind: 'paper', items, sheet };
+}
+
+function startLayout(name: string): LayoutState | null {
+  if (!doc || !styles) return null;
+  const existing = layouts.get(name);
+  if (existing) return existing;
+  const li = layoutItems(doc, name);
+  if (!li) return null;
+  const b = new SceneBuilder(doc, li.items, measurer, () => new Path2D(), undefined, styles);
+  const ls: LayoutState = { name, kind: li.kind, items: li.items, builder: b, scene: b.scene, renderer: new Renderer(b.scene), gen: generation, sheet: li.sheet };
+  layouts.set(name, ls);
+  b.prepare();
+  syncLayerArrays();
+  setTimeout(() => continueBuild(ls, generation), 0);
+  return ls;
+}
+
+function activate(name: string): void {
+  active = name;
+  const ls = layouts.get(name);
+  builder = ls?.builder ?? null;
+  scene = ls?.scene ?? null;
+}
+
+/** Rebuild all scenes (after font option changes) keeping layer states. */
 function rebuild(): void {
   if (!doc) return;
-  const gen = ++generation;
-  builder = new SceneBuilder(doc, doc.modelSpace, measurer, () => new Path2D());
-  scene = builder.scene;
-  renderer = new Renderer(scene);
-  builder.prepare();
-  syncLayerArrays();
+  ++generation;
+  const names = [...layouts.keys()];
+  layouts.clear();
+  styles = new StyleResolver(doc);
+  for (const n of ['Model', ...names.filter((x) => x !== 'Model')]) startLayout(n);
+  activate(active);
   lastProgressiveRender = performance.now();
-  setTimeout(() => continueBuild(gen), 0);
+}
+
+function layoutList(d: DxfDocument): LayoutInfo[] {
+  const out: LayoutInfo[] = [{ name: 'Model', kind: 'model', count: d.modelSpace.length }];
+  const paper = d.layouts.filter((l) => !/^\*model_space$/i.test(l.blockName ?? '') && l.name.toLowerCase() !== 'model');
+  if (!paper.length && d.paperSpace.length) out.push({ name: 'Paper', kind: 'paper', count: d.paperSpace.length });
+  for (const l of paper) {
+    const li = layoutItems(d, l.name);
+    out.push({ name: l.name, kind: 'paper', count: li?.items.length ?? 0 });
+  }
+  return out;
 }
 
 const userFontFaces: FontFace[] = [];
@@ -293,7 +455,7 @@ function summarize(d: DxfDocument, s: Scene, parseMs: number): DocSummary {
     paperSpaceCount: d.paperSpace.length,
     blockCount: d.blocks.size,
     layerCount: d.layers.size,
-    layoutNames: d.layouts.map((l) => l.name),
+    layoutNames: layoutList(d).map((l) => l.name),
     extents: ext.minX <= ext.maxX ? { minX: ext.minX, minY: ext.minY, maxX: ext.maxX, maxY: ext.maxY } : null,
     insUnits: headerNumber(d, '$INSUNITS', 0),
     lunits: headerNumber(d, '$LUNITS', 2),
@@ -333,17 +495,15 @@ const api: DocApi = {
 
     doc = d;
     textIndex = null;
-    builder = new SceneBuilder(d, d.modelSpace, measurer, () => new Path2D());
-    scene = builder.scene;
-    renderer = new Renderer(scene);
+    layouts.clear();
+    styles = new StyleResolver(d);
     layerOn = new Uint8Array(0);
     layerFrozen = new Uint8Array(0);
     emit(self, 'progress', { phase: 'layout', fraction: 0.55 });
-    builder.prepare();
-    syncLayerArrays();
     lastProgressiveRender = performance.now();
-    setTimeout(() => continueBuild(gen), 0);
-    return summarize(d, scene, parseMs);
+    const ls = startLayout('Model')!;
+    activate('Model');
+    return summarize(d, ls.scene, parseMs);
   },
 
   attachCanvas(p) {
@@ -378,7 +538,7 @@ const api: DocApi = {
   setLayerState(p) {
     syncLayerArrays();
     if ('reset' in p) {
-      scene?.styles.layers.forEach((l, i) => {
+      styles?.layers.forEach((l, i) => {
         layerOn[i] = l.fileOn ? 1 : 0;
         layerFrozen[i] = l.fileFrozen ? 1 : 0;
       });
@@ -431,6 +591,21 @@ const api: DocApi = {
 
   getFonts() {
     return doc ? fontUsage(doc) : [];
+  },
+
+  getLayouts() {
+    return doc ? layoutList(doc) : [];
+  },
+
+  setLayout(p) {
+    const ls = startLayout(p.name);
+    if (!ls) return null;
+    activate(p.name);
+    emit(self, 'build', buildInfo());
+    scheduleRender();
+    const e = ls.scene.extents;
+    const ext = e.minX <= e.maxX ? { minX: e.minX, minY: e.minY, maxX: e.maxX, maxY: e.maxY } : null;
+    return { extents: ls.sheet ?? ext, kind: ls.kind };
   },
 
   async reloadUserFonts() {

@@ -501,6 +501,8 @@ const VIEWPORT: EntitySpec = {
       case 51: e.twist = r.n(i); return 1;
       case 90: e.statusFlags = r.n(i); return 1;
       case 340: e.clipBoundary = r.raw(i).trim(); return 1;
+      // frozen layers are 331 (some writers use 341)
+      case 331:
       case 341: e.frozenLayers.push(r.raw(i).trim()); return 1;
       default: return 0;
     }

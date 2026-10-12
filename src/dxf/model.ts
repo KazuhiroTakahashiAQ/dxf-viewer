@@ -339,6 +339,10 @@ export interface Layout {
   tabOrder: number;
   blockRecord?: string;
   blockName?: string;
+  /** paper space limits */
+  limits?: { minX: number; minY: number; maxX: number; maxY: number };
+  /** plot settings: paper size in mm (units 1) or inches (0) */
+  paper?: { width: number; height: number; units: number; rotation: number };
 }
 
 export interface DxfDocument {

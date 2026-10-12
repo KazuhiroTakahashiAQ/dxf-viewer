@@ -144,6 +144,10 @@ export const en = {
   'status.error': 'Error: {message}',
 
   'error.title': 'Could not open the file',
+
+  'layouts.label': 'Layouts',
+  'layouts.model': 'Model',
+  'layouts.count': '{count} entities',
 } as const;
 
 export type MessageKey = keyof typeof en;
