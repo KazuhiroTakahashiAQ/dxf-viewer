@@ -387,6 +387,10 @@ export type DocApi = {
   rawSearch(p: { query: string; regex: boolean; caseSensitive: boolean; code?: number; from: number; dir: 1 | -1 }): { index: number } | { error: string } | null;
   tagAtLine(p: { line: number }): number;
   tagOwner(p: { index: number }): { entityId?: number; handle?: string; type: string } | null;
+  /** raster files referenced by IMAGEDEF objects */
+  imageRefs(p: void): { fileName: string; count: number; attached: boolean }[];
+  /** supply raster images (matched to IMAGE entities by file base name) */
+  attachImages(p: { images: { name: string; bitmap: ImageBitmap }[] }): string[];
   /** PNG (blob) or SVG (text) of the active layout */
   exportImage(p: { format: 'png' | 'svg'; area: 'view' | 'extents'; scale: number }): Promise<{ png?: Blob; svg?: string; width: number; height: number }>;
   /** object snap near a screen point */

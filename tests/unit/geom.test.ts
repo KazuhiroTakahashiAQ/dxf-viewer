@@ -178,3 +178,27 @@ describe('view orientation', () => {
     });
   }
 });
+
+describe('image / wipeout clip boundary', () => {
+  it('maps pixel boundary vertices like ezdxf (top-left origin, y down)', async () => {
+    const { clipPixelToUV } = await import('../../src/scene/complex');
+    // ezdxf: add_wipeout([(0,0),(10,0),(0,5)]) → size 1×1, u=(10,0), v=(0,5), path (-0.5,0.5),(0.5,0.5),(-0.5,-0.5)
+    const u = [10, 0];
+    const v = [0, 5];
+    const wcs = (
+      [
+        [-0.5, 0.5],
+        [0.5, 0.5],
+        [-0.5, -0.5],
+      ] as const
+    ).map(([x, y]) => {
+      const [a, b] = clipPixelToUV(x, y, 1);
+      return [u[0] * a + v[0] * b, u[1] * a + v[1] * b];
+    });
+    expect(wcs).toEqual([
+      [0, 0],
+      [10, 0],
+      [0, 5],
+    ]);
+  });
+});

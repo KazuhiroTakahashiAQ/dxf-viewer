@@ -49,6 +49,11 @@ export function SettingsMenu() {
           {t('settings.clear')}
         </button>
         <hr />
+        <b>{t('settings.offline')}</b>
+        <button type="button" className="menu-item" onClick={() => useUi.getState().setFontDialog(true)}>
+          {t('settings.fonts')}
+        </button>
+        <hr />
         <b>{t('settings.input')}</b>
         <label>
           <input type="checkbox" checked={settings.trackpadPan} onChange={(e) => update({ trackpadPan: e.target.checked })} />

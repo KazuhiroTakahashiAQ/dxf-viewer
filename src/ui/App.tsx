@@ -6,6 +6,7 @@ import { UpdatePrompt } from '../pwa/UpdatePrompt';
 import { openFiles, openHandles, openSources, sessions } from '../session/DocumentSession';
 import { chooseFiles, droppedHandles } from './fileOpen';
 import { RecentList } from './RecentList';
+import { FontDownloadDialog } from './FontDownloadDialog';
 import { listRecent, loadRecent } from '../storage/recentFiles';
 import { addFontFiles } from '../session/userFonts';
 import { fontKind } from '../storage/userFonts';
@@ -166,6 +167,12 @@ function useFileDrop(): boolean {
       const files = all.filter((f) => isDxf(f.name, f.type));
       const fontFiles = all.filter((f) => fontKind(f.name));
       if (fontFiles.length) void addFontFiles(fontFiles);
+      const imageFiles = all.filter((f) => /\.(png|jpe?g|gif|webp|bmp|avif)$/i.test(f.name));
+      const active = sessions.get(useUi.getState().activeId ?? '');
+      if (imageFiles.length && active) {
+        void active.attachImageFiles(imageFiles);
+        useUi.getState().setDock('right', { open: true, active: 'document' });
+      }
       if (!files.length) return;
       void handlesP.then((hs) => {
         const fileHandles = hs.filter((h): h is FileSystemFileHandle => !!h && h.kind === 'file' && isDxf(h.name));
@@ -390,6 +397,7 @@ export function App() {
         {!focusMode && tab && <Dock side="right" panels={RIGHT} />}
       </div>
       <UrlOpenPrompt />
+      <FontDownloadDialog />
       <StatusBar />
       {dropping && <div className="drop-overlay">{t('welcome.drop')}</div>}
       <UpdatePrompt />

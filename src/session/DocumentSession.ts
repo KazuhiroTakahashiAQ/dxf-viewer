@@ -235,6 +235,22 @@ export class DocumentSession {
     return true;
   }
 
+  /** Supply raster files for IMAGE entities (matched by file name). */
+  async attachImageFiles(files: File[]): Promise<string[]> {
+    const images: { name: string; bitmap: ImageBitmap }[] = [];
+    for (const f of files) {
+      try {
+        images.push({ name: f.name, bitmap: await createImageBitmap(f) });
+      } catch {
+        /* undecodable (e.g. TIFF) */
+      }
+    }
+    if (!images.length) return [];
+    const r = await this.rpc.call('attachImages', { images }, images.map((i) => i.bitmap));
+    useUi.getState().bumpImages();
+    return r;
+  }
+
   /** Apply (or clear with null) a declarative filter. */
   async applyFilter(spec: FilterSpec | null): Promise<void> {
     const res = await this.rpc.call('applyFilter', { spec });

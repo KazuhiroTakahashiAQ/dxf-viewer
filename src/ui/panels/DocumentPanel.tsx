@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronRight, Crosshair, ScrollText } from 'lucide-react';
 
 import { t } from '../../i18n';
@@ -160,6 +160,48 @@ function ObjectTree({ session, handle, depth }: { session: DocumentSession; hand
         </div>
       ))}
     </div>
+  );
+}
+
+function ImageRefs({ session }: { session: DocumentSession }) {
+  const version = useUi((s) => s.imagesVersion);
+  const [refs, setRefs] = useState<{ fileName: string; count: number; attached: boolean }[]>([]);
+  const inputRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    void session.rpc.call('imageRefs', undefined).then(setRefs);
+  }, [session, version]);
+  if (!refs.length) return <p className="muted small">{t('doc.images.none')}</p>;
+  return (
+    <>
+      <p className="muted small">{t('doc.images.help')}</p>
+      <table className="grid">
+        <tbody>
+          {refs.map((r) => (
+            <tr key={r.fileName}>
+              <td className="mono small" title={r.fileName}>
+                {r.fileName}
+              </td>
+              <td className="num">{r.count}</td>
+              <td className="small">{r.attached ? t('doc.images.attached') : t('doc.images.missing')}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/gif,image/webp,image/bmp,image/avif"
+        multiple
+        hidden
+        onChange={(e) => {
+          if (e.target.files) void session.attachImageFiles(Array.from(e.target.files));
+          e.target.value = '';
+        }}
+      />
+      <button type="button" className="tb-btn small-btn" onClick={() => inputRef.current?.click()}>
+        {t('doc.images.attach')}
+      </button>
+    </>
   );
 }
 
@@ -403,6 +445,9 @@ export function DocumentPanel() {
             ))}
           </tbody>
         </table>
+      </Section>
+      <Section id="images" title={t('doc.images')}>
+        <ImageRefs session={session} />
       </Section>
       <Section id="thumbnail" title={t('doc.thumbnail')}>
         <Thumbnail session={session} />

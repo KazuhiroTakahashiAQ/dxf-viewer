@@ -8,7 +8,7 @@ import { configureFonts, fontConfig, resolveFont, type FontSpec, type UserFontIn
 import { makeShxProvider } from '../fonts/shxProvider';
 import { registerStrokeFont, unregisterStrokeFonts } from '../fonts/strokeFont';
 import { fontKey, getAllUserFonts } from '../storage/userFonts';
-import { Renderer, setPathFactory, type RenderOptions } from '../render/renderer';
+import { imageKey, Renderer, setPathFactory, type RenderOptions } from '../render/renderer';
 import { SvgContext, SvgPath } from '../render/svgContext';
 import { SceneBuilder, type Scene } from '../scene/scene';
 import { StyleResolver, TOP_CTX, type LayerOverride } from '../scene/style';
@@ -19,6 +19,7 @@ import { TextIndex } from './textIndex';
 import { entityInfo, rawTags } from './inspect';
 import { Picker } from './picking';
 import { snapAt } from './snap';
+import { imageDef } from '../dxf/objects';
 import { guessGenerator, headerVars, inspectHandle, objectChildren, rawRows, rawSearch, tableGroups, tagAtLine, tagOwner, typeStats } from './docInfo';
 import { blockInfos, makeContains, referencedBlock, treeChildren } from './blocks';
 import { FilterEngine, type CompiledFilter } from './filtering';
@@ -86,6 +87,8 @@ let activeFilter: CompiledFilter | null = null;
 /** layer property replacements from an applied layer state */
 let layerOverrides = new Map<string, LayerOverride>();
 let fileHash = '';
+/** user-supplied raster images for IMAGE entities (lower-case base name) */
+const imageBitmaps = new Map<string, ImageBitmap>();
 
 function engine(): FilterEngine {
   filterEngine ??= new FilterEngine(doc!, styles!, measurer);
@@ -239,6 +242,7 @@ function renderOptions(d: DxfDocument): RenderOptions {
     ...settings,
     layerOn,
     layerFrozen,
+    images: imageBitmaps,
     pdmode: headerNumber(d, '$PDMODE', 0),
     pdsize: headerNumber(d, '$PDSIZE', 0),
     lwdisplay: headerNumber(d, '$LWDISPLAY', 0) !== 0,
@@ -1105,6 +1109,37 @@ const api: DocApi = {
   },
   tagOwner(p) {
     return doc ? tagOwner(doc, p.index) : null;
+  },
+
+  imageRefs() {
+    if (!doc) return [];
+    const out = new Map<string, { fileName: string; count: number; attached: boolean }>();
+    for (const o of doc.objects) {
+      if (o.type !== 'IMAGEDEF') continue;
+      const def = imageDef(doc, o.handle);
+      if (!def?.fileName) continue;
+      const k = imageKey(def.fileName);
+      out.set(k, { fileName: def.fileName, count: 0, attached: imageBitmaps.has(k) });
+    }
+    for (const e of doc.entities) {
+      if (e.type !== 'IMAGE') continue;
+      const def = imageDef(doc, e.imageDef as string | undefined);
+      const r = def && out.get(imageKey(def.fileName));
+      if (r) r.count++;
+    }
+    return [...out.values()];
+  },
+
+  attachImages(p) {
+    const matched: string[] = [];
+    for (const im of p.images) {
+      const k = imageKey(im.name);
+      imageBitmaps.get(k)?.close();
+      imageBitmaps.set(k, im.bitmap);
+      matched.push(im.name);
+    }
+    scheduleRender();
+    return matched;
   },
 
   exportImage(p) {

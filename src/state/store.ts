@@ -109,12 +109,18 @@ export interface UiState {
   /** filter received through a shared link (not applied until confirmed) */
   pendingFilter: FilterSpec | null;
   setPendingFilter(f: FilterSpec | null): void;
+  /** offline font download dialog */
+  fontDialog: boolean;
+  setFontDialog(open: boolean): void;
   /** request for the Raw panel to scroll to a line */
   rawJump: { line: number; seq: number } | null;
   setRawJump(j: { line: number; seq: number } | null): void;
   /** handle requested for inspection in the Document panel */
   inspectHandle: string | null;
   setInspectHandle(h: string | null): void;
+  /** bumped when raster images are attached */
+  imagesVersion: number;
+  bumpImages(): void;
   /** bumped whenever the recent-files list changes */
   recentVersion: number;
   bumpRecent(): void;
@@ -210,10 +216,14 @@ export const useUi = create<UiState>((set, get) => ({
   setRegionPick: (k) => set({ regionPick: k }),
   pendingFilter: null,
   setPendingFilter: (f) => set({ pendingFilter: f }),
+  fontDialog: false,
+  setFontDialog: (open) => set({ fontDialog: open }),
   rawJump: null,
   setRawJump: (j) => set({ rawJump: j }),
   inspectHandle: null,
   setInspectHandle: (h) => set({ inspectHandle: h }),
+  imagesVersion: 0,
+  bumpImages: () => set((s) => ({ imagesVersion: s.imagesVersion + 1 })),
   recentVersion: 0,
   bumpRecent: () => set((s) => ({ recentVersion: s.recentVersion + 1 })),
   userFontsVersion: 0,

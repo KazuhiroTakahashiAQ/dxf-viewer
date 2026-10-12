@@ -295,6 +295,15 @@ function emitMLine(host: EmitHost, e: E, m: Mat34, ctx: InheritCtx): void {
   }
 }
 
+/**
+ * Clip boundary vertices are pixel coordinates relative to pixel centers with
+ * the origin at the top-left of the image and y pointing down (as ezdxf's
+ * ImageBase.boundary_path_wcs): returns (u, v) multipliers of the pixel vectors.
+ */
+export function clipPixelToUV(x: number, y: number, height: number): [number, number] {
+  return [x + 0.5, height - y - 0.5];
+}
+
 function emitImage(host: EmitHost, e: E, m: Mat34, ctx: InheritCtx): void {
   const st = host.use(e, ctx);
   const [w, h] = e.size as [number, number];
@@ -306,9 +315,8 @@ function emitImage(host: EmitHost, e: E, m: Mat34, ctx: InheritCtx): void {
   let clip: Vec3[] | undefined;
   const cl = e.clip as [number, number][];
   if ((e.clipping || e.type === 'WIPEOUT') && cl.length >= 2) {
-    // clip vertices are pixel coordinates relative to the pixel centers
     const pts = cl.length === 2 ? [cl[0], [cl[1][0], cl[0][1]], cl[1], [cl[0][0], cl[1][1]]] : cl;
-    clip = pts.map(([x, y]) => P(x + 0.5, y + 0.5));
+    clip = pts.map(([x, y]) => P(...clipPixelToUV(x, y, h)));
   }
   const def = e.type === 'IMAGE' ? imageDef(host.doc, e.imageDef) : undefined;
   const fileName = def?.fileName ?? '';

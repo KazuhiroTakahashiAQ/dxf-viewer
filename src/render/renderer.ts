@@ -26,6 +26,13 @@ export interface RenderOptions {
   pdmode: number;
   pdsize: number;
   lwdisplay: boolean;
+  /** raster images supplied by the user, keyed by lower-case file base name */
+  images?: Map<string, ImageBitmap>;
+}
+
+/** Lower-case base name of a path (Windows or POSIX separators). */
+export function imageKey(fileName: string): string {
+  return fileName.replace(/^.*[\\/]/, '').toLowerCase();
 }
 
 /** Options for drawing into part of the canvas (paper space viewports). */
@@ -517,6 +524,21 @@ export class Renderer {
       poly(im.clip ?? im.corners);
       ctx.fillStyle = css(f.opts.background);
       ctx.fill();
+      return;
+    }
+    const bmp = im.fileName ? f.opts.images?.get(imageKey(im.fileName)) : undefined;
+    if (bmp && bmp.width > 0 && bmp.height > 0) {
+      // corners: insert, +U·w, +U·w+V·h, +V·h → image top-left is the 4th corner
+      const c = im.corners;
+      const a: Affine2 = [(c[4] - c[6]) / bmp.width, (c[5] - c[7]) / bmp.width, (c[0] - c[6]) / bmp.height, (c[1] - c[7]) / bmp.height, c[6], c[7]];
+      ctx.save();
+      poly(im.clip ?? im.corners);
+      ctx.clip();
+      const t = affineMultiply(m, a);
+      ctx.setTransform(t[0], t[1], t[2], t[3], t[4], t[5]);
+      ctx.imageSmoothingEnabled = affScale(t) < 1;
+      ctx.drawImage(bmp, 0, 0);
+      ctx.restore();
       return;
     }
     const color = this.colorOf(f, im.style);
