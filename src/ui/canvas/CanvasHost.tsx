@@ -3,7 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 import { t } from '../../i18n';
 import { sessions, type DocumentSession } from '../../session/DocumentSession';
 import type { HoverInfo } from '../../shared/docApi';
-import { panBy, screenToWorld, zoomAt, type ViewState } from '../../shared/view';
+import { emptyFilter, type SpatialSpec } from '../../shared/filterSpec';
+import { panBy, screenToWorld, worldToScreen, zoomAt, type ViewState } from '../../shared/view';
 import { useUi } from '../../state/store';
 import { ContextMenu, type MenuItem } from './ContextMenu';
 
@@ -43,6 +44,7 @@ export function CanvasHost({ tabId }: { tabId: string }) {
   const setCursor = useUi((s) => s.setCursor);
   const [hover, setHover] = useState<{ info: HoverInfo; x: number; y: number } | null>(null);
   const [menu, setMenu] = useState<{ x: number; y: number; items: MenuItem[] } | null>(null);
+  const regionPick = useUi((s) => s.regionPick);
 
   // mount the session canvases
   useEffect(() => {
@@ -54,12 +56,13 @@ export function CanvasHost({ tabId }: { tabId: string }) {
     const ro = new ResizeObserver(() => {
       const r = host.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
-      session.setViewport({ width: Math.max(1, r.width), height: Math.max(1, r.height), dpr });
+      // resize the overlay first: setViewport notifies view listeners that redraw it
       const ov = overlayRef.current;
       if (ov) {
         ov.width = Math.round(r.width * dpr);
         ov.height = Math.round(r.height * dpr);
       }
+      session.setViewport({ width: Math.max(1, r.width), height: Math.max(1, r.height), dpr });
     });
     ro.observe(host);
     return () => {
@@ -90,23 +93,104 @@ export function CanvasHost({ tabId }: { tabId: string }) {
       return { x: e.clientX - r.left, y: e.clientY - r.top };
     };
 
-    const clearOverlay = () => {
+    /** transient feedback: selection/region box (screen) or polygon being drawn (world) */
+    let box: { x0: number; y0: number; x1: number; y1: number } | null = null;
+    let poly: number[] = [];
+    let polyHover: { x: number; y: number } | null = null;
+
+    const spatialOfTab = (): SpatialSpec | undefined => useUi.getState().tabs.find((x) => x.id === tabId)?.filter?.spatial;
+
+    const tracePoly = (pts: number[], close: boolean) => {
+      octx.beginPath();
+      for (let i = 0; i < pts.length; i += 2) {
+        const [x, y] = worldToScreen(session.view, session.viewport, pts[i], pts[i + 1]);
+        if (i === 0) octx.moveTo(x, y);
+        else octx.lineTo(x, y);
+      }
+      if (close) octx.closePath();
+    };
+
+    const render = () => {
+      const dpr = window.devicePixelRatio || 1;
       octx.setTransform(1, 0, 0, 1, 0, 0);
       octx.clearRect(0, 0, el.width, el.height);
+      octx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      octx.lineWidth = 1;
+      // spatial filter region of the tab
+      const sp = spatialOfTab();
+      if (sp) {
+        const pts = sp.kind === 'rect' ? [sp.minX, sp.minY, sp.maxX, sp.minY, sp.maxX, sp.maxY, sp.minX, sp.maxY] : sp.points;
+        octx.setLineDash([6, 4]);
+        octx.strokeStyle = '#ffb74d';
+        tracePoly(pts, true);
+        octx.stroke();
+      }
+      if (poly.length) {
+        octx.setLineDash([]);
+        octx.strokeStyle = '#ffb74d';
+        octx.fillStyle = 'rgba(255, 183, 77, 0.12)';
+        const pts = polyHover ? [...poly, ...screenToWorld(session.view, session.viewport, polyHover.x, polyHover.y)] : poly;
+        tracePoly(pts, pts.length >= 6);
+        if (pts.length >= 6) octx.fill();
+        octx.stroke();
+        for (let i = 0; i < poly.length; i += 2) {
+          const [x, y] = worldToScreen(session.view, session.viewport, poly[i], poly[i + 1]);
+          octx.fillStyle = '#ffb74d';
+          octx.fillRect(x - 2.5, y - 2.5, 5, 5);
+        }
+      }
+      if (box) {
+        const { x0, y0, x1, y1 } = box;
+        const region = !!useUi.getState().regionPick;
+        const crossing = x1 < x0;
+        octx.fillStyle = region ? 'rgba(255, 183, 77, 0.12)' : crossing ? 'rgba(102, 187, 106, 0.12)' : 'rgba(79, 195, 247, 0.12)';
+        octx.strokeStyle = region ? '#ffb74d' : crossing ? '#66bb6a' : '#4fc3f7';
+        octx.setLineDash(crossing && !region ? [5, 4] : []);
+        octx.fillRect(Math.min(x0, x1), Math.min(y0, y1), Math.abs(x1 - x0), Math.abs(y1 - y0));
+        octx.strokeRect(Math.min(x0, x1) + 0.5, Math.min(y0, y1) + 0.5, Math.abs(x1 - x0), Math.abs(y1 - y0));
+      }
+    };
+
+    const clearOverlay = () => {
+      box = null;
+      render();
     };
 
     const drawBox = (x0: number, y0: number, x1: number, y1: number) => {
-      const dpr = window.devicePixelRatio || 1;
-      clearOverlay();
-      const crossing = x1 < x0;
-      octx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      octx.fillStyle = crossing ? 'rgba(102, 187, 106, 0.12)' : 'rgba(79, 195, 247, 0.12)';
-      octx.strokeStyle = crossing ? '#66bb6a' : '#4fc3f7';
-      octx.lineWidth = 1;
-      octx.setLineDash(crossing ? [5, 4] : []);
-      octx.fillRect(Math.min(x0, x1), Math.min(y0, y1), Math.abs(x1 - x0), Math.abs(y1 - y0));
-      octx.strokeRect(Math.min(x0, x1) + 0.5, Math.min(y0, y1) + 0.5, Math.abs(x1 - x0), Math.abs(y1 - y0));
+      box = { x0, y0, x1, y1 };
+      render();
     };
+
+    /** Store a drawn region as the spatial condition of the tab's filter (applied with the filter). */
+    const finishRegion = (spatial: SpatialSpec | null) => {
+      const ui = useUi.getState();
+      const tab = ui.tabs.find((x) => x.id === tabId);
+      poly = [];
+      polyHover = null;
+      box = null;
+      ui.setRegionPick(null);
+      if (tab && spatial) {
+        const f = tab.filter ?? emptyFilter();
+        ui.setTab(tabId, { filter: { ...f, spatial: { ...spatial, mode: f.spatial?.mode ?? 'crossing' } as SpatialSpec } });
+      }
+      render();
+    };
+
+    const unsubView = session.onViewChange(render);
+    let lastSpatial = spatialOfTab();
+    let lastPickMode = useUi.getState().regionPick;
+    const unsubUi = useUi.subscribe((st) => {
+      const sp = st.tabs.find((x) => x.id === tabId)?.filter?.spatial;
+      if (sp !== lastSpatial || st.regionPick !== lastPickMode) {
+        if (st.regionPick !== lastPickMode && !st.regionPick) {
+          poly = [];
+          polyHover = null;
+        }
+        lastSpatial = sp;
+        lastPickMode = st.regionPick;
+        render();
+      }
+    });
 
     const updateCursor = () => {
       moveScheduled = false;
@@ -114,7 +198,7 @@ export function CanvasHost({ tabId }: { tabId: string }) {
       const p = local(lastMove);
       const [wx, wy] = screenToWorld(session.view, session.viewport, p.x, p.y);
       setCursor({ x: wx, y: wy });
-      if (!pan && !pinch && !press?.box && !hoverBusy && lastMove.pointerType !== 'touch') {
+      if (!pan && !pinch && !press?.box && !hoverBusy && lastMove.pointerType !== 'touch' && !useUi.getState().regionPick) {
         hoverBusy = true;
         void session.rpc
           .call('hover', p)
@@ -166,6 +250,10 @@ export function CanvasHost({ tabId }: { tabId: string }) {
         moveScheduled = true;
         requestAnimationFrame(updateCursor);
       }
+      if (poly.length && !pointers.size) {
+        polyHover = local(e);
+        render();
+      }
       if (!pointers.has(e.pointerId)) return;
       const p = local(e);
       pointers.set(e.pointerId, p);
@@ -196,6 +284,29 @@ export function CanvasHost({ tabId }: { tabId: string }) {
       press = null;
       if (!pr) return;
       const p = local(e);
+      const pickMode = useUi.getState().regionPick;
+      if (pickMode === 'rect' && pr.box) {
+        const c = [screenToWorld(s.view, s.viewport, pr.x, pr.y), screenToWorld(s.view, s.viewport, p.x, pr.y), screenToWorld(s.view, s.viewport, p.x, p.y), screenToWorld(s.view, s.viewport, pr.x, p.y)];
+        const axisAligned = Math.abs(c[0][1] - c[1][1]) < 1e-9 * Math.max(1, Math.abs(c[0][1]));
+        finishRegion(
+          axisAligned
+            ? { kind: 'rect', minX: Math.min(c[0][0], c[2][0]), minY: Math.min(c[0][1], c[2][1]), maxX: Math.max(c[0][0], c[2][0]), maxY: Math.max(c[0][1], c[2][1]), mode: 'crossing' }
+            : { kind: 'polygon', points: c.flat(), mode: 'crossing' },
+        );
+        return;
+      }
+      if (pickMode === 'polygon') {
+        if (pr.box) {
+          clearOverlay();
+          return;
+        }
+        const n = poly.length;
+        const last = n ? worldToScreen(s.view, s.viewport, poly[n - 2], poly[n - 1]) : null;
+        if (!last || Math.hypot(last[0] - p.x, last[1] - p.y) > 3) poly.push(...screenToWorld(s.view, s.viewport, p.x, p.y));
+        render();
+        return;
+      }
+      if (pickMode) return;
       const current = useUi.getState().tabs.find((x) => x.id === tabId)?.selection ?? [];
       if (pr.box) {
         clearOverlay();
@@ -239,6 +350,7 @@ export function CanvasHost({ tabId }: { tabId: string }) {
 
     const onDblClick = (e: MouseEvent) => {
       if (e.button === 1) session.fit();
+      if (e.button === 0 && useUi.getState().regionPick === 'polygon' && poly.length >= 6) finishRegion({ kind: 'polygon', points: [...poly], mode: 'crossing' });
     };
 
     const onAuxClick = (e: MouseEvent) => {
@@ -261,6 +373,16 @@ export function CanvasHost({ tabId }: { tabId: string }) {
     const onKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement)?.tagName === 'INPUT') return;
       if (e.code === 'Space') spaceDown = e.type === 'keydown';
+      const pickMode = useUi.getState().regionPick;
+      if (e.type === 'keydown' && pickMode) {
+        if (e.key === 'Escape') finishRegion(null);
+        else if (e.key === 'Enter' && pickMode === 'polygon' && poly.length >= 6) finishRegion({ kind: 'polygon', points: [...poly], mode: 'crossing' });
+        else if (e.key === 'Backspace' && poly.length) {
+          poly.splice(-2, 2);
+          render();
+        }
+        return;
+      }
       if (e.type === 'keydown' && e.key === 'Escape') {
         session.setSelection([]);
         setMenu(null);
@@ -280,7 +402,10 @@ export function CanvasHost({ tabId }: { tabId: string }) {
     el.addEventListener('contextmenu', onContextMenu);
     window.addEventListener('keydown', onKey);
     window.addEventListener('keyup', onKey);
+    render();
     return () => {
+      unsubView();
+      unsubUi();
       el.removeEventListener('wheel', onWheel);
       el.removeEventListener('pointerdown', onPointerDown);
       el.removeEventListener('pointermove', onPointerMove);
@@ -297,7 +422,15 @@ export function CanvasHost({ tabId }: { tabId: string }) {
 
   return (
     <div className="canvas-host" ref={hostRef}>
-      <canvas className="overlay-canvas" ref={overlayRef} />
+      <canvas className={`overlay-canvas ${regionPick ? 'picking-region' : ''}`} ref={overlayRef} />
+      {regionPick && (
+        <div className="canvas-hint">
+          {t(regionPick === 'rect' ? 'filter.region.rectHint' : 'filter.region.polygonHint')}
+          <button type="button" className="tb-btn small-btn" onClick={() => useUi.getState().setRegionPick(null)}>
+            {t('filter.region.cancel')}
+          </button>
+        </div>
+      )}
       {hover && (
         <div
           className="hover-tip"

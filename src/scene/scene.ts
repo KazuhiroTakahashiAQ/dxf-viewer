@@ -167,6 +167,18 @@ export interface SceneOptions {
 
 export const DEFAULT_SCENE_OPTIONS: SceneOptions = { budget: 5_000_000, maxDepth: 64, fill: true, drawOrder: 'auto' };
 
+/** Filter hooks applied while building (see src/filter). */
+export interface SceneFilter {
+  /** leaf predicate (entities that are not block references) */
+  leaf?: (e: Entity, ctx: InheritCtx, path: string[]) => boolean;
+  /** what to do with non-matching leaves */
+  leafMode?: 'skip' | 'dim';
+  /** top-level entities drawn dimmed (highlight mode) */
+  dimTop?: Set<number>;
+}
+
+const DIM_ALPHA = 0.15;
+
 class TileOut extends Projector {
   tile!: Tile;
   style!: Style;
@@ -391,6 +403,9 @@ export class SceneBuilder implements EmitHost {
   private topBBox: BBox | null = null;
   private clipTile: Tile | null = null;
   private runSeq = 0;
+  private alphaFactor = 1;
+  private blockNames: string[] = [];
+  filter: SceneFilter | null = null;
 
   constructor(
     readonly doc: DxfDocument,
@@ -450,7 +465,8 @@ export class SceneBuilder implements EmitHost {
 
   // ---------- EmitHost ----------
   use(e: Entity, ctx: InheritCtx): Style {
-    const st = this.scene.styles.resolve(e, ctx);
+    let st = this.scene.styles.resolve(e, ctx);
+    if (this.alphaFactor !== 1) st = { ...st, alpha: st.alpha * this.alphaFactor };
     this.useStyle(st);
     return st;
   }
@@ -560,7 +576,9 @@ export class SceneBuilder implements EmitHost {
     if (depth >= this.opts.maxDepth || this.blockStack.includes(key)) return false;
     void owner;
     this.blockStack.push(key);
+    this.blockNames.push(block.name);
     for (const id of this.blockOrder(key)) this.emitAny(this.doc.entities[id], m, ctx, depth + 1, true);
+    this.blockNames.pop();
     this.blockStack.pop();
     return true;
   }
@@ -938,7 +956,9 @@ export class SceneBuilder implements EmitHost {
       }
       this.budgetLeft -= cost;
     }
+    this.alphaFactor = this.filter?.dimTop?.has(e.id) ? DIM_ALPHA : 1;
     this.emitAny(e, identity(), TOP_CTX, 0, false);
+    this.alphaFactor = 1;
   }
 
   private emitFrame(e: Entity): void {
@@ -986,6 +1006,21 @@ export class SceneBuilder implements EmitHost {
       if (depth === 0) this.cover(e.type, 'block', true);
       return;
     }
+    if (this.filter?.leaf && e.type !== 'ACAD_TABLE') {
+      const match = this.filter.leaf(e, ctx, this.blockNames);
+      if (!match) {
+        if (this.filter.leafMode !== 'dim') return;
+        const prev = this.alphaFactor;
+        this.alphaFactor = DIM_ALPHA;
+        this.emitLeaf(e, m, ctx, depth, inBlock);
+        this.alphaFactor = prev;
+        return;
+      }
+    }
+    this.emitLeaf(e, m, ctx, depth, inBlock);
+  }
+
+  private emitLeaf(e: Entity, m: Mat34, ctx: InheritCtx, depth: number, inBlock: boolean): void {
     if (TEXT_TYPES.has(e.type)) {
       if (!this.textVisible(e, inBlock)) return;
       const st = this.use(e, ctx);

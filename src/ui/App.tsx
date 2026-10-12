@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { Activity, Boxes, FileText, FolderOpen, Layers, ListChecks, ListTree, SlidersHorizontal, Type, TextSearch } from 'lucide-react';
+import { Activity, Boxes, FileText, Filter, FolderOpen, Layers, ListChecks, ListTree, Search, SlidersHorizontal, Table2, Type, TextSearch } from 'lucide-react';
 
 import { t } from '../i18n';
 import { UpdatePrompt } from '../pwa/UpdatePrompt';
 import { openFiles, sessions } from '../session/DocumentSession';
 import { addFontFiles } from '../session/userFonts';
 import { fontKind } from '../storage/userFonts';
+import { decodeFilter } from '../shared/filterSpec';
 import { zoomAt } from '../shared/view';
 import { activeTab, useUi } from '../state/store';
 import { CanvasHost } from './canvas/CanvasHost';
@@ -15,8 +16,11 @@ import { StatusBar } from './layout/StatusBar';
 import { Toolbar } from './layout/Toolbar';
 import { DiagnosticsPanel } from './panels/DiagnosticsPanel';
 import { DocumentPanel } from './panels/DocumentPanel';
+import { FilterPanel } from './panels/FilterPanel';
 import { FontsPanel } from './panels/FontsPanel';
 import { PropertiesPanel } from './panels/PropertiesPanel';
+import { ResultsPanel } from './panels/ResultsPanel';
+import { SearchPanel } from './panels/SearchPanel';
 import { BlocksPanel } from './panels/BlocksPanel';
 import { StructurePanel } from './panels/StructurePanel';
 import { SelectionPanel } from './panels/SelectionPanel';
@@ -27,6 +31,8 @@ import { DocTabs } from './tabs/DocTabs';
 const LEFT: PanelDef[] = [
   { id: 'layers', title: 'panel.layers', icon: Layers, component: LayersPanel },
   { id: 'blocks', title: 'panel.blocks', icon: Boxes, component: BlocksPanel },
+  { id: 'filter', title: 'panel.filter', icon: Filter, component: FilterPanel },
+  { id: 'search', title: 'panel.search', icon: Search, component: SearchPanel },
   { id: 'structure', title: 'panel.structure', icon: ListTree, component: StructurePanel },
 ];
 const RIGHT: PanelDef[] = [
@@ -36,6 +42,7 @@ const RIGHT: PanelDef[] = [
   { id: 'fonts', title: 'panel.fonts', icon: Type, component: FontsPanel },
 ];
 const BOTTOM: PanelDef[] = [
+  { id: 'results', title: 'panel.results', icon: Table2, component: ResultsPanel },
   { id: 'texts', title: 'panel.texts', icon: TextSearch, component: TextsPanel },
   { id: 'diagnostics', title: 'panel.diagnostics', icon: Activity, component: DiagnosticsPanel },
 ];
@@ -44,6 +51,7 @@ const supported = typeof OffscreenCanvas !== 'undefined' && 'transferControlToOf
 
 function Welcome() {
   const fileRef = useRef<HTMLInputElement>(null);
+  const pending = useUi((s) => s.pendingFilter);
   return (
     <div className="welcome">
       <h1>{t('app.title')}</h1>
@@ -66,6 +74,7 @@ function Welcome() {
       </button>
       <p className="muted">{t('welcome.drop')}</p>
       <p className="muted small">{t('welcome.privacy')}</p>
+      {pending && <p className="notice small">{t('welcome.pendingFilter')}</p>}
     </div>
   );
 }
@@ -152,6 +161,28 @@ function useFileDrop(): boolean {
   return over;
 }
 
+/**
+ * `#filter=…` links carry a filter definition. It is only staged as a proposal
+ * (shown in the Filter panel) and never evaluated until the user loads and applies it.
+ */
+function useSharedFilterLink(): void {
+  useEffect(() => {
+    const read = () => {
+      const m = /^#filter=([A-Za-z0-9_-]+)$/.exec(location.hash);
+      if (!m) return;
+      history.replaceState(null, '', location.pathname + location.search);
+      const f = decodeFilter(m[1]);
+      if (!f) return;
+      const ui = useUi.getState();
+      ui.setPendingFilter(f);
+      ui.setDock('left', { open: true, active: 'filter' });
+    };
+    read();
+    window.addEventListener('hashchange', read);
+    return () => window.removeEventListener('hashchange', read);
+  }, []);
+}
+
 /** Re-send render and font settings when they change. */
 function useSettingsSync(): void {
   const settings = useUi((s) => s.settings);
@@ -180,6 +211,7 @@ export function App() {
   const dropping = useFileDrop();
   useGlobalShortcuts();
   useSettingsSync();
+  useSharedFilterLink();
 
   return (
     <div className={`app ${focusMode ? 'focus-mode' : ''}`}>

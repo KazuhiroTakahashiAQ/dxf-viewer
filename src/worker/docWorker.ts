@@ -16,6 +16,8 @@ import { TextIndex } from './textIndex';
 import { entityInfo, rawTags } from './inspect';
 import { Picker } from './picking';
 import { blockInfos, makeContains, referencedBlock, treeChildren } from './blocks';
+import { FilterEngine, type CompiledFilter } from './filtering';
+import { regexIssues } from '../shared/filterSpec';
 import { fitView } from '../shared/view';
 import { emit, serve } from '../shared/rpc';
 import { DEFAULT_VIEW, worldToScreen, type BBox2, type ViewState, type Viewport } from '../shared/view';
@@ -74,6 +76,20 @@ let selection: number[] = [];
 let hoverId: number | null = null;
 let hidden = new Set<number>();
 let isolated: Set<number> | null = null;
+let filterEngine: FilterEngine | null = null;
+let activeFilter: CompiledFilter | null = null;
+
+function engine(): FilterEngine {
+  filterEngine ??= new FilterEngine(doc!, styles!, measurer);
+  return filterEngine;
+}
+
+/** Layout items after hide/isolate (before filtering). */
+function visibleItems(name: string): number[] {
+  const li = doc ? layoutItems(doc, name) : null;
+  if (!li) return [];
+  return isolated || hidden.size ? li.items.filter((id) => (isolated ? isolated.has(id) : true) && !hidden.has(id)) : li.items;
+}
 
 function pickerOf(ls: LayoutState): Picker {
   ls.picker ??= new Picker(doc!, ls.scene, styles!, measurer);
@@ -385,8 +401,20 @@ function startLayout(name: string): LayoutState | null {
   if (existing) return existing;
   const li = layoutItems(doc, name);
   if (!li) return null;
-  const items = isolated || hidden.size ? li.items.filter((id) => (isolated ? isolated.has(id) : true) && !hidden.has(id)) : li.items;
+  let items = visibleItems(name);
+  const f = activeFilter;
+  let sceneFilter: SceneBuilder['filter'] = null;
+  if (f && f.spec.mode !== 'select') {
+    const matched = engine().match(f, name, items);
+    if (f.spec.mode === 'show') {
+      items = items.filter((id) => matched.has(id));
+      if (f.spec.level === 'leaf') sceneFilter = { leaf: f.pred, leafMode: 'skip' };
+    } else {
+      sceneFilter = f.spec.level === 'leaf' ? { leaf: f.pred, leafMode: 'dim' } : { dimTop: new Set(items.filter((id) => !matched.has(id))) };
+    }
+  }
   const b = new SceneBuilder(doc, items, measurer, () => new Path2D(), undefined, styles);
+  b.filter = sceneFilter;
   const ls: LayoutState = { name, kind: li.kind, items, builder: b, scene: b.scene, renderer: new Renderer(b.scene), gen: generation, sheet: li.sheet };
   layouts.set(name, ls);
   b.prepare();
@@ -409,6 +437,8 @@ function rebuild(): void {
   const names = [...layouts.keys()];
   layouts.clear();
   styles = new StyleResolver(doc);
+  filterEngine = null;
+  if (activeFilter) activeFilter = engine().compile(activeFilter.spec);
   for (const n of ['Model', ...names.filter((x) => x !== 'Model')]) startLayout(n);
   activate(active);
   lastProgressiveRender = performance.now();
@@ -585,6 +615,8 @@ const api: DocApi = {
     hoverId = null;
     hidden = new Set();
     isolated = null;
+    filterEngine = null;
+    activeFilter = null;
     layouts.clear();
     styles = new StyleResolver(d);
     layerOn = new Uint8Array(0);
@@ -764,6 +796,59 @@ const api: DocApi = {
     const d = doc;
     const items = (name: string) => layoutItems(d, name)?.items ?? null;
     return treeChildren(d, items, layoutList(d).map((l) => l.name), p.key, p.offset, p.limit);
+  },
+
+  filterCatalog() {
+    if (!doc) return { props: [], gcCodes: [], xdataApps: [], attrTags: [], fields: [] };
+    return engine().catalog(visibleItems(active));
+  },
+
+  filterFacets(p) {
+    if (!doc) return {};
+    return engine().facets(visibleItems(active), p.level);
+  },
+
+  filterValues(p) {
+    if (!doc) return [];
+    return engine().values(visibleItems(active), p.prop, p.level, p.limit);
+  },
+
+  applyFilter(p) {
+    if (!doc) return { count: 0 };
+    if (!p.spec) {
+      activeFilter = null;
+      rebuild();
+      return { count: 0 };
+    }
+    const f = engine().compile(p.spec);
+    const matched = engine().match(f, active, visibleItems(active));
+    const ids = [...matched];
+    const rejected = regexIssues(p.spec);
+    const base = { count: ids.length, leafCount: f.leafCount, truncated: f.truncated, rejected: rejected.length ? rejected : undefined };
+    if (p.spec.mode === 'select') {
+      // select only; the scene changes only when it was filtered before
+      const wasFiltering = activeFilter && activeFilter.spec.mode !== 'select';
+      activeFilter = f;
+      if (wasFiltering) rebuild();
+      selection = ids;
+      drawHighlight();
+      return { ...base, ids };
+    }
+    activeFilter = f;
+    rebuild();
+    return base;
+  },
+
+  filterResults(p) {
+    if (!doc || !activeFilter) return { total: 0, rows: [] };
+    const ids = [...engine().match(activeFilter, active, visibleItems(active))];
+    return { total: ids.length, rows: engine().rows(ids, p.offset, p.limit) };
+  },
+
+  search(p) {
+    if (!doc) return { total: 0, hits: [] };
+    textIndex ??= new TextIndex(doc);
+    return engine().search(visibleItems(active), textIndex, p);
   },
 
   describeIds(p) {

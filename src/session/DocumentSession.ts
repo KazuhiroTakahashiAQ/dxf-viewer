@@ -1,4 +1,5 @@
 import type { DocApi, DocEvents, DocSummary, RenderSettings } from '../shared/docApi';
+import type { FilterSpec } from '../shared/filterSpec';
 import { RpcClient } from '../shared/rpc';
 import { DEFAULT_VIEW, fitView, screenDelta, type BBox2, type ViewState, type Viewport } from '../shared/view';
 import { useUi } from '../state/store';
@@ -179,6 +180,14 @@ export class DocumentSession {
     const pad = Math.max(w, h) * 0.6 + 1e-9;
     this.setView(fitView({ minX: b.minX - pad, minY: b.minY - pad, maxX: b.maxX + pad, maxY: b.maxY + pad }, this.viewport, this.view, 0.05));
     return true;
+  }
+
+  /** Apply (or clear with null) a declarative filter. */
+  async applyFilter(spec: FilterSpec | null): Promise<void> {
+    const res = await this.rpc.call('applyFilter', { spec });
+    useUi.getState().setTab(this.id, { filterApplied: spec, filterResult: spec ? res : null });
+    if (spec?.mode === 'select' && res.ids) useUi.getState().setTab(this.id, { selection: res.ids });
+    else if (spec) this.setSelection([]);
   }
 
   /** Hide / isolate / show top-level entities (scenes are rebuilt in the worker). */

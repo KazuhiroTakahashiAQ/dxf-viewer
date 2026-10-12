@@ -13,3 +13,4 @@ tests/real/local/
 tools/reference/out/
 .venv/
 __pycache__/
+*.tsbuildinfo

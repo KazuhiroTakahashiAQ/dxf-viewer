@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 
-import type { BuildInfo, DocSummary, FontOverrideInfo, LayerInfo, LayoutInfo, RenderSettings } from '../shared/docApi';
+import type { BuildInfo, DocSummary, FilterResult, FontOverrideInfo, LayerInfo, LayoutInfo, RenderSettings } from '../shared/docApi';
+import type { FilterSpec } from '../shared/filterSpec';
 
 export type DockSide = 'left' | 'right' | 'bottom';
 
@@ -29,6 +30,10 @@ export interface TabState {
   selection?: number[];
   hiddenCount?: number;
   isolatedCount?: number;
+  /** filter being edited / applied */
+  filter?: FilterSpec;
+  filterApplied?: FilterSpec | null;
+  filterResult?: FilterResult | null;
 }
 
 export interface ViewerSettings extends RenderSettings {
@@ -55,6 +60,12 @@ export interface UiState {
   /** CSS px per world unit of the active view */
   scale: number;
   settings: ViewerSettings;
+  /** drawing a spatial filter region on the canvas */
+  regionPick: 'rect' | 'polygon' | null;
+  setRegionPick(k: 'rect' | 'polygon' | null): void;
+  /** filter received through a shared link (not applied until confirmed) */
+  pendingFilter: FilterSpec | null;
+  setPendingFilter(f: FilterSpec | null): void;
   /** handle requested for inspection in the Document panel */
   inspectHandle: string | null;
   setInspectHandle(h: string | null): void;
@@ -132,6 +143,10 @@ export const useUi = create<UiState>((set, get) => ({
   cursor: null,
   scale: 1,
   settings: { ...DEFAULT_SETTINGS, ...(persisted.settings ?? {}) },
+  regionPick: null,
+  setRegionPick: (k) => set({ regionPick: k }),
+  pendingFilter: null,
+  setPendingFilter: (f) => set({ pendingFilter: f }),
   inspectHandle: null,
   setInspectHandle: (h) => set({ inspectHandle: h }),
   userFontsVersion: 0,
@@ -146,7 +161,7 @@ export const useUi = create<UiState>((set, get) => ({
       if (activeId === id) activeId = tabs[Math.min(idx, tabs.length - 1)]?.id ?? null;
       return { tabs, activeId };
     }),
-  activate: (id) => set({ activeId: id, cursor: null }),
+  activate: (id) => set({ activeId: id, cursor: null, regionPick: null }),
   moveTab: (from, to) =>
     set((s) => {
       const tabs = [...s.tabs];

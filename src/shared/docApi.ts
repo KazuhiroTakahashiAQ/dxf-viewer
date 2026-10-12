@@ -1,4 +1,5 @@
 import type { BBox2, ViewState, Viewport } from './view';
+import type { CatalogProp, FacetKey, FilterSpec } from './filterSpec';
 
 export interface OpenParams {
   bytes: ArrayBuffer;
@@ -223,6 +224,41 @@ export interface TreeNode {
   hasChildren: boolean;
 }
 
+export interface FilterCatalog {
+  props: CatalogProp[];
+  gcCodes: number[];
+  xdataApps: string[];
+  attrTags: string[];
+  fields: string[];
+}
+
+export interface FilterResult {
+  count: number;
+  /** matching leaves (leaf level) */
+  leafCount?: number;
+  truncated?: boolean;
+  ids?: number[];
+  /** regular expressions that were not evaluated (invalid / risky) */
+  rejected?: { pattern: string; reason: 'invalid' | 'risky' }[];
+}
+
+export interface ResultRow {
+  id: number;
+  handle: string;
+  type: string;
+  layer: string;
+  label: string;
+}
+
+export interface SearchHit {
+  id: number;
+  handle: string;
+  type: string;
+  layer: string;
+  field: string;
+  text: string;
+}
+
 export interface LayoutInfo {
   name: string;
   kind: 'model' | 'paper';
@@ -260,6 +296,12 @@ export type DocApi = {
   blockRefs(p: { name: string; nested: boolean }): number[];
   blockPreview(p: { name: string; size: number; background: number }): ImageBitmap | null;
   treeChildren(p: { key: string; offset: number; limit: number }): { total: number; nodes: TreeNode[] };
+  filterCatalog(p: void): FilterCatalog;
+  filterFacets(p: { level: 'top' | 'leaf' }): Partial<Record<FacetKey, [string, number][]>>;
+  filterValues(p: { prop: string; level: 'top' | 'leaf'; limit: number }): [string, number][];
+  applyFilter(p: { spec: FilterSpec | null }): FilterResult;
+  filterResults(p: { offset: number; limit: number }): { total: number; rows: ResultRow[] };
+  search(p: { query: string; regex: boolean; caseSensitive: boolean; limit: number }): { total: number; hits: SearchHit[]; error?: string };
   setLayout(p: { name: string }): { extents: BBox2 | null; kind: 'model' | 'paper' } | null;
   setFontOptions(p: FontOptions): Promise<void>;
   /** re-read user fonts from IndexedDB; returns load errors */
