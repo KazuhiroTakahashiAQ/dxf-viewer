@@ -6,6 +6,7 @@ export interface OpenParams {
   encoding?: string;
   /** absolute URL of the app base (for fonts/manifest.json) */
   baseUrl: string;
+  fontOptions?: FontOptions;
 }
 
 export interface DiagnosticInfo {
@@ -101,6 +102,56 @@ export interface FrameInfo {
   texts: number;
 }
 
+export interface TextQuery {
+  text: string;
+  regex: boolean;
+  caseSensitive: boolean;
+  field: 'plain' | 'raw';
+  /** 'all' | 'Model' | 'Paper' | 'blocks' */
+  container?: string;
+  offset: number;
+  limit: number;
+}
+
+export interface TextRow {
+  id: number;
+  handle: string;
+  type: string;
+  layer: string;
+  style: string;
+  height: number;
+  raw: string;
+  plain: string;
+  container: string;
+  tag?: string;
+}
+
+export interface FontOverrideInfo {
+  target: string;
+  widthScale: number;
+  heightScale: number;
+}
+
+export interface FontUsage {
+  /** font name as written in the drawing (key for overrides) */
+  requested: string;
+  kind: 'shx' | 'ttf';
+  bigFont?: string;
+  styles: string[];
+  textCount: number;
+  substitute: string;
+  stroke?: string;
+  /** null when not applicable (SHX) */
+  localAvailable: boolean | null;
+  localName?: string;
+  override?: FontOverrideInfo;
+}
+
+export interface FontOptions {
+  preferLocal: boolean;
+  overrides: Record<string, FontOverrideInfo>;
+}
+
 /** Methods exposed by the document worker. */
 export type DocApi = {
   open(p: OpenParams): Promise<DocSummary>;
@@ -111,6 +162,12 @@ export type DocApi = {
   setLayerState(p: { changes: { index: number; on?: boolean; frozen?: boolean }[] } | { reset: true } | { all: { on?: boolean; frozen?: boolean } }): LayerInfo[];
   getLayers(p: void): LayerInfo[];
   getBuildInfo(p: void): BuildInfo;
+  queryTexts(p: TextQuery): { total: number; rows: TextRow[]; error?: string };
+  entityBounds(p: { ids: number[] }): BBox2 | null;
+  getFonts(p: void): FontUsage[];
+  setFontOptions(p: FontOptions): Promise<void>;
+  /** re-read user fonts from IndexedDB; returns load errors */
+  reloadUserFonts(p: void): Promise<string[]>;
 };
 
 export type DocEvents = {

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-import type { BuildInfo, DocSummary, LayerInfo, RenderSettings } from '../shared/docApi';
+import type { BuildInfo, DocSummary, FontOverrideInfo, LayerInfo, RenderSettings } from '../shared/docApi';
 
 export type DockSide = 'left' | 'right' | 'bottom';
 
@@ -29,6 +29,9 @@ export interface ViewerSettings extends RenderSettings {
   /** decimals for coordinate display; -1 = from $LUPREC */
   coordPrecision: number;
   wheelZoomFactor: number;
+  preferLocalFonts: boolean;
+  /** keyed by lower-case requested font name */
+  fontOverrides: Record<string, FontOverrideInfo>;
 }
 
 export interface UiState {
@@ -40,6 +43,9 @@ export interface UiState {
   /** CSS px per world unit of the active view */
   scale: number;
   settings: ViewerSettings;
+  /** bumped whenever user fonts change */
+  userFontsVersion: number;
+  bumpUserFonts(): void;
   setTab(id: string, patch: Partial<TabState>): void;
   addTab(tab: TabState): void;
   removeTab(id: string): void;
@@ -71,12 +77,14 @@ const DEFAULT_SETTINGS: ViewerSettings = {
   monochrome: false,
   coordPrecision: -1,
   wheelZoomFactor: 1.2,
+  preferLocalFonts: true,
+  fontOverrides: {},
 };
 
 const DEFAULT_DOCKS: Record<DockSide, DockState> = {
   left: { open: true, size: 280, active: 'layers' },
   right: { open: false, size: 320, active: 'document' },
-  bottom: { open: false, size: 220, active: 'diagnostics' },
+  bottom: { open: false, size: 240, active: 'texts' },
 };
 
 function load(): Partial<Persisted> {
@@ -106,6 +114,8 @@ export const useUi = create<UiState>((set, get) => ({
   cursor: null,
   scale: 1,
   settings: { ...DEFAULT_SETTINGS, ...(persisted.settings ?? {}) },
+  userFontsVersion: 0,
+  bumpUserFonts: () => set((s) => ({ userFontsVersion: s.userFontsVersion + 1 })),
   setTab: (id, patch) => set((s) => ({ tabs: s.tabs.map((t) => (t.id === id ? { ...t, ...patch } : t)) })),
   addTab: (tab) => set((s) => ({ tabs: [...s.tabs, tab], activeId: tab.id })),
   removeTab: (id) =>

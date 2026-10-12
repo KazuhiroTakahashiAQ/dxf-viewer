@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { Activity, FileText, FolderOpen, Layers } from 'lucide-react';
+import { Activity, FileText, FolderOpen, Layers, Type, TextSearch } from 'lucide-react';
 
 import { t } from '../i18n';
 import { UpdatePrompt } from '../pwa/UpdatePrompt';
 import { openFiles, sessions } from '../session/DocumentSession';
+import { addFontFiles } from '../session/userFonts';
+import { fontKind } from '../storage/userFonts';
 import { zoomAt } from '../shared/view';
 import { activeTab, useUi } from '../state/store';
 import { CanvasHost } from './canvas/CanvasHost';
@@ -12,12 +14,20 @@ import { StatusBar } from './layout/StatusBar';
 import { Toolbar } from './layout/Toolbar';
 import { DiagnosticsPanel } from './panels/DiagnosticsPanel';
 import { DocumentPanel } from './panels/DocumentPanel';
+import { FontsPanel } from './panels/FontsPanel';
+import { TextsPanel } from './panels/TextsPanel';
 import { LayersPanel } from './panels/LayersPanel';
 import { DocTabs } from './tabs/DocTabs';
 
 const LEFT: PanelDef[] = [{ id: 'layers', title: 'panel.layers', icon: Layers, component: LayersPanel }];
-const RIGHT: PanelDef[] = [{ id: 'document', title: 'panel.document', icon: FileText, component: DocumentPanel }];
-const BOTTOM: PanelDef[] = [{ id: 'diagnostics', title: 'panel.diagnostics', icon: Activity, component: DiagnosticsPanel }];
+const RIGHT: PanelDef[] = [
+  { id: 'document', title: 'panel.document', icon: FileText, component: DocumentPanel },
+  { id: 'fonts', title: 'panel.fonts', icon: Type, component: FontsPanel },
+];
+const BOTTOM: PanelDef[] = [
+  { id: 'texts', title: 'panel.texts', icon: TextSearch, component: TextsPanel },
+  { id: 'diagnostics', title: 'panel.diagnostics', icon: Activity, component: DiagnosticsPanel },
+];
 
 const supported = typeof OffscreenCanvas !== 'undefined' && 'transferControlToOffscreen' in HTMLCanvasElement.prototype;
 
@@ -106,7 +116,10 @@ function useFileDrop(): boolean {
       e.preventDefault();
       depth = 0;
       setOver(false);
-      const files = Array.from(e.dataTransfer?.files ?? []).filter((f) => /\.dxf$/i.test(f.name) || f.type.includes('dxf'));
+      const all = Array.from(e.dataTransfer?.files ?? []);
+      const files = all.filter((f) => /\.dxf$/i.test(f.name) || f.type.includes('dxf'));
+      const fontFiles = all.filter((f) => fontKind(f.name));
+      if (fontFiles.length) void addFontFiles(fontFiles);
       if (files.length) void openFiles(files);
     };
     window.addEventListener('dragenter', onEnter);
@@ -123,12 +136,26 @@ function useFileDrop(): boolean {
   return over;
 }
 
-/** Re-send render settings when they change. */
+/** Re-send render and font settings when they change. */
 function useSettingsSync(): void {
   const settings = useUi((s) => s.settings);
+  const { preferLocalFonts, fontOverrides } = settings;
+  const first = useRef(true);
   useEffect(() => {
     sessions.forEach((s) => s.sendSettings(settings));
   }, [settings]);
+  useEffect(() => {
+    if (first.current) {
+      first.current = false;
+      return;
+    }
+    const timer = setTimeout(() => {
+      sessions.forEach((s) => {
+        if (s.summary) void s.rpc.call('setFontOptions', { preferLocal: preferLocalFonts, overrides: fontOverrides });
+      });
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [preferLocalFonts, fontOverrides]);
 }
 
 export function App() {

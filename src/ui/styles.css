@@ -659,3 +659,136 @@ table.grid th {
     display: none;
   }
 }
+
+.nowrap {
+  white-space: nowrap;
+}
+.panel-toolbar select {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 4px;
+  max-width: 130px;
+}
+.icon-btn.toggle.on {
+  background: color-mix(in srgb, var(--accent) 30%, transparent);
+  color: var(--fg);
+}
+.text-row {
+  display: grid;
+  grid-template-columns: 70px 120px 110px 64px minmax(200px, 1fr) 140px 70px;
+  gap: 8px;
+  padding: 0 8px;
+  align-items: center;
+  white-space: nowrap;
+  cursor: default;
+}
+.text-row > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.panel-scroll .text-row:hover {
+  background: var(--hover);
+  cursor: pointer;
+}
+.text-row.selected {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.panel-section {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+}
+.panel-section p {
+  margin: 6px 0 0;
+}
+label.check {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.font-card {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.font-head {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+.font-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.badge {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  white-space: nowrap;
+}
+.badge.shx {
+  color: var(--warn);
+  border-color: color-mix(in srgb, var(--warn) 50%, transparent);
+}
+.badge.ttf {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+}
+.font-resolve .ok {
+  color: #66bb6a;
+}
+.font-controls {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.font-controls select {
+  flex: 1 1 100%;
+  min-width: 140px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 4px;
+}
+.font-controls label {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+  color: var(--muted);
+}
+.font-controls input {
+  width: 56px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 4px;
+}
+
+.section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.user-font-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 0;
+}
+.link-btn {
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 8px 10px;
+  text-align: left;
+}

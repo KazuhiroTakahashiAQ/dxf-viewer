@@ -4,10 +4,14 @@ import { headerNumber, parseDxf } from '../dxf/parser';
 import { plainText } from '../dxf/text/escapes';
 import { mtextPlain } from '../dxf/text/mtext';
 import { CanvasMeasurer, FontRegistry } from '../fonts/fontLoader';
-import { resolveFont, type FontSpec } from '../fonts/resolve';
+import { configureFonts, fontConfig, resolveFont, type FontSpec, type UserFontInfo } from '../fonts/resolve';
+import { makeShxProvider } from '../fonts/shxProvider';
+import { registerStrokeFont, unregisterStrokeFonts } from '../fonts/strokeFont';
+import { fontKey, getAllUserFonts } from '../storage/userFonts';
 import { Renderer, type RenderOptions } from '../render/renderer';
 import { SceneBuilder, type Scene } from '../scene/scene';
-import type { BuildInfo, DocApi, DocSummary, LayerInfo, RenderSettings } from '../shared/docApi';
+import type { BuildInfo, DocApi, DocSummary, FontUsage, LayerInfo, RenderSettings } from '../shared/docApi';
+import { TextIndex } from './textIndex';
 import { emit, serve } from '../shared/rpc';
 import { DEFAULT_VIEW, type ViewState, type Viewport } from '../shared/view';
 
@@ -42,6 +46,7 @@ let settings: RenderSettings = {
 let layerOn = new Uint8Array(0);
 let layerFrozen = new Uint8Array(0);
 let renderScheduled = false;
+let textIndex: TextIndex | null = null;
 let lastProgressiveRender = 0;
 
 function syncLayerArrays(): void {
@@ -159,6 +164,114 @@ function continueBuild(gen: number): void {
   setTimeout(() => continueBuild(gen), 0);
 }
 
+/** Rebuild the scene (after font option changes) keeping layer states. */
+function rebuild(): void {
+  if (!doc) return;
+  const gen = ++generation;
+  builder = new SceneBuilder(doc, doc.modelSpace, measurer, () => new Path2D());
+  scene = builder.scene;
+  renderer = new Renderer(scene);
+  builder.prepare();
+  syncLayerArrays();
+  lastProgressiveRender = performance.now();
+  setTimeout(() => continueBuild(gen), 0);
+}
+
+const userFontFaces: FontFace[] = [];
+const userFontErrors: string[] = [];
+
+/** Register fonts the user added (IndexedDB) for text resolution in this worker. */
+async function loadUserFonts(): Promise<void> {
+  for (const f of userFontFaces) self.fonts.delete(f);
+  userFontFaces.length = 0;
+  userFontErrors.length = 0;
+  unregisterStrokeFonts('shx:');
+  const map = new Map<string, UserFontInfo>();
+  for (const f of await getAllUserFonts()) {
+    const key = fontKey(f.name);
+    try {
+      if (f.kind === 'ttf') {
+        const family = `dxfv-user ${key}`;
+        const face = new FontFace(family, f.bytes);
+        await face.load();
+        self.fonts.add(face);
+        userFontFaces.push(face);
+        map.set(key, { kind: 'ttf', family });
+      } else {
+        const { provider, type } = makeShxProvider(f.name, f.bytes);
+        registerStrokeFont(`shx:${key}`, provider);
+        map.set(key, { kind: 'shx', strokeId: `shx:${key}`, shxType: type });
+      }
+    } catch (err) {
+      userFontErrors.push(`${f.name}: ${(err as Error).message}`);
+    }
+  }
+  configureFonts({ userFonts: map });
+}
+
+const localCache = new Map<string, boolean>();
+/** Whether a font family is installed locally (width comparison against generic fallbacks). */
+function localAvailable(name: string): boolean {
+  let v = localCache.get(name);
+  if (v !== undefined) return v;
+  const c = new OffscreenCanvas(8, 8).getContext('2d')!;
+  const sample = 'mmmmmmmmmmlli1WW あア漢';
+  let differs = false;
+  for (const generic of ['monospace', 'serif', 'sans-serif']) {
+    c.font = `40px ${generic}`;
+    const w0 = c.measureText(sample).width;
+    c.font = `40px "${name.replace(/"/g, '')}", ${generic}`;
+    if (Math.abs(c.measureText(sample).width - w0) > 0.5) differs = true;
+  }
+  v = differs;
+  localCache.set(name, v);
+  return v;
+}
+
+function fontUsage(d: DxfDocument): FontUsage[] {
+  textIndex ??= new TextIndex(d);
+  const usage = textIndex.styleUsage();
+  const map = new Map<string, FontUsage>();
+  const add = (spec: FontSpec, kind: 'shx' | 'ttf', styleName: string | null, count: number, bigFont?: string) => {
+    const key = spec.requested.toLowerCase();
+    let u = map.get(key);
+    if (!u) {
+      const localName = kind === 'ttf' ? (/^"([^"]+)"/.exec(spec.family)?.[1] ?? undefined) : undefined;
+      u = {
+        requested: spec.requested,
+        kind,
+        bigFont,
+        styles: [],
+        textCount: 0,
+        substitute: spec.primary,
+        stroke: spec.stroke,
+        localAvailable: kind === 'ttf' && localName && !localName.startsWith('dxfv ') ? localAvailable(localName) : null,
+        localName: localName && !localName.startsWith('dxfv ') ? localName : undefined,
+        override: fontConfig().overrides[key],
+      };
+      map.set(key, u);
+    }
+    if (styleName && !u.styles.includes(styleName)) u.styles.push(styleName);
+    u.textCount += count;
+  };
+  for (const st of d.styles.values()) {
+    const spec = resolveFont(st);
+    const kind = spec.stroke || /\.shx$/i.test(st.font) || (!st.family && !/\.(ttf|ttc|otf)$/i.test(st.font)) ? 'shx' : 'ttf';
+    add(spec, kind, st.name, usage.get(nameKey(st.name)) ?? 0, st.bigFont || undefined);
+  }
+  const fontRe = /\\([fF])([^|;\\]*)((?:\|[^|;]*)*);/g;
+  for (const e of d.entities) {
+    if (e.type !== 'MTEXT') continue;
+    const m = e as MTextEntity;
+    for (const fm of m.text.matchAll(fontRe)) {
+      if (!fm[2]) continue;
+      const spec = resolveFont(d.styles.get(nameKey(m.style)), { font: fm[2], shx: fm[1] === 'F' });
+      add(spec, spec.stroke ? 'shx' : 'ttf', null, 1);
+    }
+  }
+  return [...map.values()].sort((a, b) => b.textCount - a.textCount);
+}
+
 function summarize(d: DxfDocument, s: Scene, parseMs: number): DocSummary {
   const ext = s.extents;
   const vport = d.tableRecords.find((r) => r.table === 'VPORT' && /^\*active$/i.test(r.name));
@@ -201,6 +314,7 @@ function summarize(d: DxfDocument, s: Scene, parseMs: number): DocSummary {
 const api: DocApi = {
   async open(p) {
     const gen = ++generation;
+    if (p.fontOptions) configureFonts({ preferLocal: p.fontOptions.preferLocal, overrides: Object.fromEntries(Object.entries(p.fontOptions.overrides).map(([k, v]) => [k.toLowerCase(), v])) });
     const t0 = performance.now();
     const d = parseDxf(new Uint8Array(p.bytes), {
       name: p.name,
@@ -211,13 +325,14 @@ const api: DocApi = {
     emit(self, 'progress', { phase: 'fonts', fraction: 0.5 });
     if (!fonts) {
       fonts = new FontRegistry(self.fonts, p.baseUrl);
-      await fonts.init();
+      await Promise.all([fonts.init(), loadUserFonts()]);
     }
     const { specs, text } = collectFonts(d);
     await fonts.ensure(specs, text);
     if (gen !== generation) throw new Error('superseded');
 
     doc = d;
+    textIndex = null;
     builder = new SceneBuilder(d, d.modelSpace, measurer, () => new Path2D());
     scene = builder.scene;
     renderer = new Renderer(scene);
@@ -289,6 +404,47 @@ const api: DocApi = {
 
   getBuildInfo() {
     return buildInfo();
+  },
+
+  queryTexts(q) {
+    if (!doc) return { total: 0, rows: [] };
+    textIndex ??= new TextIndex(doc);
+    return textIndex.query(q);
+  },
+
+  entityBounds(p) {
+    if (!builder) return null;
+    let b: { minX: number; minY: number; maxX: number; maxY: number } | null = null;
+    for (const id of p.ids) {
+      const e = builder.boundsOf(id);
+      if (!e) continue;
+      if (!b) b = { ...e };
+      else {
+        b.minX = Math.min(b.minX, e.minX);
+        b.minY = Math.min(b.minY, e.minY);
+        b.maxX = Math.max(b.maxX, e.maxX);
+        b.maxY = Math.max(b.maxY, e.maxY);
+      }
+    }
+    return b;
+  },
+
+  getFonts() {
+    return doc ? fontUsage(doc) : [];
+  },
+
+  async reloadUserFonts() {
+    await loadUserFonts();
+    if (doc) rebuild();
+    return userFontErrors;
+  },
+
+  async setFontOptions(p) {
+    configureFonts({ preferLocal: p.preferLocal, overrides: Object.fromEntries(Object.entries(p.overrides).map(([k, v]) => [k.toLowerCase(), v])) });
+    if (!doc || !fonts) return;
+    const { specs, text } = collectFonts(doc);
+    await fonts.ensure(specs, text);
+    rebuild();
   },
 };
 

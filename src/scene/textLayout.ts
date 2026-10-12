@@ -4,7 +4,8 @@ import { parseMText, type MTextItem, type MTextStyle } from '../dxf/text/mtext';
 import { fromAxes, multiply, rotationZ, scaling, translation, type Mat34 } from '../geom/matrix';
 import { ocsAxes, ocsToWcs } from '../geom/ocs';
 import { cross3, DEG, norm3, type Vec3 } from '../geom/vec';
-import { resolveFont, type FontSpec } from '../fonts/resolve';
+import { bigFontSpec, resolveFont, WIDE_CHAR, type FontSpec } from '../fonts/resolve';
+import { hasStrokeGlyph, strokeMeasureCap } from '../fonts/strokeFont';
 
 /** Reference font size used for all measuring/drawing (scaled by transforms). */
 export const REF_PX = 100;
@@ -22,17 +23,22 @@ export interface TextMeasurer {
   metrics(font: FontSpec): FontMetrics;
 }
 
+export type RunMode = 'fill' | 'stroke';
+
 export interface PlacedRun {
   text: string;
   /** baseline-left position in local text units (y up) */
   x: number;
   y: number;
-  /** em size in local units */
+  /** fill: em size; stroke: cap height (local units) */
   size: number;
   scaleX: number;
   /** tan(oblique) */
   skew: number;
   font: FontSpec;
+  mode: RunMode;
+  /** stroke provider id (mode 'stroke') */
+  stroke?: string;
   /** inline color override */
   aci?: number;
   rgb?: number;
@@ -58,8 +64,72 @@ export interface PlacedText {
   matrix: Mat34;
 }
 
-function measureRun(m: TextMeasurer, text: string, font: FontSpec, size: number, scaleX: number): number {
-  return (m.width(text, font) / REF_PX) * size * scaleX;
+/** A piece of text drawn with one technique. */
+interface Seg {
+  text: string;
+  mode: RunMode;
+  stroke?: string;
+  font: FontSpec;
+  size: number;
+  scaleX: number;
+  width: number;
+}
+
+type Klass = 'stroke' | 'bigstroke' | 'big' | 'fill';
+
+function classify(ch: string, font: FontSpec): Klass {
+  const wide = WIDE_CHAR.test(ch);
+  if (font.bigStroke && wide && hasStrokeGlyph(font.bigStroke, ch)) return 'bigstroke';
+  if (font.stroke && hasStrokeGlyph(font.stroke, ch)) return 'stroke';
+  if (font.bigStroke && hasStrokeGlyph(font.bigStroke, ch)) return 'bigstroke';
+  if ((font.stroke || font.bigFont) && wide) return 'big';
+  return 'fill';
+}
+
+/**
+ * Split text into segments by drawing technique (stroke font, big font cell,
+ * filled glyphs) and measure them. `h` is the nominal (cap) height.
+ */
+function segment(text: string, font: FontSpec, h: number, scaleX: number, m: TextMeasurer): Seg[] {
+  const segs: Seg[] = [];
+  const hh = h * font.heightScale;
+  const sx = scaleX * font.widthScale;
+  const make = (t: string, k: Klass): Seg => {
+    if (k === 'stroke' || k === 'bigstroke') {
+      const id = k === 'stroke' ? font.stroke! : font.bigStroke!;
+      return { text: t, mode: 'stroke', stroke: id, font, size: hh, scaleX: sx, width: strokeMeasureCap(id, t) * hh * sx };
+    }
+    if (k === 'big') {
+      const bf = bigFontSpec(font);
+      // big font glyphs occupy a square cell of the text height
+      return { text: t, mode: 'fill', font: bf, size: hh, scaleX: sx, width: (m.width(t, bf) / REF_PX) * hh * sx };
+    }
+    const size = hh / (m.metrics(font).capHeight || 0.7);
+    return { text: t, mode: 'fill', font, size, scaleX: sx, width: (m.width(t, font) / REF_PX) * size * sx };
+  };
+  if (!font.stroke && !font.bigFont && !font.bigStroke) {
+    if (text) segs.push(make(text, 'fill'));
+    return segs;
+  }
+  let cur = '';
+  let kind: Klass | null = null;
+  for (const ch of text) {
+    const k = classify(ch, font);
+    if (kind !== null && k !== kind) {
+      segs.push(make(cur, kind));
+      cur = '';
+    }
+    kind = k;
+    cur += ch;
+  }
+  if (cur && kind) segs.push(make(cur, kind));
+  return segs;
+}
+
+function segWidth(segs: Seg[]): number {
+  let w = 0;
+  for (const s of segs) w += s.width;
+  return w;
 }
 
 function emptyLayout(height: number): TextLayout {
@@ -72,15 +142,16 @@ export function layoutText(e: TextEntity, style: TextStyle | undefined, measurer
   const h = e.height > 0 ? e.height : style?.height && style.height > 0 ? style.height : 2.5;
   const font = resolveFont(style);
   const met = measurer.metrics(font);
-  let size = h / (met.capHeight || 0.7);
   let scaleX = e.widthFactor > 0 ? e.widthFactor : (style?.widthFactor ?? 1);
   const obliqueDeg = e.oblique || style?.oblique || 0;
   const skew = Math.tan(obliqueDeg * DEG);
   const runs = parseTextSpecials(content);
   if (!runs.length) return null;
 
-  let width = 0;
-  for (const r of runs) width += measureRun(measurer, r.text, font, size, scaleX);
+  let hEff = h;
+  const segRuns = () => runs.map((r) => ({ r, segs: segment(r.text, font, hEff, scaleX, measurer) }));
+  let pieces = segRuns();
+  let width = pieces.reduce((s, p) => s + segWidth(p.segs), 0);
 
   const insert = e.insert;
   const align = e.align ?? insert;
@@ -92,7 +163,7 @@ export function layoutText(e: TextEntity, style: TextStyle | undefined, measurer
   let y0 = 0;
   const halign = e.halign | 0;
   const valign = e.valign | 0;
-  let height = h;
+  const descent = hEff * (met.descent / (met.capHeight || 0.7));
 
   if ((halign === 3 || halign === 5) && e.align) {
     const dx = align[0] - insert[0];
@@ -100,15 +171,10 @@ export function layoutText(e: TextEntity, style: TextStyle | undefined, measurer
     const L = Math.hypot(dx, dy);
     if (L > 1e-12 && width > 1e-12) {
       rotation = Math.atan2(dy, dx);
-      if (halign === 3) {
-        const f = L / width;
-        size *= f;
-        height *= f;
-        width = L;
-      } else {
-        scaleX *= L / width;
-        width = L;
-      }
+      if (halign === 3) hEff = (h * L) / width;
+      else scaleX = (scaleX * L) / width;
+      pieces = segRuns();
+      width = pieces.reduce((s, p) => s + segWidth(p.segs), 0);
     }
   } else if (halign !== 0 || valign !== 0) {
     if (e.align) {
@@ -117,29 +183,31 @@ export function layoutText(e: TextEntity, style: TextStyle | undefined, measurer
     }
     if (halign === 1 || halign === 4) x0 = -width / 2;
     else if (halign === 2) x0 = -width;
-    if (halign === 4) y0 = -height / 2;
-    else if (valign === 1) y0 = size * met.descent;
-    else if (valign === 2) y0 = -height / 2;
-    else if (valign === 3) y0 = -height;
+    if (halign === 4) y0 = -hEff / 2;
+    else if (valign === 1) y0 = descent;
+    else if (valign === 2) y0 = -hEff / 2;
+    else if (valign === 3) y0 = -hEff;
   }
 
-  const layout = emptyLayout(height);
+  const layout = emptyLayout(hEff);
   let x = x0;
-  const underlineY = y0 - size * met.descent * 0.6;
-  const overlineY = y0 + height * 1.2;
-  const strikeY = y0 + height / 2;
-  for (const r of runs) {
-    const w = measureRun(measurer, r.text, font, size, scaleX);
-    layout.runs.push({ text: r.text, x, y: y0, size, scaleX, skew, font });
-    if (r.underline) layout.lines.push(x, underlineY, x + w, underlineY);
-    if (r.overline) layout.lines.push(x, overlineY, x + w, overlineY);
-    if (r.strike) layout.lines.push(x, strikeY, x + w, strikeY);
-    x += w;
+  const underlineY = y0 - descent * 0.6;
+  const overlineY = y0 + hEff * 1.2;
+  const strikeY = y0 + hEff / 2;
+  for (const { r, segs } of pieces) {
+    const start = x;
+    for (const s of segs) {
+      layout.runs.push({ text: s.text, x, y: y0, size: s.size, scaleX: s.scaleX, skew, font: s.font, mode: s.mode, stroke: s.stroke });
+      x += s.width;
+    }
+    if (r.underline) layout.lines.push(start, underlineY, x, underlineY);
+    if (r.overline) layout.lines.push(start, overlineY, x, overlineY);
+    if (r.strike) layout.lines.push(start, strikeY, x, strikeY);
   }
   layout.minX = Math.min(x0, x0 + width);
   layout.maxX = Math.max(x0, x0 + width);
-  layout.minY = y0 - size * met.descent;
-  layout.maxY = y0 + Math.max(height, size * met.ascent);
+  layout.minY = y0 - descent;
+  layout.maxY = y0 + hEff * 1.25;
 
   const gen = e.generation | 0;
   let m = multiply(ocsToWcs(e.extrusion), translation(px, py, pz));
@@ -150,18 +218,19 @@ export function layoutText(e: TextEntity, style: TextStyle | undefined, measurer
 
 interface Unit {
   kind: 'text' | 'space' | 'tab' | 'stack';
-  text: string;
+  segs: Seg[];
   item: MTextItem;
   width: number;
   /** may break after this unit */
   breakAfter: boolean;
 }
 
-const CJK = /[⺀-鿿가-힯豈-﫿＀-￯　-〿]/;
+const CJK = WIDE_CHAR;
+const WORD_RE = /\s+|[ᄀ-ᅟ⺀-〾ぁ-㏿㐀-䶿一-鿿가-힣豈-﫿＀-｠￠-￦]|[^\sᄀ-ᅟ⺀-〾ぁ-㏿㐀-䶿一-鿿가-힣豈-﫿＀-｠￠-￦]+/g;
 
 function styleFont(base: TextStyle | undefined, s: MTextStyle): FontSpec {
   if (!s.font && !s.bold && !s.italic) return resolveFont(base);
-  return resolveFont(base, { font: s.font, bold: s.bold, italic: s.italic });
+  return resolveFont(base, { font: s.font, bold: s.bold, italic: s.italic, shx: s.shx });
 }
 
 /** MTEXT layout (also used for multi-line attributes). */
@@ -186,51 +255,42 @@ export function layoutMText(
     maxH: number;
     align: 'l' | 'c' | 'r' | 'j' | 'd';
     left: number;
+    columnBreak: boolean;
   }
   const lines: Line[] = [];
-
-  const sizeOf = (s: MTextStyle, font: FontSpec) => s.height / (measurer.metrics(font).capHeight || 0.7);
 
   for (const para of parsed.paragraphs) {
     const align = para.props.align ?? (col === 0 ? 'l' : col === 1 ? 'c' : 'r');
     const units: Unit[] = [];
     for (const it of para.items) {
       if (it.kind === 'tab') {
-        units.push({ kind: 'tab', text: '', item: it, width: 0, breakAfter: true });
+        units.push({ kind: 'tab', segs: [], item: it, width: 0, breakAfter: true });
         continue;
       }
       if (it.kind === 'stack') {
         const font = styleFont(style, it.style);
-        const size = sizeOf(it.style, font) * 0.7;
-        const w = Math.max(
-          measureRun(measurer, it.upper, font, size, it.style.widthFactor),
-          measureRun(measurer, it.lower, font, size, it.style.widthFactor),
-        );
-        units.push({ kind: 'stack', text: '', item: it, width: w * (it.type === '^' ? 1 : 1.05), breakAfter: false });
+        const sh = it.style.height * 0.7;
+        const wu = segWidth(segment(it.upper, font, sh, it.style.widthFactor, measurer));
+        const wl = segWidth(segment(it.lower, font, sh, it.style.widthFactor, measurer));
+        units.push({ kind: 'stack', segs: [], item: it, width: Math.max(wu, wl) * 1.05, breakAfter: false });
         continue;
       }
-      // split text into breakable units
       const font = styleFont(style, it.style);
-      const size = sizeOf(it.style, font);
-      const re = /\s+|[⺀-鿿가-힯豈-﫿＀-￯　-〿]|[^\s⺀-鿿가-힯豈-﫿＀-￯　-〿]+/g;
-      for (const m of it.text.matchAll(re)) {
+      for (const m of it.text.matchAll(WORD_RE)) {
         const t = m[0];
         const isSpace = /^\s+$/.test(t) && !t.includes(' ');
-        const w = measureRun(measurer, t, font, size, it.style.widthFactor) * (it.style.tracking || 1);
-        units.push({ kind: isSpace ? 'space' : 'text', text: t, item: it, width: w, breakAfter: isSpace || CJK.test(t) });
+        const segs = segment(t, font, it.style.height, it.style.widthFactor, measurer);
+        const tracking = it.style.tracking || 1;
+        units.push({ kind: isSpace ? 'space' : 'text', segs, item: it, width: segWidth(segs) * tracking, breakAfter: isSpace || CJK.test(t) });
       }
     }
-    // wrap
     const indentFirst = para.props.indent * h;
     const leftIndent = para.props.left * h;
     const avail = refWidth - leftIndent - para.props.right * h;
-    let cur: Line = { units: [], width: 0, maxH: h, align, left: leftIndent + indentFirst };
+    let cur: Line = { units: [], width: 0, maxH: h, align, left: leftIndent + indentFirst, columnBreak: para.columnBreak };
     let lastBreak = -1;
     const pushLine = () => {
-      // trim trailing spaces
-      while (cur.units.length && cur.units[cur.units.length - 1].kind === 'space') {
-        cur.width -= cur.units.pop()!.width;
-      }
+      while (cur.units.length && cur.units[cur.units.length - 1].kind === 'space') cur.width -= cur.units.pop()!.width;
       lines.push(cur);
     };
     for (const u of units) {
@@ -238,7 +298,7 @@ export function layoutMText(
       if (u.kind === 'tab') {
         const tabW = 4 * h;
         const pos = cur.left + cur.width;
-        const stops = para.props.tabs.map((t) => t * h).filter((t) => t > pos - leftIndent + 1e-9);
+        const stops = para.props.tabs.map((tb) => tb * h).filter((tb) => tb > pos - leftIndent + 1e-9);
         const next = stops.length ? leftIndent + stops[0] : Math.floor((pos + 1e-9) / tabW + 1) * tabW;
         w = Math.max(0, next - pos);
         u.width = w;
@@ -248,10 +308,10 @@ export function layoutMText(
           const rest = cur.units.splice(lastBreak + 1);
           cur.width = cur.units.reduce((s, x) => s + x.width, 0);
           pushLine();
-          cur = { units: rest, width: rest.reduce((s, x) => s + x.width, 0), maxH: h, align, left: leftIndent };
+          cur = { units: rest, width: rest.reduce((s, x) => s + x.width, 0), maxH: h, align, left: leftIndent, columnBreak: false };
         } else {
           pushLine();
-          cur = { units: [], width: 0, maxH: h, align, left: leftIndent };
+          cur = { units: [], width: 0, maxH: h, align, left: leftIndent, columnBreak: false };
         }
         lastBreak = -1;
       }
@@ -264,74 +324,105 @@ export function layoutMText(
     pushLine();
   }
 
-  // vertical metrics
+  // columns: static (1) / dynamic (2) column layout
+  const columnCount = e.columnType > 0 ? Math.max(1, e.columnCount || 1) : 1;
   const lineAdvance = (ln: Line) => (e.lineSpacingStyle === 2 ? h : ln.maxH) * spacing * (5 / 3);
-  const blockWidth = Number.isFinite(refWidth) ? refWidth : Math.max(0, ...lines.map((l) => l.left + l.width));
-  let y = -(lines[0]?.maxH ?? h);
-  const baselines: number[] = [];
-  lines.forEach((ln, i) => {
-    if (i > 0) y -= lineAdvance(ln);
-    baselines.push(y);
-  });
-  const totalH = -y;
-  // anchor offsets: origin is the attachment point
+  const columnWidth = e.columnType > 0 && e.columnWidth > 0 ? e.columnWidth : Number.isFinite(refWidth) ? refWidth : 0;
+  const gutter = e.columnGutter > 0 ? e.columnGutter : h;
+  const placed: { line: Line; baseline: number; colX: number }[] = [];
+  let column = 0;
+  let y = 0;
+  let colTop = true;
+  let maxColH = 0;
+  const colHeight = (c: number) => (e.columnHeights[c] ?? e.verticalHeight ?? Infinity) as number;
+  for (const ln of lines) {
+    const adv = colTop ? ln.maxH : lineAdvance(ln);
+    const wouldBe = -(y - adv);
+    if (columnCount > 1 && column < columnCount - 1 && !colTop && (ln.columnBreak || wouldBe > colHeight(column) + 1e-9)) {
+      maxColH = Math.max(maxColH, -y);
+      column++;
+      y = 0;
+      colTop = true;
+    }
+    y -= colTop ? ln.maxH : lineAdvance(ln);
+    colTop = false;
+    placed.push({ line: ln, baseline: y, colX: column * (columnWidth + gutter) });
+  }
+  const totalH = Math.max(maxColH, -y);
+  const blockWidth =
+    columnCount > 1
+      ? (column + 1) * columnWidth + column * gutter
+      : Number.isFinite(refWidth)
+        ? refWidth
+        : Math.max(0, ...lines.map((l) => l.left + l.width));
   const ox = col === 0 ? 0 : col === 1 ? -blockWidth / 2 : -blockWidth;
   const oy = row === 0 ? 0 : row === 1 ? totalH / 2 : totalH;
+  const lineBoxWidth = columnCount > 1 ? columnWidth : blockWidth;
 
   let minX = Infinity;
   let maxX = -Infinity;
-  lines.forEach((ln, i) => {
-    const base = baselines[i] + oy;
-    const lineW = ln.width;
-    let x = ox + ln.left;
-    const free = blockWidth - ln.left - lineW;
+  for (const { line: ln, baseline, colX } of placed) {
+    const base = baseline + oy;
+    let x = ox + colX + ln.left;
+    const free = lineBoxWidth - ln.left - ln.width;
     if (Number.isFinite(free)) {
       if (ln.align === 'c') x += free / 2;
       else if (ln.align === 'r') x += free;
     }
     for (const u of ln.units) {
       const it = u.item;
+      const color = it.kind !== 'tab' ? { aci: it.style.aci, rgb: it.style.rgb } : {};
       if (it.kind === 'text' && u.kind !== 'space') {
-        const font = styleFont(style, it.style);
-        const size = sizeOf(it.style, font);
         const skew = Math.tan((it.style.oblique || 0) * DEG);
-        layout.runs.push({ text: u.text, x, y: base, size, scaleX: it.style.widthFactor, skew, font, aci: it.style.aci, rgb: it.style.rgb });
-        const met = measurer.metrics(font);
-        if (it.style.underline) layout.lines.push(x, base - size * met.descent * 0.6, x + u.width, base - size * met.descent * 0.6);
+        const tracking = it.style.tracking || 1;
+        let sx = x;
+        for (const s of u.segs) {
+          layout.runs.push({ text: s.text, x: sx, y: base, size: s.size, scaleX: s.scaleX * tracking, skew, font: s.font, mode: s.mode, stroke: s.stroke, ...color });
+          sx += s.width * tracking;
+        }
+        const met = measurer.metrics(styleFont(style, it.style));
+        const desc = it.style.height * (met.descent / (met.capHeight || 0.7));
+        if (it.style.underline) layout.lines.push(x, base - desc * 0.6, x + u.width, base - desc * 0.6);
         if (it.style.overline) layout.lines.push(x, base + it.style.height * 1.2, x + u.width, base + it.style.height * 1.2);
         if (it.style.strike) layout.lines.push(x, base + it.style.height / 2, x + u.width, base + it.style.height / 2);
-      } else if (it.kind === 'text' && u.kind === 'space' && (it.style.underline || it.style.strike)) {
+      } else if (it.kind === 'text' && u.kind === 'space') {
         if (it.style.underline) layout.lines.push(x, base - it.style.height * 0.25, x + u.width, base - it.style.height * 0.25);
+        if (it.style.strike) layout.lines.push(x, base + it.style.height / 2, x + u.width, base + it.style.height / 2);
       } else if (it.kind === 'stack') {
         const font = styleFont(style, it.style);
-        const size = sizeOf(it.style, font) * 0.7;
         const sh = it.style.height;
-        const wu = measureRun(measurer, it.upper, font, size, it.style.widthFactor);
-        const wl = measureRun(measurer, it.lower, font, size, it.style.widthFactor);
-        const center = it.type !== '^';
-        const xu = center ? x + (u.width - wu) / 2 : x;
-        const xl = center ? x + (u.width - wl) / 2 : x;
-        const color = { aci: it.style.aci, rgb: it.style.rgb };
+        const segsU = segment(it.upper, font, sh * 0.7, it.style.widthFactor, measurer);
+        const segsL = segment(it.lower, font, sh * 0.7, it.style.widthFactor, measurer);
+        const wu = segWidth(segsU);
+        const wl = segWidth(segsL);
+        const put = (segs: Seg[], sx: number, sy: number) => {
+          for (const s of segs) {
+            layout.runs.push({ text: s.text, x: sx, y: sy, size: s.size, scaleX: s.scaleX, skew: 0, font: s.font, mode: s.mode, stroke: s.stroke, ...color });
+            sx += s.width;
+          }
+        };
         if (it.type === '#') {
-          layout.runs.push({ text: it.upper, x, y: base + sh * 0.45, size, scaleX: it.style.widthFactor, skew: 0, font, ...color });
-          layout.runs.push({ text: it.lower, x: x + u.width - wl, y: base - sh * 0.05, size, scaleX: it.style.widthFactor, skew: 0, font, ...color });
+          put(segsU, x, base + sh * 0.45);
+          put(segsL, x + u.width - wl, base - sh * 0.05);
           layout.lines.push(x + u.width * 0.2, base - sh * 0.1, x + u.width * 0.8, base + sh * 1.0);
         } else {
-          layout.runs.push({ text: it.upper, x: xu, y: base + sh * 0.6, size, scaleX: it.style.widthFactor, skew: 0, font, ...color });
-          layout.runs.push({ text: it.lower, x: xl, y: base - sh * 0.4, size, scaleX: it.style.widthFactor, skew: 0, font, ...color });
+          const center = it.type !== '^';
+          put(segsU, center ? x + (u.width - wu) / 2 : x, base + sh * 0.6);
+          put(segsL, center ? x + (u.width - wl) / 2 : x, base - sh * 0.4);
           if (it.type === '/') layout.lines.push(x, base + sh * 0.4, x + u.width, base + sh * 0.4);
         }
       }
       x += u.width;
     }
     if (ln.units.length) {
-      minX = Math.min(minX, ox + ln.left);
+      minX = Math.min(minX, ox + colX + ln.left);
       maxX = Math.max(maxX, x);
     }
-  });
+  }
   if (!layout.runs.length && !layout.lines.length) return null;
-  layout.minX = Number.isFinite(refWidth) ? ox : minX;
-  layout.maxX = Number.isFinite(refWidth) ? ox + blockWidth : maxX;
+  const fixedWidth = Number.isFinite(refWidth) || columnCount > 1;
+  layout.minX = fixedWidth ? ox : minX;
+  layout.maxX = fixedWidth ? ox + blockWidth : maxX;
   layout.maxY = oy;
   layout.minY = oy - totalH - h * 0.3;
 
@@ -348,7 +439,7 @@ export function layoutMText(
     };
   }
 
-  // orientation
+  // orientation: MTEXT insertion point and x-axis are WCS
   const z = norm3(e.extrusion ?? [0, 0, 1]);
   let xAxis: Vec3;
   if (e.xAxis && Math.hypot(e.xAxis[0], e.xAxis[1], e.xAxis[2]) > 1e-12) {
@@ -364,6 +455,5 @@ export function layoutMText(
     ]);
   }
   const yAxis = norm3(cross3(z, xAxis));
-  const matrix = fromAxes(xAxis, yAxis, z, e.insert);
-  return { layout, matrix };
+  return { layout, matrix: fromAxes(xAxis, yAxis, z, e.insert) };
 }

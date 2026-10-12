@@ -173,6 +173,7 @@ export class SceneBuilder {
   private budgetLeft: number;
   readonly diagnostics: { code: string; message: string; handle?: string }[] = [];
   private diagSeen = new Set<string>();
+  private itemIndex = new Map<number, number>();
 
   constructor(
     private doc: DxfDocument,
@@ -181,6 +182,7 @@ export class SceneBuilder {
     factory: PathFactory,
     private opts: SceneOptions = DEFAULT_SCENE_OPTIONS,
   ) {
+    items.forEach((id, k) => this.itemIndex.set(id, k));
     this.out = new TileOut(factory);
     this.emitOpts = { fill: opts.fill };
     this.budgetLeft = opts.budget;
@@ -389,6 +391,19 @@ export class SceneBuilder {
       return bboxValid(this.bboxOut.b) ? { ...this.bboxOut.b } : null;
     }
     return bboxValid(b) ? b : null;
+  }
+
+  /** World bounds of an entity (top-level items, attributes); null if unknown. */
+  boundsOf(id: number): BBox | null {
+    const k = this.itemIndex.get(id);
+    const ib = this.scene.itemBBox;
+    if (k !== undefined) {
+      if (Number.isNaN(ib[k * 4])) return null;
+      return { minX: ib[k * 4], minY: ib[k * 4 + 1], maxX: ib[k * 4 + 2], maxY: ib[k * 4 + 3] };
+    }
+    const e = this.doc.entities[id];
+    if (e && typeof e.parentInsert === 'number') return this.entityBBox(e, identity(), false);
+    return null;
   }
 
   // ---------- tiles ----------

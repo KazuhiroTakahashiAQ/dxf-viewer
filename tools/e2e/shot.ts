@@ -28,6 +28,9 @@ const height = Number(arg('height', '900'));
 const wait = Number(arg('wait', '1500'));
 const keys = (arg('keys', '') ?? '').split(',').filter(Boolean);
 const evalJs = arg('eval');
+const evalBefore = arg('eval-before');
+/** --upload "css-selector|path" (repeatable): set files on an input after loading */
+const uploads = all('upload');
 const chrome = process.env.CHROME_PATH ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 
 const browser = await chromium.launch({ executablePath: chrome, headless: true });
@@ -47,6 +50,15 @@ await page.waitForTimeout(wait);
 for (const k of keys) {
   await page.keyboard.press(k);
   await page.waitForTimeout(400);
+}
+if (evalBefore) {
+  await page.evaluate(evalBefore);
+  await page.waitForTimeout(500);
+}
+for (const u of uploads) {
+  const i = u.lastIndexOf('|');
+  await page.locator(u.slice(0, i)).first().setInputFiles(u.slice(i + 1).split(','));
+  await page.waitForTimeout(wait);
 }
 if (evalJs) {
   const r = await page.evaluate(evalJs);

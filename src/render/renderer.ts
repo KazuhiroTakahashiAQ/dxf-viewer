@@ -1,6 +1,7 @@
 import { aciToRgb, luminance } from '../dxf/colors';
 import { affineMultiply, type Affine2 } from '../geom/matrix';
 import { cssFont } from '../fonts/resolve';
+import { strokeProvider } from '../fonts/strokeFont';
 import type { Scene, Tile } from '../scene/scene';
 import type { Style } from '../scene/style';
 import { REF_PX } from '../scene/textLayout';
@@ -49,6 +50,8 @@ function intersects(a: { minX: number; minY: number; maxX: number; maxY: number 
 }
 
 export class Renderer {
+  private dpr = 1;
+
   constructor(private scene: Scene) {}
 
   private fgColor(opts: RenderOptions): number {
@@ -91,6 +94,12 @@ export class Renderer {
     return arr;
   }
 
+  /** stroke-font line width in device px */
+  private textStrokePx(st: Style, opts: RenderOptions): number {
+    const on = opts.lineweights === 'on' || (opts.lineweights === 'file' && opts.lwdisplay);
+    return on ? Math.max(1, (st.lw / 25) * opts.lineweightScale) * this.dpr : this.dpr;
+  }
+
   private lineWidthPx(st: Style, opts: RenderOptions, dpr: number): number {
     const on = opts.lineweights === 'on' || (opts.lineweights === 'file' && opts.lwdisplay);
     if (!on) return dpr;
@@ -101,6 +110,7 @@ export class Renderer {
   render(ctx: Ctx2D, view: ViewState, vp: Viewport, opts: RenderOptions): RenderStats {
     const t0 = performance.now();
     const dpr = vp.dpr;
+    this.dpr = dpr;
     const W = vp.width * dpr;
     const H = vp.height * dpr;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -265,6 +275,17 @@ export class Renderer {
           ctx.fillRect(bg.minX, bg.minY, bg.maxX - bg.minX, bg.maxY - bg.minY);
         }
         for (const run of L.runs) {
+          if (run.mode === 'stroke') {
+            const sp = strokeProvider(run.stroke ?? run.font.stroke ?? '');
+            if (!sp) continue;
+            const k = run.size / sp.cap;
+            const m = affineMultiply(base, [k * run.scaleX, 0, -k * run.skew, -k, run.x + sp.baseline * k * run.skew, run.y + sp.baseline * k]);
+            ctx.setTransform(m[0], m[1], m[2], m[3], m[4], m[5]);
+            ctx.strokeStyle = opts.monochrome ? color : runColor(run.rgb, run.aci, color, fg);
+            ctx.lineWidth = vpLine(m) * this.textStrokePx(item.style, opts);
+            ctx.stroke(strokeTextPath(run.stroke ?? run.font.stroke ?? '', run.text));
+            continue;
+          }
           const k = run.size / REF_PX;
           // glyph space (y down) → local (y up)
           const m = affineMultiply(base, [k * run.scaleX, 0, -k * run.skew, -k, run.x, run.y]);
@@ -292,6 +313,31 @@ export class Renderer {
     }
     return drawn;
   }
+}
+
+const strokePathCache = new Map<string, Path2D>();
+
+/** Path of a whole string in a Hershey stroke font (glyph units, y down). */
+function strokeTextPath(font: string, text: string): Path2D {
+  const key = font + '\u0000' + text;
+  let p = strokePathCache.get(key);
+  if (p) return p;
+  p = new Path2D();
+  const sp = strokeProvider(font);
+  if (!sp) return p;
+  let x = 0;
+  for (const ch of text) {
+    for (const poly of sp.glyph(ch)) {
+      if (poly.length < 2) continue;
+      p.moveTo(x + poly[0], poly[1]);
+      if (poly.length === 2) p.lineTo(x + poly[0] + 0.01, poly[1]);
+      for (let i = 2; i < poly.length; i += 2) p.lineTo(x + poly[i], poly[i + 1]);
+    }
+    x += sp.advance(ch);
+  }
+  if (strokePathCache.size > 50_000) strokePathCache.clear();
+  strokePathCache.set(key, p);
+  return p;
 }
 
 /** Inline MTEXT color (\c / \C); 0 = BYBLOCK and 256 = BYLAYER use the entity color. */

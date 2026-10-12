@@ -60,7 +60,12 @@ export class DocumentSession {
     try {
       // copy so the original bytes stay available for re-decoding
       const copy = this.bytes.slice(0);
-      const summary = await this.rpc.call('open', { bytes: copy, name: this.name, encoding, baseUrl: new URL('./', document.baseURI).href }, [copy]);
+      const st = useUi.getState().settings;
+      const summary = await this.rpc.call(
+        'open',
+        { bytes: copy, name: this.name, encoding, baseUrl: new URL('./', document.baseURI).href, fontOptions: { preferLocal: st.preferLocalFonts, overrides: st.fontOverrides } },
+        [copy],
+      );
       this.summary = summary;
       ui.setTab(this.id, { status: 'ready', summary });
       this.sendSettings(useUi.getState().settings);
@@ -132,6 +137,17 @@ export class DocumentSession {
   async reopenWithEncoding(encoding: string | undefined): Promise<void> {
     this.renderedView = null;
     await this.open(encoding);
+  }
+
+  /** Fit the view to the given entities (with a sensible minimum size). */
+  async zoomToEntities(ids: number[]): Promise<boolean> {
+    const b = await this.rpc.call('entityBounds', { ids });
+    if (!b) return false;
+    const w = b.maxX - b.minX;
+    const h = b.maxY - b.minY;
+    const pad = Math.max(w, h) * 0.6 + 1e-9;
+    this.setView(fitView({ minX: b.minX - pad, minY: b.minY - pad, maxX: b.maxX + pad, maxY: b.maxY + pad }, this.viewport, this.view, 0.05));
+    return true;
   }
 
   dispose(): void {
