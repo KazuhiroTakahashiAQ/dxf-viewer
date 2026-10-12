@@ -5,7 +5,7 @@
  * node tools/e2e/shot.ts --url http://localhost:5173/ --file public/samples/basic_entities.dxf --out shot.png
  *   [--width 1400 --height 900] [--keys "f,Alt+1"] [--wait 1500] [--eval "js"]
  */
-import { chromium } from 'playwright-core';
+import { chromium, firefox, webkit } from 'playwright-core';
 
 const args = process.argv.slice(2);
 function arg(name: string, def?: string): string | undefined {
@@ -33,7 +33,13 @@ const evalBefore = arg('eval-before');
 const uploads = all('upload');
 const chrome = process.env.CHROME_PATH ?? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
 
-const browser = await chromium.launch({ executablePath: chrome, headless: true });
+const engine = arg('browser', 'chrome');
+const browser =
+  engine === 'firefox'
+    ? await firefox.launch({ headless: true })
+    : engine === 'webkit'
+      ? await webkit.launch({ headless: true })
+      : await chromium.launch({ executablePath: chrome, headless: true });
 const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: Number(arg('dpr', '1')) });
 const logs: string[] = [];
 page.on('console', (m) => {
