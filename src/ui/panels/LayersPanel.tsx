@@ -94,7 +94,7 @@ export function LayersPanel() {
         </button>
       </div>
       <div className="panel-sub layer-states">
-        <select value={current.endsWith(' *') ? '' : current} onChange={(e) => void applyState(e.target.value)} {...iconTip(t('layers.states'), t('panelDesc.layers'))}>
+        <select value={current.endsWith(' *') ? '' : current} onChange={(e) => void applyState(e.target.value)} {...iconTip(t('layers.states'), undefined, undefined, { terms: 'layerState' })}>
           <option value="">{current.endsWith(' *') ? t('layers.stateModified', { name: current.slice(2, -2) }) : t('layers.stateNone')}</option>
           {fileStates.length > 0 && (
             <optgroup label={t('layers.statesFile')}>
@@ -115,7 +115,7 @@ export function LayersPanel() {
             </optgroup>
           )}
         </select>
-        <button type="button" className="icon-btn" {...iconTip(t('layers.saveState'), t('layers.saveStateDesc'))} disabled={!hash} onClick={saveState}>
+        <button type="button" className="icon-btn" {...iconTip(t('layers.saveState'), t('layers.saveStateDesc'), undefined, { terms: 'layerState' })} disabled={!hash} onClick={saveState}>
           <BookmarkPlus size={15} />
         </button>
         {current.startsWith('s:') && (
@@ -149,27 +149,27 @@ export function LayersPanel() {
             const l = layers[vi.index];
             return (
               <div key={l.index} className={`layer-row ${l.on && !l.frozen ? '' : 'dim'}`} style={{ position: 'absolute', top: 0, left: 0, right: 0, height: vi.size, transform: `translateY(${vi.start}px)` }}>
-                <button type="button" className="icon-btn" {...iconTip(t('layers.on'), t('layers.onDesc'))} aria-pressed={l.on} onClick={() => apply({ changes: [{ index: l.index, on: !l.on }] })}>
+                <button type="button" className="icon-btn" {...iconTip(t('layers.on'), t('layers.onDesc'), undefined, { side: true })} aria-pressed={l.on} onClick={() => apply({ changes: [{ index: l.index, on: !l.on }] })}>
                   {l.on ? <Eye size={14} /> : <EyeOff size={14} />}
                 </button>
-                <button type="button" className="icon-btn" {...iconTip(t('layers.freeze'), t('layers.freezeDesc'))} aria-pressed={l.frozen} onClick={() => apply({ changes: [{ index: l.index, frozen: !l.frozen }] })}>
+                <button type="button" className="icon-btn" {...iconTip(t('layers.freeze'), t('layers.freezeDesc'), undefined, { terms: 'freeze', side: true })} aria-pressed={l.frozen} onClick={() => apply({ changes: [{ index: l.index, frozen: !l.frozen }] })}>
                   {l.frozen ? <Snowflake size={14} /> : <Sun size={14} />}
                 </button>
-                <span className="swatch" style={{ background: rgbCss(l.fg ? fg : l.rgb) }} {...tip(l.trueColor !== undefined ? rgbCss(l.trueColor) : `ACI ${l.aci}`)} />
+                <span className="swatch" style={{ background: rgbCss(l.fg ? fg : l.rgb) }} {...tip(l.trueColor !== undefined ? rgbCss(l.trueColor) : `ACI ${l.aci}`, t('layers.colorDesc'), undefined, { terms: 'color', side: true })} />
                 <span className="layer-name" title={l.name}>
                   {l.name}
                 </span>
                 {l.locked && (
-                  <span className="layer-flag" {...iconTip(t('layers.locked'))}>
+                  <span className="layer-flag" {...iconTip(t('layers.locked'), t('layers.lockedDesc'), undefined, { side: true })}>
                     <Lock size={12} className="muted" />
                   </span>
                 )}
                 {l.undefinedInFile && (
-                  <span className="layer-flag" {...iconTip(t('layers.undefined'))}>
+                  <span className="layer-flag" {...iconTip(t('layers.undefined'), t('layers.undefinedDesc'), undefined, { terms: 'tables', side: true })}>
                     <TriangleAlert size={12} className="warn" />
                   </span>
                 )}
-                <span className="layer-count" {...tip(t('layers.count', { count: l.count }))}>
+                <span className="layer-count" {...tip(t('layers.count', { count: l.count }), undefined, undefined, { terms: 'entity', side: true })}>
                   {l.count}
                 </span>
                 <button

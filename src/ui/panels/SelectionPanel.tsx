@@ -7,7 +7,7 @@ import { sessions } from '../../session/DocumentSession';
 import type { HoverInfo } from '../../shared/docApi';
 import { activeTab, useUi } from '../../state/store';
 import { downloadText, toCsv } from '../download';
-import { iconTip } from '../Tooltip';
+import { iconTip, TypeName } from '../Tooltip';
 
 export function SelectionPanel() {
   const tab = useUi(activeTab);
@@ -30,7 +30,7 @@ export function SelectionPanel() {
       <div className="panel-toolbar">
         <span className="muted nowrap">{t('props.selected', { count: sel.length })}</span>
         <span className="tb-spacer" />
-        <button type="button" className="icon-btn" disabled={!sel.length} {...iconTip(t('menu.isolate'), t('blocks.isolateDesc'))} onClick={() => void session.setVisibility('isolate', sel)}>
+        <button type="button" className="icon-btn" disabled={!sel.length} {...iconTip(t('menu.isolate'), t('blocks.isolateDesc'), undefined, { terms: 'isolate' })} onClick={() => void session.setVisibility('isolate', sel)}>
           <Focus size={14} />
         </button>
         <button type="button" className="icon-btn" disabled={!sel.length} {...iconTip(t('menu.hide'), t('help.tip.hidden'))} onClick={() => void session.setVisibility('hide', sel)}>
@@ -55,7 +55,9 @@ export function SelectionPanel() {
             const r = rows[vi.index];
             return (
               <div key={vi.key} className="sel-row" style={{ position: 'absolute', top: 0, left: 0, right: 0, height: vi.size, transform: `translateY(${vi.start}px)` }} onClick={() => void session.zoomToEntities([r.id])}>
-                <span>{r.type}</span>
+                <span>
+                  <TypeName type={r.type} side />
+                </span>
                 <span className="muted" title={r.layer}>
                   {r.layer}
                 </span>

@@ -6,7 +6,8 @@ import { sessions, type DocumentSession } from '../../session/DocumentSession';
 import type { GeneratorGuess, HeaderVarRow, InspectedRecord, ObjectNode, TableGroup } from '../../shared/docApi';
 import { activeTab, useUi } from '../../state/store';
 import { formatBytes, unitName } from '../format';
-import { iconTip, tip } from '../Tooltip';
+import { tableDesc, type TermId } from '../../i18n/glossary';
+import { iconTip, Term, tip, TypeName } from '../Tooltip';
 
 /** Localized message for a fixed key built from a value; unknown values are shown as is. */
 function keyed(prefix: string, value: string): string {
@@ -25,7 +26,7 @@ function loadOpen(): Record<string, boolean> {
   }
 }
 
-function Section({ id, title, children, extra, defaultOpen = false, openSignal }: { id: string; title: string; children: ReactNode; extra?: ReactNode; defaultOpen?: boolean; openSignal?: unknown }) {
+function Section({ id, title, term, children, extra, defaultOpen = false, openSignal }: { id: string; title: string; term?: TermId; children: ReactNode; extra?: ReactNode; defaultOpen?: boolean; openSignal?: unknown }) {
   const [open, setOpen] = useState(() => loadOpen()[id] ?? defaultOpen);
   // open when the signal changes (e.g. a new handle to inspect)
   useEffect(() => {
@@ -44,7 +45,7 @@ function Section({ id, title, children, extra, defaultOpen = false, openSignal }
     <div className="prop-section">
       <button type="button" className="section-toggle" onClick={toggle} aria-expanded={open}>
         {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-        {title}
+        {term ? <Term id={term}>{title}</Term> : title}
         {extra && <span className="muted small section-extra">{extra}</span>}
       </button>
       {open && <div className="section-body">{children}</div>}
@@ -292,23 +293,24 @@ export function DocumentPanel() {
 
   if (!tab || !s || !session) return <div className="panel-empty">—</div>;
   const ext = s.extents;
-  const rows: [string, string][] = [
+  /** [label, value, term explained on hover or a plain explanation] */
+  const rows: [string, string, (TermId | { desc: string })?][] = [
     [t('doc.file'), s.name],
     [t('doc.size'), formatBytes(s.size)],
-    ['SHA-256', s.hash ? `${s.hash.slice(0, 16)}…` : '—'],
-    [t('doc.version'), `${s.version ?? '?'}${s.release ? ` (${s.release})` : ''}`],
-    [t('doc.format'), s.binary ? t('doc.binary') : t('doc.ascii')],
-    [t('doc.encoding'), `${s.encoding}${s.codepage ? ` / ${s.codepage}` : ''}`],
+    ['SHA-256', s.hash ? `${s.hash.slice(0, 16)}…` : '—', { desc: t('doc.hashDesc') }],
+    [t('doc.version'), `${s.version ?? '?'}${s.release ? ` (${s.release})` : ''}`, 'dxfVersion'],
+    [t('doc.format'), s.binary ? t('doc.binary') : t('doc.ascii'), 'binaryDxf'],
+    [t('doc.encoding'), `${s.encoding}${s.codepage ? ` / ${s.codepage}` : ''}`, 'encoding'],
     [t('doc.encodingReason'), tx(s.encodingReason)],
-    [t('doc.replacements'), String(s.replacements)],
-    [t('doc.lines'), `${s.lineCount.toLocaleString()} / ${s.tagCount.toLocaleString()}`],
-    [t('doc.entities'), s.entityCount.toLocaleString()],
-    [t('doc.modelPaper'), `${s.modelSpaceCount.toLocaleString()} / ${s.paperSpaceCount.toLocaleString()}`],
-    [t('doc.blocks'), s.blockCount.toLocaleString()],
-    [t('doc.layers'), s.layerCount.toLocaleString()],
-    [t('doc.layouts'), s.layoutNames.join(', ') || '—'],
-    [t('doc.extents'), ext ? `(${ext.minX.toFixed(3)}, ${ext.minY.toFixed(3)}) – (${ext.maxX.toFixed(3)}, ${ext.maxY.toFixed(3)})` : '—'],
-    [t('doc.units'), `${s.insUnits}${unitName(s.insUnits) ? ` (${unitName(s.insUnits)})` : ''}`],
+    [t('doc.replacements'), String(s.replacements), { desc: t('doc.replacementsDesc') }],
+    [t('doc.lines'), `${s.lineCount.toLocaleString()} / ${s.tagCount.toLocaleString()}`, 'groupCode'],
+    [t('doc.entities'), s.entityCount.toLocaleString(), 'entity'],
+    [t('doc.modelPaper'), `${s.modelSpaceCount.toLocaleString()} / ${s.paperSpaceCount.toLocaleString()}`, 'space'],
+    [t('doc.blocks'), s.blockCount.toLocaleString(), 'block'],
+    [t('doc.layers'), s.layerCount.toLocaleString(), 'layer'],
+    [t('doc.layouts'), s.layoutNames.join(', ') || '—', 'paperSpace'],
+    [t('doc.extents'), ext ? `(${ext.minX.toFixed(3)}, ${ext.minY.toFixed(3)}) – (${ext.maxX.toFixed(3)}, ${ext.maxY.toFixed(3)})` : '—', 'extents'],
+    [t('doc.units'), `${s.insUnits}${unitName(s.insUnits) ? ` (${unitName(s.insUnits)})` : ''}`, 'units'],
     [t('doc.parseTime'), `${s.parseMs.toFixed(0)} ms`],
     [t('doc.memory'), tab.build?.memoryBytes ? `≈ ${formatBytes(tab.build.memoryBytes)}` : '—'],
   ];
@@ -318,16 +320,28 @@ export function DocumentPanel() {
       <Section id="summary" title={t('doc.summary')} defaultOpen>
         <table className="kv">
           <tbody>
-            {rows.map(([k, v]) => (
+            {rows.map(([k, v, about]) => (
               <tr key={k}>
-                <th>{k}</th>
+                <th>
+                  {typeof about === 'string' ? (
+                    <Term id={about} side>
+                      {k}
+                    </Term>
+                  ) : about ? (
+                    <span className="term" {...tip(k, about.desc, undefined, { side: true })}>
+                      {k}
+                    </span>
+                  ) : (
+                    k
+                  )}
+                </th>
                 <td>{v}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </Section>
-      <Section id="generator" title={t('doc.generator')} extra={gen?.guess.length ? gen.guess.join(' / ') : t('doc.generator.unknown')} defaultOpen>
+      <Section id="generator" title={t('doc.generator')} term="generator" extra={gen?.guess.length ? gen.guess.join(' / ') : t('doc.generator.unknown')} defaultOpen>
         {gen && (
           <>
             <p className="small">
@@ -345,7 +359,7 @@ export function DocumentPanel() {
           </>
         )}
       </Section>
-      <Section id="inspect" title={t('doc.inspect')} extra={inspect ?? undefined} defaultOpen={!!inspect} openSignal={inspect}>
+      <Section id="inspect" title={t('doc.inspect')} term="handle" extra={inspect ?? undefined} defaultOpen={!!inspect} openSignal={inspect}>
         <form
           className="inspect-form"
           onSubmit={(e) => {
@@ -357,7 +371,7 @@ export function DocumentPanel() {
         </form>
         {inspect ? <Inspector key={inspect} session={session} handle={inspect} /> : <p className="muted small">{t('doc.inspect.help')}</p>}
       </Section>
-      <Section id="header" title={t('doc.header')} extra={String(header.length)}>
+      <Section id="header" title={t('doc.header')} term="header" extra={String(header.length)}>
         <input className="search block-search" type="search" placeholder={t('doc.header.filter')} value={hq} onChange={(e) => setHq(e.target.value)} />
         <table className="grid">
           <tbody>
@@ -371,10 +385,10 @@ export function DocumentPanel() {
           </tbody>
         </table>
       </Section>
-      <Section id="tables" title={t('doc.tables')} extra={String(tables.reduce((n, g) => n + g.records.length, 0))}>
+      <Section id="tables" title={t('doc.tables')} term="tables" extra={String(tables.reduce((n, g) => n + g.records.length, 0))}>
         {tables.map((g) => (
           <div key={g.table}>
-            <button type="button" className="link-inline" onClick={() => setOpenTable(openTable === g.table ? null : g.table)}>
+            <button type="button" className="link-inline" onClick={() => setOpenTable(openTable === g.table ? null : g.table)} {...(tableDesc(g.table) ? tip(g.table, tableDesc(g.table), undefined, { side: true }) : {})}>
               {g.table} ({g.records.length})
             </button>
             {openTable === g.table && (
@@ -395,10 +409,10 @@ export function DocumentPanel() {
           </div>
         ))}
       </Section>
-      <Section id="objects" title={t('doc.objects')}>
+      <Section id="objects" title={t('doc.objects')} term="objects">
         <ObjectTree session={session} handle="" depth={0} />
       </Section>
-      <Section id="classes" title={t('doc.classes')} extra={String(classes.length)}>
+      <Section id="classes" title={t('doc.classes')} term="classes" extra={String(classes.length)}>
         <table className="grid">
           <tbody>
             {classes.map((c, i) => (
@@ -411,7 +425,7 @@ export function DocumentPanel() {
           </tbody>
         </table>
       </Section>
-      <Section id="stats" title={t('doc.stats')}>
+      <Section id="stats" title={t('doc.stats')} term="entity">
         <table className="grid">
           <thead>
             <tr>
@@ -424,7 +438,9 @@ export function DocumentPanel() {
           <tbody>
             {stats.map((r) => (
               <tr key={r.type}>
-                <td>{r.type}</td>
+                <td>
+                  <TypeName type={r.type} side />
+                </td>
                 <td className="num">{r.model || ''}</td>
                 <td className="num">{r.paper || ''}</td>
                 <td className="num">{r.blocks || ''}</td>
@@ -433,7 +449,7 @@ export function DocumentPanel() {
           </tbody>
         </table>
       </Section>
-      <Section id="coverage" title={t('doc.coverage')} extra={coverage.some((c) => c.rendered < c.count) ? '⚠' : undefined}>
+      <Section id="coverage" title={t('doc.coverage')} term="coverage" extra={coverage.some((c) => c.rendered < c.count) ? '⚠' : undefined}>
         {!!tab.build?.budgetExceeded && <p className="warn-text">{t('doc.budget', { count: tab.build.budgetExceeded })}</p>}
         <table className="grid">
           <thead>
@@ -447,19 +463,25 @@ export function DocumentPanel() {
           <tbody>
             {coverage.map((c) => (
               <tr key={c.type} className={c.rendered < c.count ? 'warn-row' : ''}>
-                <td>{c.type}</td>
+                <td>
+                  <TypeName type={c.type} side />
+                </td>
                 <td className="num">{c.count}</td>
                 <td className="num">{c.rendered}</td>
-                <td>{keyed('coverage.', c.method)}</td>
+                <td>
+                  <span className="term" {...tip(keyed('coverage.', c.method), keyed('coverage.desc.', c.method), undefined, { side: true })}>
+                    {keyed('coverage.', c.method)}
+                  </span>
+                </td>
               </tr>
             ))}
           </tbody>
         </table>
       </Section>
-      <Section id="images" title={t('doc.images')}>
+      <Section id="images" title={t('doc.images')} term="image">
         <ImageRefs session={session} />
       </Section>
-      <Section id="thumbnail" title={t('doc.thumbnail')}>
+      <Section id="thumbnail" title={t('doc.thumbnail')} term="thumbnail">
         <Thumbnail session={session} />
       </Section>
     </div>

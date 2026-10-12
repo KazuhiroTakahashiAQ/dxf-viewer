@@ -7,7 +7,7 @@ import type { NamedView } from '../../shared/docApi';
 import { normalizeAngle } from '../../shared/view';
 import { savedViews, setSavedViews, type SavedView } from '../../storage/perFile';
 import { activeTab, useUi } from '../../state/store';
-import { iconTip } from '../Tooltip';
+import { iconTip, Term, tip } from '../Tooltip';
 
 const fmt = (v: number) => String(Number(v.toPrecision(6)));
 
@@ -65,12 +65,14 @@ export function ViewsPanel() {
     <div className="panel panel-scroll">
       <div className="panel-section">
         <div className="section-head">
-          <b>{t('views.file')}</b>
+          <b>
+            <Term id="namedView">{t('views.file')}</Term>
+          </b>
           <span className="muted small">VIEW</span>
         </div>
         {iv && (
           <div className="view-row">
-            <button type="button" className="link-inline" onClick={() => (session.layout !== 'Model' ? session.setLayout('Model') : Promise.resolve()).then(() => showWindow(session, iv.cx, iv.cy, iv.height * iv.aspect, iv.height, (iv.twist * Math.PI) / 180))}>
+            <button type="button" className="link-inline" onClick={() => (session.layout !== 'Model' ? session.setLayout('Model') : Promise.resolve()).then(() => showWindow(session, iv.cx, iv.cy, iv.height * iv.aspect, iv.height, (iv.twist * Math.PI) / 180))} {...tip(t('views.initial'), t('views.initialDesc'), undefined, { side: true })}>
               {t('views.initial')}
             </button>
             <span className="muted small">
@@ -90,7 +92,7 @@ export function ViewsPanel() {
               {v.paperSpace ? ` · ${t('views.paper')}` : ''}
             </span>
             {v.nonPlan && (
-              <span {...iconTip(t('views.nonPlan'))}>
+              <span {...iconTip(t('views.nonPlan'), undefined, undefined, { terms: 'wcs' })}>
                 <TriangleAlert size={12} className="warn" />
               </span>
             )}

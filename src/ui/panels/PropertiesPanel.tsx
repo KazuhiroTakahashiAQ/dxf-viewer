@@ -3,17 +3,65 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { ChevronDown, ChevronRight, Copy, Crosshair, ScrollText } from 'lucide-react';
 
 import { t, tx, type MessageKey } from '../../i18n';
+import type { TermId } from '../../i18n/glossary';
 import { sessions, type DocumentSession } from '../../session/DocumentSession';
 import type { EntityInfo, PropRow, RawTagRow, SelectionSummary } from '../../shared/docApi';
 import { activeTab, useUi } from '../../state/store';
 import { showRawLine } from './DocumentPanel';
-import { iconTip, tip } from '../Tooltip';
+import { iconTip, Term, tip, TypeName } from '../Tooltip';
 
 /** property values that are fixed words rather than drawing data */
 const WORD_VALUES = new Set(['space', 'effectiveColor', 'missing', 'notComputed']);
 
 /** Localized label of a property row (attribute tags are drawing data and stay as they are). */
 const rowLabel = (r: PropRow) => (r.group === 'Attributes' ? r.label : tx(r.label));
+
+/** CAD terms explained when pointing at a property label ("Group.key" before "key") */
+const PROP_TERMS: Record<string, TermId> = {
+  type: 'entity',
+  handle: 'handle',
+  owner: 'owner',
+  layer: 'layer',
+  color: 'color',
+  effectiveColor: 'effective',
+  linetype: 'linetype',
+  ltscale: 'linetype',
+  lineweight: 'lineweight',
+  space: 'space',
+  layoutName: 'paperSpace',
+  thickness: 'thickness',
+  extrusion: 'extrusion',
+  subclasses: 'subclass',
+  parent: 'insert',
+  raw: 'formatCodes',
+  decoded: 'formatCodes',
+  plain: 'formatCodes',
+  bboxMin: 'extents',
+  bboxMax: 'extents',
+  size: 'extents',
+  notComputed: 'expansionLimit',
+  'Block.name': 'block',
+  'Block.base': 'insertionPoint',
+  'Block.count': 'entity',
+  'Block.xref': 'xref',
+  'Block.effectiveName': 'dynamicBlock',
+  'Block.mirrored': 'mirrored',
+  'Block.missing': 'block',
+  reactors: 'reactor',
+  xdict: 'xdict',
+  insert: 'insertionPoint',
+  style: 'textStyle',
+  bigFont: 'bigFont',
+  frozenLayers: 'freeze',
+};
+
+/** Terms for whole sections of the panel */
+const GROUP_TERMS: Record<string, TermId> = { Block: 'insert', Attributes: 'attribute', ACIS: 'acis', Text: 'formatCodes', Links: 'xdict' };
+
+function RowLabel({ row }: { row: PropRow }) {
+  const id = row.group === 'Attributes' ? undefined : (PROP_TERMS[`${row.group}.${row.key}`] ?? PROP_TERMS[row.key]);
+  return <th title={id ? undefined : row.key}>{id ? <Term id={id} side>{rowLabel(row)}</Term> : rowLabel(row)}</th>;
+}
 
 const RAW_PAGE = 500;
 
@@ -57,6 +105,7 @@ function Value({ row, session }: { row: PropRow; session: DocumentSession }) {
     );
   }
   if (row.kind === 'text') return <span className="text-value">{String(row.value)}</span>;
+  if (row.key === 'type' && typeof row.value === 'string') return <TypeName type={row.value} side />;
   return <span>{WORD_VALUES.has(row.key) && typeof row.value === 'string' ? tx(row.value) : String(row.value)}</span>;
 }
 
@@ -87,7 +136,9 @@ function RawTags({ session, id, total }: { session: DocumentSession; id: number;
       </div>
       <div className="raw-row grid-header">
         <span className="num">{t('props.line')}</span>
-        <span className="num">{t('props.code')}</span>
+        <span className="num">
+          <Term id="groupCode">{t('props.code')}</Term>
+        </span>
         <span>{t('props.value')}</span>
         <span>{t('props.meaning')}</span>
       </div>
@@ -126,13 +177,13 @@ function groupTitle(g: string): string {
   return text === key ? g : text;
 }
 
-function Section({ title, children, defaultOpen = true }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
+function Section({ title, term, children, defaultOpen = true }: { title: string; term?: TermId; children: React.ReactNode; defaultOpen?: boolean }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
     <section className="prop-section">
       <button type="button" className="section-toggle" onClick={() => setOpen(!open)} aria-expanded={open}>
         {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-        {title}
+        {term ? <Term id={term}>{title}</Term> : title}
       </button>
       {open && children}
     </section>
@@ -161,7 +212,9 @@ function Single({ session, id }: { session: DocumentSession; id: number }) {
   return (
     <div className="props">
       <div className="props-title">
-        <b>{info.type}</b>
+        <b>
+          <TypeName type={info.type} />
+        </b>
         <span className="mono muted">{info.handle}</span>
         {info.line !== undefined && <span className="muted small">{t('props.atLine', { line: info.line })}</span>}
         <button type="button" className="icon-btn" {...iconTip(t('menu.zoomTo'))} onClick={() => void session.zoomToEntities([id])}>
@@ -174,12 +227,12 @@ function Single({ session, id }: { session: DocumentSession; id: number }) {
         )}
       </div>
       {groups.map(([g, rows]) => (
-        <Section key={g} title={groupTitle(g)}>
+        <Section key={g} title={groupTitle(g)} term={GROUP_TERMS[g]}>
           <table className="kv">
             <tbody>
               {rows.map((r) => (
                 <tr key={r.key}>
-                  <th title={r.key}>{rowLabel(r)}</th>
+                  <RowLabel row={r} />
                   <td>
                     <Value row={r} session={session} />
                   </td>
@@ -190,7 +243,7 @@ function Single({ session, id }: { session: DocumentSession; id: number }) {
         </Section>
       ))}
       {info.xdata.length > 0 && (
-        <Section title={t('props.xdata')}>
+        <Section title={t('props.xdata')} term="xdata">
           {info.xdata.map((x, i) => (
             <div key={i} className="xdata">
               <div className="mono">{x.app}</div>
@@ -208,7 +261,7 @@ function Single({ session, id }: { session: DocumentSession; id: number }) {
           ))}
         </Section>
       )}
-      <Section title={t('props.raw')} defaultOpen={false}>
+      <Section title={t('props.raw')} term="groupCode" defaultOpen={false}>
         <RawTags session={session} id={id} total={info.tagCount} />
       </Section>
     </div>
@@ -233,19 +286,21 @@ function Multi({ session, ids }: { session: DocumentSession; ids: number[] }) {
           <Crosshair size={14} />
         </button>
       </div>
-      <Section title={t('props.byType')}>
+      <Section title={t('props.byType')} term="entity">
         <table className="kv">
           <tbody>
             {sum.byType.map(([k, v]) => (
               <tr key={k}>
-                <th>{k}</th>
+                <th>
+                  <TypeName type={k} side />
+                </th>
                 <td className="num">{v}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </Section>
-      <Section title={t('props.byLayer')}>
+      <Section title={t('props.byLayer')} term="layer">
         <table className="kv">
           <tbody>
             {sum.byLayer.map(([k, v]) => (
@@ -263,7 +318,7 @@ function Multi({ session, ids }: { session: DocumentSession; ids: number[] }) {
             <tbody>
               {sum.common.map((r) => (
                 <tr key={r.key}>
-                  <th title={r.key}>{rowLabel(r)}</th>
+                  <RowLabel row={r} />
                   <td>
                     <Value row={r} session={session} />
                   </td>

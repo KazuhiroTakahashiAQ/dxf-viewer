@@ -7,7 +7,7 @@ import { sessions } from '../../session/DocumentSession';
 import type { ResultRow } from '../../shared/docApi';
 import { activeTab, useUi } from '../../state/store';
 import { downloadText, toCsv } from '../download';
-import { iconTip } from '../Tooltip';
+import { iconTip, Term, TypeName } from '../Tooltip';
 
 const PAGE = 500;
 
@@ -66,9 +66,15 @@ export function ResultsPanel() {
         </button>
       </div>
       <div className="grid-header result-row">
-        <span>{t('texts.col.type')}</span>
-        <span>{t('texts.col.layer')}</span>
-        <span>{t('texts.col.handle')}</span>
+        <span>
+          <Term id="entity">{t('texts.col.type')}</Term>
+        </span>
+        <span>
+          <Term id="layer">{t('texts.col.layer')}</Term>
+        </span>
+        <span>
+          <Term id="handle">{t('texts.col.handle')}</Term>
+        </span>
         <span>{t('results.label')}</span>
       </div>
       <div className="panel-scroll" ref={parentRef}>
@@ -88,7 +94,9 @@ export function ResultsPanel() {
               >
                 {r ? (
                   <>
-                    <span>{r.type}</span>
+                    <span>
+                      <TypeName type={r.type} side />
+                    </span>
                     <span title={r.layer}>{r.layer}</span>
                     <span className="mono">{r.handle}</span>
                     <span title={r.label}>{r.label}</span>

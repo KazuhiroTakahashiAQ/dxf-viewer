@@ -21,7 +21,8 @@ import {
 } from '../../shared/filterSpec';
 import { screenToWorld } from '../../shared/view';
 import { activeTab, useUi } from '../../state/store';
-import { iconTip, tip } from '../Tooltip';
+import { iconTip, Term, tip, typeTip } from '../Tooltip';
+import type { TermId } from '../../i18n/glossary';
 
 const fmt = (v: number) => String(Number(v.toPrecision(6)));
 
@@ -65,6 +66,18 @@ function propInfo(key: string, catalog: FilterCatalog | null): CatalogProp {
   return { key, label: key, type: 'string', group: '' };
 }
 
+/** CAD term behind each facet */
+const FACET_TERMS: Record<FacetKey, TermId> = {
+  type: 'entity',
+  layer: 'layer',
+  block: 'block',
+  color: 'color',
+  linetype: 'linetype',
+  lineweight: 'lineweight',
+  style: 'textStyle',
+  xdata: 'xdata',
+};
+
 function Facet({ name, values, selected, onChange }: { name: FacetKey; values: [string, number][]; selected: string[]; onChange: (v: string[]) => void }) {
   const [open, setOpen] = useState(selected.length > 0);
   const [q, setQ] = useState('');
@@ -74,7 +87,9 @@ function Facet({ name, values, selected, onChange }: { name: FacetKey; values: [
     <div className="facet">
       <button type="button" className="section-toggle" onClick={() => setOpen(!open)} aria-expanded={open}>
         {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-        {t(`filter.facet.${name}` as MessageKey)}
+        <Term id={FACET_TERMS[name]} side>
+          {t(`filter.facet.${name}` as MessageKey)}
+        </Term>
         <span className="muted small">{selected.length ? t('filter.nSelected', { count: selected.length }) : values.length}</span>
         {selected.length > 0 && (
           <span
@@ -106,7 +121,7 @@ function Facet({ name, values, selected, onChange }: { name: FacetKey; values: [
                     onChange([...next]);
                   }}
                 />
-                <span className="facet-value" title={v}>
+                <span className="facet-value" {...(name === 'type' ? typeTip(v, { side: true }) : { title: v })}>
                   {v}
                 </span>
                 <span className="muted small">{n.toLocaleString()}</span>
@@ -385,7 +400,7 @@ export function FilterPanel() {
         </div>
         <div className="seg" role="radiogroup" aria-label={t('filter.level')}>
           {(['top', 'leaf'] as const).map((l) => (
-            <button key={l} type="button" role="radio" aria-checked={spec.level === l} className={spec.level === l ? 'on' : ''} onClick={() => update({ level: l })} {...tip(t(`filter.level.${l}`), t(`filter.level.${l}.help`))}>
+            <button key={l} type="button" role="radio" aria-checked={spec.level === l} className={spec.level === l ? 'on' : ''} onClick={() => update({ level: l })} {...tip(t(`filter.level.${l}`), t(`filter.level.${l}.help`), undefined, { terms: l === 'top' ? 'insert' : 'nesting' })}>
               {t(`filter.level.${l}`)}
             </button>
           ))}
@@ -393,7 +408,9 @@ export function FilterPanel() {
       </div>
       <div className="panel-section">
         <div className="section-head">
-          <b>{t('filter.facets')}</b>
+          <b>
+            <Term id="facet">{t('filter.facets')}</Term>
+          </b>
         </div>
       </div>
       {FACET_KEYS.filter((k) => facets[k]?.length).map((k) => (
@@ -401,13 +418,13 @@ export function FilterPanel() {
       ))}
       <div className="panel-section">
         <div className="section-head">
-          <b>{t('filter.conditions')}</b>
+          <b {...tip(t('filter.conditions'), t('filter.conditionsDesc'), undefined, { terms: 'groupCode' })}>{t('filter.conditions')}</b>
         </div>
         <GroupEditor group={spec.where} catalog={catalog} session={session} level={spec.level} depth={0} onChange={(g) => update({ where: g })} />
       </div>
       <div className="panel-section">
         <div className="section-head">
-          <b>{t('filter.region')}</b>
+          <b {...tip(t('filter.region'), t('filter.regionDesc'))}>{t('filter.region')}</b>
         </div>
         <div className="spatial-row">
           <button type="button" className="tb-btn small-btn" onClick={() => update({ spatial: viewRegion(session, spec.spatial?.mode) })} {...tip(t('filter.region.view'), t('filter.region.view.help'))}>

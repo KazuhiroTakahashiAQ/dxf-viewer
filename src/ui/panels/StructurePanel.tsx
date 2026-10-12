@@ -5,6 +5,8 @@ import { t } from '../../i18n';
 import { sessions, type DocumentSession } from '../../session/DocumentSession';
 import type { TreeNode } from '../../shared/docApi';
 import { activeTab, useUi } from '../../state/store';
+import type { TermId } from '../../i18n/glossary';
+import { termTip } from '../Tooltip';
 
 /** Fixed node names come from the worker in English; block / layout / entity names stay as they are. */
 function nodeLabel(node: TreeNode): string {
@@ -13,6 +15,14 @@ function nodeLabel(node: TreeNode): string {
   if (space) return space[1] === 'Model' ? t('tree.model') : t('tree.layout', { name: space[1] });
   if (node.key.startsWith('block:') && node.label.startsWith('Block: ')) return t('layouts.block', { name: node.label.slice(7) });
   return node.label;
+}
+
+/** CAD term behind the top-level nodes */
+function nodeTerm(node: TreeNode): TermId | undefined {
+  if (node.key === 'blocks') return 'block';
+  const space = /^space:([^/]*)$/.exec(node.key);
+  if (space) return space[1] === 'Model' ? 'modelSpace' : 'paperSpace';
+  return undefined;
 }
 
 const PAGE = 200;
@@ -45,8 +55,8 @@ function Node({ session, node, depth }: { session: DocumentSession; node: TreeNo
           <span className="tree-toggle" />
         )}
         <span
-          className="tree-label"
-          title={nodeLabel(node)}
+          className={`tree-label ${nodeTerm(node) ? 'term' : ''}`}
+          {...(nodeTerm(node) ? termTip(nodeTerm(node)!, { side: true }) : { title: nodeLabel(node) })}
           onClick={() => {
             if (node.id !== undefined) {
               session.setSelection([node.id]);

@@ -595,15 +595,16 @@ function contextItems(session: DocumentSession, ids: number[]): MenuItem[] {
   if (ids.length) {
     items.push({ label: t('menu.zoomTo'), action: () => void session.zoomToEntities(ids) });
     if (single !== null) {
-      items.push({ label: t('menu.selectSameType'), action: () => void select('type') });
-      items.push({ label: t('menu.selectSameLayer'), action: () => void select('layer') });
-      items.push({ label: t('menu.selectSameBlock'), action: () => void select('block') });
+      items.push({ label: t('menu.selectSameType'), action: () => void select('type'), term: 'entity' });
+      items.push({ label: t('menu.selectSameLayer'), action: () => void select('layer'), term: 'layer' });
+      items.push({ label: t('menu.selectSameBlock'), action: () => void select('block'), term: 'insert' });
       items.push({ label: t('menu.selectSameColor'), action: () => void select('color') });
     }
     const budget = useUi.getState().tabs.find((x) => x.id === session.id)?.build?.budgetExceeded ?? 0;
     if (single !== null && budget > 0)
       items.push({
         label: t('menu.expandReference'),
+        term: 'expansionLimit',
         action: async () => {
           const cost = await session.rpc.call('referenceCost', { id: single });
           if (cost > 3_000_000 && !window.confirm(t('menu.expandConfirm', { count: cost.toLocaleString() }))) return;
@@ -613,10 +614,11 @@ function contextItems(session: DocumentSession, ids: number[]): MenuItem[] {
       });
     items.push({ separator: true, label: '' });
     items.push({ label: t('menu.hide'), action: () => void session.setVisibility('hide', ids) });
-    items.push({ label: t('menu.isolate'), action: () => void session.setVisibility('isolate', ids) });
+    items.push({ label: t('menu.isolate'), action: () => void session.setVisibility('isolate', ids), term: 'isolate' });
     if (single !== null)
       items.push({
         label: t('menu.copyHandle'),
+        term: 'handle',
         action: async () => {
           const info = await session.rpc.call('hoverInfo', { id: single });
           if (info) void navigator.clipboard?.writeText(info.handle);

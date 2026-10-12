@@ -5,7 +5,7 @@ import { t } from '../../i18n';
 import { sessions } from '../../session/DocumentSession';
 import type { SearchHit } from '../../shared/docApi';
 import { activeTab, useUi } from '../../state/store';
-import { iconTip } from '../Tooltip';
+import { iconTip, TypeName } from '../Tooltip';
 
 /** Localized name of the matched field ("text", "layer", "attribute TAG" …). */
 function fieldLabel(field: string): string {
@@ -73,7 +73,7 @@ export function SearchPanel() {
         <button type="button" className={`icon-btn toggle ${cs ? 'on' : ''}`} aria-pressed={cs} {...iconTip(t('texts.caseSensitive'))} onClick={() => setCs(!cs)}>
           <CaseSensitive size={15} />
         </button>
-        <button type="button" className={`icon-btn toggle ${regex ? 'on' : ''}`} aria-pressed={regex} {...iconTip(t('texts.regex'))} onClick={() => setRegex(!regex)}>
+        <button type="button" className={`icon-btn toggle ${regex ? 'on' : ''}`} aria-pressed={regex} {...iconTip(t('texts.regex'), undefined, undefined, { terms: 'regex' })} onClick={() => setRegex(!regex)}>
           <Regex size={15} />
         </button>
       </div>
@@ -96,7 +96,9 @@ export function SearchPanel() {
             {r.error && <p className="warn-text small">{r.error}</p>}
             {r.hits.map((h, i) => (
               <div key={`${h.id}-${i}`} className="search-hit" onClick={() => open(r.tabId, h.id)}>
-                <span className="muted small">{h.type}</span>
+                <span className="muted small">
+                  <TypeName type={h.type} side />
+                </span>
                 <span className="hit-text" title={h.text}>
                   {h.text}
                 </span>

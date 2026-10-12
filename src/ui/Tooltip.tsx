@@ -1,29 +1,74 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { BookOpen } from 'lucide-react';
 
-import { shortcut } from '../i18n';
+import { getLocale, shortcut, t } from '../i18n';
+import { entityTypeDesc, isTermId, term, type TermId } from '../i18n/glossary';
 
 export interface TipProps {
   'data-tip': string;
   'data-tip-desc'?: string;
   'data-tip-keys'?: string;
+  'data-tip-terms'?: string;
+  'data-tip-side'?: '';
   'aria-label'?: string;
+}
+
+export interface TipOptions {
+  /** glossary terms explained below the description (for people new to CAD) */
+  terms?: TermId | TermId[];
+  /** place beside the element instead of below it (menu items, list rows) */
+  side?: boolean;
 }
 
 /**
  * Attributes that give an element a tooltip: a title line, an optional
- * explanation and an optional shortcut ("F", "Ctrl+Shift+F", alternatives
- * separated by " / "). One TooltipLayer shows them for the whole app.
+ * explanation, an optional shortcut ("F", "Ctrl+Shift+F", alternatives
+ * separated by " / ") and optional glossary terms. One TooltipLayer shows
+ * them for the whole app.
  */
-export function tip(title: string, desc?: string, keys?: string): TipProps {
+export function tip(title: string, desc?: string, keys?: string, opts?: TipOptions): TipProps {
   const p: TipProps = { 'data-tip': title };
   if (desc) p['data-tip-desc'] = desc;
   if (keys) p['data-tip-keys'] = keys;
+  if (opts?.terms) p['data-tip-terms'] = ([] as TermId[]).concat(opts.terms).join(' ');
+  if (opts?.side) p['data-tip-side'] = '';
   return p;
 }
 
 /** tip() for icon-only controls: the title also names the control for screen readers. */
-export function iconTip(title: string, desc?: string, keys?: string): TipProps {
-  return { ...tip(title, desc, keys), 'aria-label': title };
+export function iconTip(title: string, desc?: string, keys?: string, opts?: TipOptions): TipProps {
+  return { ...tip(title, desc, keys, opts), 'aria-label': title };
+}
+
+/** Tooltip that explains a glossary term (title = the term, then its explanation). */
+export function termTip(id: TermId, opts?: Omit<TipOptions, 'terms'>): TipProps {
+  const { name, desc } = term(id);
+  return tip(name, desc, undefined, opts);
+}
+
+/** Tooltip that says what an entity type (LINE, INSERT…) is. */
+export function typeTip(type: string, opts?: TipOptions): TipProps {
+  return tip(type, entityTypeDesc(type), undefined, opts);
+}
+
+/** An entity type name (LINE, INSERT…); hovering says what the type is. */
+export function TypeName({ type, side }: { type: string; side?: boolean }) {
+  const desc = entityTypeDesc(type);
+  if (!desc) return <>{type}</>;
+  return (
+    <span className="term" {...tip(type, desc, undefined, { side })}>
+      {type}
+    </span>
+  );
+}
+
+/** A label for a CAD term: dotted underline, and hovering explains the term. */
+export function Term({ id, children, side }: { id: TermId; children?: ReactNode; side?: boolean }) {
+  return (
+    <span className="term" {...termTip(id, { side })}>
+      {children ?? term(id).name}
+    </span>
+  );
 }
 
 /** Shortcut chips ("Ctrl+Shift+F / F1" → ⌘⇧F, F1 on Apple platforms). */
@@ -41,6 +86,8 @@ interface Shown {
   title: string;
   desc?: string;
   keys?: string;
+  terms: TermId[];
+  side: boolean;
   rect: DOMRect;
 }
 
@@ -64,7 +111,8 @@ export function TooltipLayer() {
       const title = el.dataset.tip;
       if (!title || !el.isConnected) return;
       visible = true;
-      setShown({ title, desc: el.dataset.tipDesc, keys: el.dataset.tipKeys, rect: el.getBoundingClientRect() });
+      const terms = (el.dataset.tipTerms ?? '').split(' ').filter(isTermId);
+      setShown({ title, desc: el.dataset.tipDesc, keys: el.dataset.tipKeys, terms, side: el.dataset.tipSide !== undefined, rect: el.getBoundingClientRect() });
     };
     const hide = () => {
       clearTimeout(timer);
@@ -122,7 +170,7 @@ export function TooltipLayer() {
     };
   }, []);
 
-  // place below the element (above when there is no room), inside the window
+  // place below the element (above when there is no room) or beside it, inside the window
   useLayoutEffect(() => {
     const el = ref.current;
     if (!shown || !el) {
@@ -132,9 +180,16 @@ export function TooltipLayer() {
     const w = el.offsetWidth;
     const h = el.offsetHeight;
     const r = shown.rect;
-    const left = Math.max(8, Math.min(window.innerWidth - w - 8, r.left + r.width / 2 - w / 2));
+    const W = window.innerWidth;
+    const H = window.innerHeight;
+    if (shown.side && (r.right + 8 + w <= W - 8 || r.left - 8 - w >= 8)) {
+      const left = r.right + 8 + w <= W - 8 ? r.right + 8 : r.left - 8 - w;
+      setPos({ left, top: Math.max(8, Math.min(H - h - 8, r.top)) });
+      return;
+    }
+    const left = Math.max(8, Math.min(W - w - 8, r.left + r.width / 2 - w / 2));
     let top = r.bottom + 6;
-    if (top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 6);
+    if (top + h > H - 8) top = Math.max(8, r.top - h - 6);
     setPos({ left, top });
   }, [shown]);
 
@@ -146,6 +201,19 @@ export function TooltipLayer() {
         {shown.keys && <Keys keys={shown.keys} />}
       </div>
       {shown.desc && <div className="tooltip-desc">{shown.desc}</div>}
+      {shown.terms.map((id) => {
+        const tm = term(id);
+        return (
+          <div key={id} className="tooltip-term">
+            <div className="tooltip-term-name">
+              <BookOpen size={12} />
+              {/* Japanese puts a space between Latin letters and kana: "DXF とは", "ブロックとは" */}
+              {t('tip.whatIs', { term: getLocale() === 'ja' && /[!-~]$/.test(tm.name) ? `${tm.name} ` : tm.name })}
+            </div>
+            <div>{tm.desc}</div>
+          </div>
+        );
+      })}
     </div>
   );
 }

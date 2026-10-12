@@ -20,7 +20,7 @@ export function LayoutTabs() {
           role="tab"
           aria-selected={(tab.layout ?? 'Model') === l.name}
           className={`layout-tab ${(tab.layout ?? 'Model') === l.name ? 'active' : ''}`}
-          {...tip(t('layouts.count', { count: l.count }), t('tip.layout'))}
+          {...tip(t('layouts.count', { count: l.count }), t('tip.layout'), undefined, { terms: l.name.startsWith('\u00A7') ? 'block' : l.kind === 'model' ? 'modelSpace' : ['paperSpace', 'viewport'] })}
           onClick={() => void session?.setLayout(l.name)}
         >
           {l.name.startsWith('\u00A7') ? t('layouts.block', { name: l.name.slice(1) }) : l.kind === 'model' ? t('layouts.model') : l.name}

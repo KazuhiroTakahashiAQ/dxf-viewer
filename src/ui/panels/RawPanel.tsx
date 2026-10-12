@@ -6,7 +6,7 @@ import { t } from '../../i18n';
 import { sessions } from '../../session/DocumentSession';
 import type { RawRow } from '../../shared/docApi';
 import { activeTab, useUi } from '../../state/store';
-import { iconTip } from '../Tooltip';
+import { iconTip, tip, TypeName } from '../Tooltip';
 
 const PAGE = 1000;
 
@@ -79,9 +79,9 @@ export function RawPanel() {
             if (Number.isFinite(n) && n > 0) void session.rpc.call('tagAtLine', { line: n }).then(goto);
           }}
         >
-          <input className="num-input" placeholder={t('raw.line')} value={lineInput} onChange={(e) => setLineInput(e.target.value)} aria-label={t('raw.line')} />
+          <input className="num-input" placeholder={t('raw.line')} value={lineInput} onChange={(e) => setLineInput(e.target.value)} aria-label={t('raw.line')} {...tip(t('raw.line'), t('raw.lineDesc'))} />
         </form>
-        <input className="num-input code-input" placeholder={t('raw.code')} value={code} onChange={(e) => setCode(e.target.value)} aria-label={t('raw.code')} />
+        <input className="num-input code-input" placeholder={t('raw.code')} value={code} onChange={(e) => setCode(e.target.value)} aria-label={t('raw.code')} {...tip(t('raw.code'), t('raw.codeDesc'), undefined, { terms: 'groupCode' })} />
         <input
           className="search"
           type="search"
@@ -95,7 +95,7 @@ export function RawPanel() {
         <button type="button" className={`icon-btn toggle ${cs ? 'on' : ''}`} aria-pressed={cs} {...iconTip(t('texts.caseSensitive'))} onClick={() => setCs(!cs)}>
           <CaseSensitive size={15} />
         </button>
-        <button type="button" className={`icon-btn toggle ${regex ? 'on' : ''}`} aria-pressed={regex} {...iconTip(t('texts.regex'))} onClick={() => setRegex(!regex)}>
+        <button type="button" className={`icon-btn toggle ${regex ? 'on' : ''}`} aria-pressed={regex} {...iconTip(t('texts.regex'), undefined, undefined, { terms: 'regex' })} onClick={() => setRegex(!regex)}>
           <Regex size={15} />
         </button>
         <button type="button" className="icon-btn" {...iconTip(t('raw.prev'), undefined, 'Shift+Enter')} onClick={() => void search(-1)}>
@@ -108,7 +108,7 @@ export function RawPanel() {
         <span className="tb-spacer" />
         {owner && (
           <span className="small nowrap">
-            {owner.type} <span className="mono">{owner.handle}</span>
+            <TypeName type={owner.type} /> <span className="mono">{owner.handle}</span>
             {owner.entityId !== undefined && (
               <button
                 type="button"

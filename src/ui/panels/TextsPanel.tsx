@@ -7,7 +7,7 @@ import { sessions } from '../../session/DocumentSession';
 import type { TextQuery, TextRow } from '../../shared/docApi';
 import { activeTab, useUi } from '../../state/store';
 import { downloadText, toCsv } from '../download';
-import { iconTip, tip } from '../Tooltip';
+import { iconTip, Term, tip, TypeName } from '../Tooltip';
 
 const PAGE = 400;
 
@@ -84,14 +84,14 @@ export function TextsPanel() {
         <button type="button" className={`icon-btn toggle ${caseSensitive ? 'on' : ''}`} aria-pressed={caseSensitive} {...iconTip(t('texts.caseSensitive'))} onClick={() => setCaseSensitive(!caseSensitive)}>
           <CaseSensitive size={15} />
         </button>
-        <button type="button" className={`icon-btn toggle ${regex ? 'on' : ''}`} aria-pressed={regex} {...iconTip(t('texts.regex'))} onClick={() => setRegex(!regex)}>
+        <button type="button" className={`icon-btn toggle ${regex ? 'on' : ''}`} aria-pressed={regex} {...iconTip(t('texts.regex'), undefined, undefined, { terms: 'regex' })} onClick={() => setRegex(!regex)}>
           <Regex size={15} />
         </button>
-        <select value={field} onChange={(e) => setField(e.target.value as 'plain' | 'raw')} {...iconTip(t('texts.field'))}>
+        <select value={field} onChange={(e) => setField(e.target.value as 'plain' | 'raw')} {...iconTip(t('texts.field'), undefined, undefined, { terms: 'formatCodes' })}>
           <option value="plain">{t('texts.field.plain')}</option>
           <option value="raw">{t('texts.field.raw')}</option>
         </select>
-        <select value={container} onChange={(e) => setContainer(e.target.value)} {...iconTip(t('texts.container'))}>
+        <select value={container} onChange={(e) => setContainer(e.target.value)} {...iconTip(t('texts.container'), undefined, undefined, { terms: 'space' })}>
           <option value="all">{t('texts.container.all')}</option>
           <option value="Model">{t('texts.container.model')}</option>
           <option value="Paper">{t('texts.container.paper')}</option>
@@ -103,13 +103,23 @@ export function TextsPanel() {
         </button>
       </div>
       <div className="grid-header text-row">
-        <span>{t('texts.col.type')}</span>
-        <span>{t('texts.col.layer')}</span>
-        <span>{t('texts.col.style')}</span>
+        <span>
+          <Term id="text">{t('texts.col.type')}</Term>
+        </span>
+        <span>
+          <Term id="layer">{t('texts.col.layer')}</Term>
+        </span>
+        <span>
+          <Term id="textStyle">{t('texts.col.style')}</Term>
+        </span>
         <span className="num">{t('texts.col.height')}</span>
         <span>{t('texts.col.text')}</span>
-        <span>{t('texts.col.container')}</span>
-        <span>{t('texts.col.handle')}</span>
+        <span>
+          <Term id="space">{t('texts.col.container')}</Term>
+        </span>
+        <span>
+          <Term id="handle">{t('texts.col.handle')}</Term>
+        </span>
       </div>
       <div className="panel-scroll" ref={parentRef}>
         <div style={{ height: v.getTotalSize(), position: 'relative' }}>
@@ -128,7 +138,9 @@ export function TextsPanel() {
               >
                 {r ? (
                   <>
-                    <span>{r.type}</span>
+                    <span>
+                      <TypeName type={r.type} side />
+                    </span>
                     <span title={r.layer}>{r.layer}</span>
                     <span title={r.style}>{r.style}</span>
                     <span className="num">{r.height ? Number(r.height.toPrecision(6)) : ''}</span>

@@ -1,10 +1,11 @@
-import { useEffect } from 'react';
-import { Download, Eye, FolderOpen, Monitor, Ruler, Settings, X, type LucideIcon } from 'lucide-react';
+import { useEffect, useRef } from 'react';
+import { BookOpen, Download, Eye, FolderOpen, Monitor, Ruler, Settings, X, type LucideIcon } from 'lucide-react';
 
 import { t, type MessageKey } from '../i18n';
+import { term, TERM_GROUPS } from '../i18n/glossary';
 import { useUi, type DockSide } from '../state/store';
 import { DOCK_KEYS, PANELS } from './panels/registry';
-import { Keys } from './Tooltip';
+import { Keys, tip } from './Tooltip';
 
 /** [what, how]: `how` is either a message (mouse gestures) or literal shortcut keys */
 const OPERATIONS: [MessageKey, { text: MessageKey } | { keys: string }][] = [
@@ -39,8 +40,13 @@ const SIDES: DockSide[] = ['left', 'right', 'bottom'];
 /** Overview of features, panels and operations (toolbar “?”, the ? key or F1). */
 export function HelpDialog() {
   const open = useUi((s) => s.helpOpen);
+  const section = useUi((s) => s.helpSection);
   const setOpen = useUi((s) => s.setHelpOpen);
   const hasTab = useUi((s) => !!s.activeId);
+  const glossaryRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (open && section === 'glossary') glossaryRef.current?.scrollIntoView({ block: 'start' });
+  }, [open, section]);
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -67,6 +73,10 @@ export function HelpDialog() {
           </button>
         </div>
         <p className="muted small">{t('help.intro')}</p>
+        <button type="button" className="link-inline small help-jump" onClick={() => glossaryRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' })}>
+          <BookOpen size={13} />
+          {t('help.glossaryJump')}
+        </button>
 
         <h3>{t('help.mouse')}</h3>
         <table className="kv help-ops">
@@ -90,7 +100,7 @@ export function HelpDialog() {
                 <Keys keys={DOCK_KEYS[side]} />
               </div>
               {PANELS[side].map((p) => (
-                <button key={p.id} type="button" className="help-item" disabled={!hasTab} onClick={() => openPanel(side, p.id)}>
+                <button key={p.id} type="button" className="help-item" disabled={!hasTab} onClick={() => openPanel(side, p.id)} {...(p.terms ? tip(t(p.title), undefined, undefined, { terms: p.terms, side: true }) : {})}>
                   <p.icon size={15} />
                   <span>
                     <b>{t(p.title)}</b>
@@ -121,6 +131,27 @@ export function HelpDialog() {
             <li key={k}>{t(k)}</li>
           ))}
         </ul>
+
+        <h3 id="help-glossary" ref={glossaryRef}>
+          {t('help.glossary')}
+        </h3>
+        <p className="muted small">{t('help.glossaryIntro')}</p>
+        {TERM_GROUPS.map(([group, ids]) => (
+          <div key={group} className="glossary-group">
+            <h4>{t(`glossary.group.${group}`)}</h4>
+            <dl className="glossary small">
+              {ids.map((id) => {
+                const tm = term(id);
+                return (
+                  <div key={id} className="glossary-entry">
+                    <dt>{tm.name}</dt>
+                    <dd>{tm.desc}</dd>
+                  </div>
+                );
+              })}
+            </dl>
+          </div>
+        ))}
       </div>
     </div>
   );

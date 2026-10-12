@@ -122,7 +122,9 @@ export interface UiState {
   setFontDialog(open: boolean): void;
   /** help dialog */
   helpOpen: boolean;
-  setHelpOpen(open: boolean): void;
+  /** section of the help dialog to scroll to when it opens */
+  helpSection: 'glossary' | null;
+  setHelpOpen(open: boolean, section?: 'glossary'): void;
   /** request for the Raw panel to scroll to a line */
   rawJump: { line: number; seq: number } | null;
   setRawJump(j: { line: number; seq: number } | null): void;
@@ -239,7 +241,8 @@ export const useUi = create<UiState>((set, get) => ({
   fontDialog: false,
   setFontDialog: (open) => set({ fontDialog: open }),
   helpOpen: false,
-  setHelpOpen: (open) => set({ helpOpen: open }),
+  helpSection: null,
+  setHelpOpen: (open, section) => set({ helpOpen: open, helpSection: open ? (section ?? null) : null }),
   rawJump: null,
   setRawJump: (j) => set({ rawJump: j }),
   inspectHandle: null,

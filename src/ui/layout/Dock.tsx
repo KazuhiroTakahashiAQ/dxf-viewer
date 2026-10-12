@@ -2,6 +2,7 @@ import { useCallback, useRef, type ComponentType, type PointerEvent as ReactPoin
 import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, type LucideIcon } from 'lucide-react';
 
 import { t, type MessageKey } from '../../i18n';
+import type { TermId } from '../../i18n/glossary';
 import { useUi, type DockSide } from '../../state/store';
 import { iconTip, tip } from '../Tooltip';
 
@@ -10,6 +11,8 @@ export interface PanelDef {
   title: MessageKey;
   /** what the panel is for (tooltip, help) */
   desc: MessageKey;
+  /** CAD terms the panel is about, explained in its tooltip */
+  terms?: TermId[];
   icon: LucideIcon;
   component: ComponentType;
 }
@@ -59,7 +62,7 @@ export function Dock({ side, panels }: { side: DockSide; panels: PanelDef[] }) {
       <div className={`dock dock-${side} dock-collapsed`}>
         <div className="dock-strip">
           {panels.map((p) => (
-            <button key={p.id} type="button" className="icon-btn" {...iconTip(t(p.title), t(p.desc))} onClick={() => toggleDock(side, p.id)}>
+            <button key={p.id} type="button" className="icon-btn" {...iconTip(t(p.title), t(p.desc), undefined, { terms: p.terms })} onClick={() => toggleDock(side, p.id)}>
               <p.icon size={16} />
             </button>
           ))}
@@ -85,7 +88,7 @@ export function Dock({ side, panels }: { side: DockSide; panels: PanelDef[] }) {
               aria-selected={p.id === active.id}
               className={`dock-tab ${p.id === active.id ? 'active' : ''}`}
               onClick={() => setDock(side, { active: p.id })}
-              {...tip(t(p.title), t(p.desc))}
+              {...tip(t(p.title), t(p.desc), undefined, { terms: p.terms })}
             >
               <p.icon size={14} />
               <span>{t(p.title)}</span>

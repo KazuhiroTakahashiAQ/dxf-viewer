@@ -1,7 +1,7 @@
 import { Copy, Trash2 } from 'lucide-react';
 
 import { t } from '../../i18n';
-import { iconTip, tip } from '../Tooltip';
+import { iconTip, Term, tip } from '../Tooltip';
 import { sessions } from '../../session/DocumentSession';
 import type { SnapKind } from '../../shared/docApi';
 import { activeTab, useUi } from '../../state/store';
@@ -101,11 +101,13 @@ export function MeasurePanel() {
       <div className="panel-section">
         <label className="check">
           <input type="checkbox" checked={settings.snap} onChange={(e) => update({ snap: e.target.checked })} />
-          <b>{t('measure.snap')}</b>
+          <b>
+            <Term id="snap">{t('measure.snap')}</Term>
+          </b>
         </label>
         <div className="snap-kinds">
           {SNAPS.map((k) => (
-            <label key={k} className="check small">
+            <label key={k} className="check small" {...tip(t(`snap.${k}` as never), t(`snap.desc.${k}` as never), undefined, { side: true })}>
               <input
                 type="checkbox"
                 disabled={!settings.snap}

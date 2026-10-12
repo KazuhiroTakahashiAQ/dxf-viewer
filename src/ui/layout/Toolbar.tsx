@@ -28,7 +28,7 @@ import { SettingsMenu } from './SettingsMenu';
 import { normalizeAngle, rotateView, rotationForDirection, zoomAt } from '../../shared/view';
 import { activeTab, useUi, type ViewerSettings } from '../../state/store';
 import { rgbCss } from '../format';
-import { iconTip, tip } from '../Tooltip';
+import { iconTip, termTip, tip } from '../Tooltip';
 
 const BACKGROUNDS = [0x16181d, 0x000000, 0x212830, 0xffffff, 0xf3f1ea];
 
@@ -79,7 +79,7 @@ export function Toolbar() {
           e.target.value = '';
         }}
       />
-      <button type="button" className="tb-btn" onClick={() => void chooseFiles(fileRef.current)} {...tip(t('welcome.open'), t('tip.open'))}>
+      <button type="button" className="tb-btn" onClick={() => void chooseFiles(fileRef.current)} {...tip(t('welcome.open'), t('tip.open'), undefined, { terms: 'dxf' })}>
         <FolderOpen size={16} />
         <span>{t('toolbar.open')}</span>
       </button>
@@ -121,10 +121,10 @@ export function Toolbar() {
         <Ruler size={16} />
       </button>
       <span className="tb-sep" />
-      <button type="button" className="icon-btn" disabled={!session} onClick={() => rotate(Math.PI / 2)} {...iconTip(t('toolbar.rotateCcw'), t('tip.rotate'))}>
+      <button type="button" className="icon-btn" disabled={!session} onClick={() => rotate(Math.PI / 2)} {...iconTip(t('toolbar.rotateCcw'), t('tip.rotate'), undefined, { terms: 'wcs' })}>
         <RotateCcw size={16} />
       </button>
-      <button type="button" className="icon-btn" disabled={!session} onClick={() => rotate(-Math.PI / 2)} {...iconTip(t('toolbar.rotateCw'), t('tip.rotate'))}>
+      <button type="button" className="icon-btn" disabled={!session} onClick={() => rotate(-Math.PI / 2)} {...iconTip(t('toolbar.rotateCw'), t('tip.rotate'), undefined, { terms: 'wcs' })}>
         <RotateCw size={16} />
       </button>
       <details className="tb-menu">
@@ -152,7 +152,7 @@ export function Toolbar() {
           <button type="button" className="menu-item" disabled={!tab?.selection?.length} onClick={() => void alignToSelection()}>
             {t('view.alignSelection')}
           </button>
-          <button type="button" className="menu-item" disabled={!session || !fileTwist} onClick={() => setRotation((fileTwist * Math.PI) / 180)}>
+          <button type="button" className="menu-item" disabled={!session || !fileTwist} onClick={() => setRotation((fileTwist * Math.PI) / 180)} {...termTip('viewTwist', { side: true })}>
             {t('view.alignFile', { deg: Number(fileTwist.toFixed(4)) })}
           </button>
           <label>
@@ -168,11 +168,13 @@ export function Toolbar() {
           <button type="button" className="menu-item" disabled={!session} onClick={() => session?.setView({ ...session.view, rotation: 0, mirrorX: false, mirrorY: false })}>
             {t('view.resetOrientation')}
           </button>
-          <p className="muted small">{t('view.wcsNote')}</p>
+          <p className="muted small" {...termTip('wcs', { side: true })}>
+            {t('view.wcsNote')}
+          </p>
         </div>
       </details>
       <span className="tb-sep" />
-      <label className="tb-field" {...tip(t('toolbar.encoding'), t('tip.encoding'))}>
+      <label className="tb-field" {...tip(t('toolbar.encoding'), t('tip.encoding'), undefined, { terms: 'encoding' })}>
         <span className="tb-label">{t('toolbar.encoding')}</span>
         <select
           disabled={!tab || tab.status === 'loading' || tab.summary?.binary}
@@ -207,7 +209,7 @@ export function Toolbar() {
       <details className="tb-menu">
         <summary {...tip(t('toolbar.display'), t('tip.display'))}>{t('toolbar.display')}</summary>
         <div className="menu-pop">
-          <label>
+          <label {...termTip('lineweight', { side: true })}>
             {t('display.lineweights')}
             <select value={settings.lineweights} onChange={(e) => setSetting({ lineweights: e.target.value as ViewerSettings['lineweights'] })}>
               <option value="file">{t('display.lineweights.file')}</option>
@@ -215,15 +217,15 @@ export function Toolbar() {
               <option value="off">{t('display.lineweights.off')}</option>
             </select>
           </label>
-          <label>
+          <label {...termTip('linetype', { side: true })}>
             <input type="checkbox" checked={settings.linetypes} onChange={(e) => setSetting({ linetypes: e.target.checked })} />
             {t('display.linetypes')}
           </label>
-          <label>
+          <label {...termTip('hatch', { side: true })}>
             <input type="checkbox" checked={settings.fills} onChange={(e) => setSetting({ fills: e.target.checked })} />
             {t('display.fills')}
           </label>
-          <label>
+          <label {...termTip('text', { side: true })}>
             <input type="checkbox" checked={settings.texts} onChange={(e) => setSetting({ texts: e.target.checked })} />
             {t('display.texts')}
           </label>
@@ -231,24 +233,24 @@ export function Toolbar() {
             <input type="checkbox" checked={settings.monochrome} onChange={(e) => setSetting({ monochrome: e.target.checked })} />
             {t('display.monochrome')}
           </label>
-          <label>
+          <label {...termTip('wipeout', { side: true })}>
             <input type="checkbox" checked={settings.xray} onChange={(e) => setSetting({ xray: e.target.checked })} />
             {t('display.xray')}
           </label>
-          <label>
+          <label {...termTip('freeze', { side: true })}>
             <input type="checkbox" checked={settings.ghostOff} onChange={(e) => setSetting({ ghostOff: e.target.checked })} />
             {t('display.ghostOff')}
           </label>
           <hr />
-          <label>
+          <label {...termTip('extents', { side: true })}>
             <input type="checkbox" checked={settings.showBBoxes} onChange={(e) => setSetting({ showBBoxes: e.target.checked })} />
             {t('display.bboxes')}
           </label>
-          <label>
+          <label {...termTip('insertionPoint', { side: true })}>
             <input type="checkbox" checked={settings.showInsertionPoints} onChange={(e) => setSetting({ showInsertionPoints: e.target.checked })} />
             {t('display.insertionPoints')}
           </label>
-          <label>
+          <label {...termTip('controlPoint', { side: true })}>
             <input type="checkbox" checked={settings.showControlPoints} onChange={(e) => setSetting({ showControlPoints: e.target.checked })} />
             {t('display.controlPoints')}
           </label>
@@ -257,7 +259,7 @@ export function Toolbar() {
             <input type="checkbox" checked={settings.showGrid} onChange={(e) => updateSettings({ showGrid: e.target.checked })} />
             {t('display.grid')}
           </label>
-          <label>
+          <label {...termTip('wcs', { side: true })}>
             <input type="checkbox" checked={settings.showAxes} onChange={(e) => updateSettings({ showAxes: e.target.checked })} />
             {t('display.axes')}
           </label>

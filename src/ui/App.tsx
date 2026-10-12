@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
-import { CircleHelp, Download, Filter, FolderOpen, Layers, MousePointerClick, Ruler, ScrollText } from 'lucide-react';
+import { BookOpen, CircleHelp, Download, Filter, FolderOpen, Layers, MousePointerClick, Ruler, ScrollText } from 'lucide-react';
 
 import { resolveLocale, setLocale, t, type MessageKey } from '../i18n';
+import type { TermId } from '../i18n/glossary';
 import { UpdatePrompt } from '../pwa/UpdatePrompt';
 import { openFiles, openHandles, openSources, sessions } from '../session/DocumentSession';
 import { chooseFiles, droppedHandles } from './fileOpen';
 import { RecentList } from './RecentList';
 import { FontDownloadDialog } from './FontDownloadDialog';
 import { HelpDialog } from './HelpDialog';
-import { TooltipLayer } from './Tooltip';
+import { tip, TooltipLayer } from './Tooltip';
 import { listRecent, loadRecent } from '../storage/recentFiles';
 import { addFontFiles } from '../session/userFonts';
 import { fontKind } from '../storage/userFonts';
@@ -38,13 +39,29 @@ const SAMPLES = [
   'views_layerstates',
 ] as const;
 
-const FEATURES: [typeof Layers, MessageKey, MessageKey][] = [
-  [MousePointerClick, 'feat.inspect', 'feat.inspect.desc'],
-  [Layers, 'feat.layers', 'feat.layers.desc'],
-  [Filter, 'feat.filter', 'feat.filter.desc'],
-  [Ruler, 'feat.measure', 'feat.measure.desc'],
-  [ScrollText, 'feat.document', 'feat.document.desc'],
-  [Download, 'feat.export', 'feat.export.desc'],
+/** CAD terms that the sample descriptions use */
+const SAMPLE_TERMS: Record<(typeof SAMPLES)[number], TermId[]> = {
+  basic_entities: ['entity', 'hatch'],
+  japanese_sjis_r2000: ['encoding', 'dxfVersion'],
+  jwcad_like_r12: ['dxfVersion'],
+  autocad_like_shx: ['shx', 'bigFont'],
+  revit_archicad_like: ['trueType'],
+  unicode_escapes_r2000: ['formatCodes'],
+  binary: ['binaryDxf'],
+  large_offset: ['wcs'],
+  minsert_budget: ['insert', 'expansionLimit'],
+  layouts: ['paperSpace', 'viewport'],
+  views_layerstates: ['namedView', 'layerState'],
+};
+
+/** [icon, title, description, CAD terms explained on hover] */
+const FEATURES: [typeof Layers, MessageKey, MessageKey, TermId[]][] = [
+  [MousePointerClick, 'feat.inspect', 'feat.inspect.desc', ['entity', 'groupCode']],
+  [Layers, 'feat.layers', 'feat.layers.desc', ['layer', 'layerState', 'block']],
+  [Filter, 'feat.filter', 'feat.filter.desc', []],
+  [Ruler, 'feat.measure', 'feat.measure.desc', ['snap']],
+  [ScrollText, 'feat.document', 'feat.document.desc', ['encoding', 'header']],
+  [Download, 'feat.export', 'feat.export.desc', []],
 ];
 
 const supported = typeof OffscreenCanvas !== 'undefined' && 'transferControlToOffscreen' in HTMLCanvasElement.prototype;
@@ -95,8 +112,8 @@ function Welcome() {
         <section>
           <h3>{t('welcome.features')}</h3>
           <div className="feature-list">
-            {FEATURES.map(([Icon, title, desc]) => (
-              <div key={title} className="feature">
+            {FEATURES.map(([Icon, title, desc, terms]) => (
+              <div key={title} className="feature" {...(terms.length ? tip(t(title), undefined, undefined, { terms, side: true }) : {})}>
                 <Icon size={18} />
                 <span>
                   <b>{t(title)}</b>
@@ -105,17 +122,23 @@ function Welcome() {
               </div>
             ))}
           </div>
-          <button type="button" className="tb-btn" onClick={() => useUi.getState().setHelpOpen(true)}>
-            <CircleHelp size={15} />
-            {t('welcome.help')}
-          </button>
+          <div className="row-actions">
+            <button type="button" className="tb-btn" onClick={() => useUi.getState().setHelpOpen(true)}>
+              <CircleHelp size={15} />
+              {t('welcome.help')}
+            </button>
+            <button type="button" className="tb-btn welcome-glossary" onClick={() => useUi.getState().setHelpOpen(true, 'glossary')}>
+              <BookOpen size={15} />
+              {t('welcome.glossary')}
+            </button>
+          </div>
         </section>
         {supported && (
           <section>
             <h3>{t('welcome.samples')}</h3>
             <div className="sample-list">
               {SAMPLES.map((name) => (
-                <button key={name} type="button" className="sample" disabled={!!loading} onClick={() => void openSample(name)}>
+                <button key={name} type="button" className="sample" disabled={!!loading} onClick={() => void openSample(name)} {...tip(`${name}.dxf`, t(`sample.${name}`), undefined, { terms: SAMPLE_TERMS[name], side: true })}>
                   <span className="mono small">{name}.dxf</span>
                   <span className="muted small">{t(`sample.${name}`)}</span>
                 </button>

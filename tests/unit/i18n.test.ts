@@ -4,9 +4,11 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { allCodeDescriptions, HEADER_DESCRIPTIONS } from '../../src/dxf/codes';
 import { parseDxf } from '../../src/dxf/parser';
+import { ENTITY_SPECS } from '../../src/dxf/entities/specs';
 import { CATALOG } from '../../src/filter/evaluate';
 import { en } from '../../src/i18n/en';
 import { resolveLocale, setLocale, t, tx } from '../../src/i18n';
+import { entityTypeDesc, tableDesc, term, TERM_GROUPS, TERM_IDS } from '../../src/i18n/glossary';
 import { ja } from '../../src/i18n/ja';
 import { JA_TERMS } from '../../src/i18n/terms.ja';
 import { StyleResolver } from '../../src/scene/style';
@@ -77,5 +79,40 @@ describe('fixed texts from the document worker (tx)', () => {
     expect(tx('$ACADVER AC1032 (R2007 or later) stores text as UTF-8')).toBe('$ACADVER AC1032（R2007 以降）は文字を UTF-8 で保存する');
     // unknown text (e.g. drawing content) is returned unchanged
     expect(tx('KITCHEN 1F')).toBe('KITCHEN 1F');
+  });
+});
+
+describe('explanations for people new to CAD', () => {
+  const japanese = /[\u3040-\u30ff\u4e00-\u9fff]/;
+
+  it('has an English and a Japanese explanation for every glossary term', () => {
+    for (const id of TERM_IDS) {
+      const en = term(id, 'en');
+      const jp = term(id, 'ja');
+      expect([id, en.name.length > 0, en.desc.length > 20, japanese.test(en.desc)]).toEqual([id, true, true, false]);
+      expect([id, jp.name.length > 0, japanese.test(jp.desc)]).toEqual([id, true, true]);
+    }
+  });
+
+  it('lists every term exactly once in the help dialog glossary', () => {
+    const listed = TERM_GROUPS.flatMap(([, ids]) => ids);
+    expect([...listed].sort()).toEqual([...TERM_IDS].sort());
+    expect(new Set(listed).size).toBe(listed.length);
+    for (const [group] of TERM_GROUPS) expect(`glossary.group.${group}` in en).toBe(true);
+  });
+
+  it('explains every entity type the parser knows', () => {
+    const missing = [...Object.keys(ENTITY_SPECS), 'SEQEND'].filter((type) => !entityTypeDesc(type, 'en') || !entityTypeDesc(type, 'ja'));
+    expect(missing).toEqual([]);
+    expect(entityTypeDesc('LOFTEDSURFACE', 'ja')).toContain('サーフェス');
+    expect(entityTypeDesc('MY_CUSTOM_ENTITY', 'ja')).toBeUndefined();
+  });
+
+  it('explains the standard symbol tables, rendering methods and snap kinds', () => {
+    for (const table of ['LAYER', 'LTYPE', 'STYLE', 'DIMSTYLE', 'BLOCK_RECORD', 'VPORT', 'VIEW', 'UCS', 'APPID']) {
+      expect([table, !!tableDesc(table, 'en'), !!tableDesc(table, 'ja')]).toEqual([table, true, true]);
+    }
+    for (const m of ['native', 'block', 'text', 'frame', 'proxy', 'none']) expect(`coverage.desc.${m}` in en).toBe(true);
+    for (const k of ['endpoint', 'midpoint', 'center', 'quadrant', 'intersection', 'insertion', 'node', 'nearest']) expect(`snap.desc.${k}` in en).toBe(true);
   });
 });

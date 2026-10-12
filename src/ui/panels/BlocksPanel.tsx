@@ -6,7 +6,7 @@ import { t } from '../../i18n';
 import { sessions, type DocumentSession } from '../../session/DocumentSession';
 import type { BlockInfo } from '../../shared/docApi';
 import { activeTab, useUi } from '../../state/store';
-import { iconTip } from '../Tooltip';
+import { iconTip, Term, tip } from '../Tooltip';
 
 function Preview({ session, name, background }: { session: DocumentSession; name: string; background: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -53,7 +53,7 @@ export function BlocksPanel() {
       <div className="panel-toolbar">
         <input className="search" type="search" placeholder={t('blocks.filter')} value={filter} onChange={(e) => setFilter(e.target.value)} />
       </div>
-      <label className="check panel-sub">
+      <label className="check panel-sub" {...tip(t('blocks.showAnonymous'), undefined, undefined, { terms: 'anonymousBlock' })}>
         <input type="checkbox" checked={anon} onChange={(e) => setAnon(e.target.checked)} />
         {t('blocks.showAnonymous')}
       </label>
@@ -69,24 +69,51 @@ export function BlocksPanel() {
                     {b.name}
                   </div>
                   <div className="muted small">
-                    {t('blocks.refs', { count: b.refCount })} · {t('blocks.entities', { count: b.entityCount })}
-                    {b.refCount === 0 && <span className="warn-text"> · {t('blocks.unused')}</span>}
-                    {b.xref && <span> · {t('blocks.xref')}</span>}
-                    {b.dynamicSource && <span> · {t('blocks.dynamic', { name: b.dynamicSource })}</span>}
+                    <Term id="insert" side>
+                      {t('blocks.refs', { count: b.refCount })}
+                    </Term>{' '}
+                    ·{' '}
+                    <Term id="entity" side>
+                      {t('blocks.entities', { count: b.entityCount })}
+                    </Term>
+                    {b.refCount === 0 && (
+                      <span className="warn-text">
+                        {' '}
+                        · <Term id="unusedBlock" side>{t('blocks.unused')}</Term>
+                      </span>
+                    )}
+                    {b.xref && (
+                      <span>
+                        {' '}
+                        · <Term id="xref" side>{t('blocks.xref')}</Term>
+                      </span>
+                    )}
+                    {b.dynamicSource && (
+                      <span>
+                        {' '}
+                        · <Term id="dynamicBlock" side>{t('blocks.dynamic', { name: b.dynamicSource })}</Term>
+                      </span>
+                    )}
                   </div>
-                  {b.attdefs.length > 0 && <div className="muted small ellipsis">{t('blocks.attdefs', { tags: b.attdefs.join(', ') })}</div>}
+                  {b.attdefs.length > 0 && (
+                    <div className="muted small ellipsis">
+                      <Term id="attribute" side>
+                        {t('blocks.attdefs', { tags: b.attdefs.join(', ') })}
+                      </Term>
+                    </div>
+                  )}
                 </div>
                 <div className="block-actions">
-                  <button type="button" className="icon-btn" {...iconTip(t('blocks.selectRefs'), t('blocks.selectRefsDesc'))} onClick={() => void select(b.name, false)}>
+                  <button type="button" className="icon-btn" {...iconTip(t('blocks.selectRefs'), t('blocks.selectRefsDesc'), undefined, { terms: 'insert' })} onClick={() => void select(b.name, false)}>
                     <MousePointerClick size={14} />
                   </button>
-                  <button type="button" className="icon-btn" {...iconTip(t('blocks.selectNested'), t('blocks.selectNestedDesc'))} onClick={() => void select(b.name, true)}>
+                  <button type="button" className="icon-btn" {...iconTip(t('blocks.selectNested'), t('blocks.selectNestedDesc'), undefined, { terms: 'nesting' })} onClick={() => void select(b.name, true)}>
                     <Network size={14} />
                   </button>
                   <button
                     type="button"
                     className="icon-btn"
-                    {...iconTip(t('blocks.isolate'), t('blocks.isolateDesc'))}
+                    {...iconTip(t('blocks.isolate'), t('blocks.isolateDesc'), undefined, { terms: 'isolate' })}
                     onClick={async () => {
                       const ids = await session.rpc.call('blockRefs', { name: b.name, nested: true });
                       void session.setVisibility('isolate', ids);
@@ -94,7 +121,7 @@ export function BlocksPanel() {
                   >
                     <Focus size={14} />
                   </button>
-                  <button type="button" className="icon-btn" {...iconTip(t('blocks.view'), t('blocks.viewDesc'))} onClick={() => void session.setLayout('§' + b.name)}>
+                  <button type="button" className="icon-btn" {...iconTip(t('blocks.view'), t('blocks.viewDesc'), undefined, { terms: 'block' })} onClick={() => void session.setLayout('§' + b.name)}>
                     <Eye size={14} />
                   </button>
                 </div>

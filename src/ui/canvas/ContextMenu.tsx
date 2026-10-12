@@ -1,10 +1,15 @@
 import { useEffect, useRef } from 'react';
 
+import type { TermId } from '../../i18n/glossary';
+import { tip } from '../Tooltip';
+
 export interface MenuItem {
   label: string;
   action?: () => void;
   separator?: boolean;
   disabled?: boolean;
+  /** CAD term explained when pointing at the item */
+  term?: TermId;
 }
 
 export function ContextMenu({ x, y, items, onClose }: { x: number; y: number; items: MenuItem[]; onClose: () => void }) {
@@ -37,6 +42,7 @@ export function ContextMenu({ x, y, items, onClose }: { x: number; y: number; it
             type="button"
             role="menuitem"
             disabled={it.disabled}
+            {...(it.term ? tip(it.label, undefined, undefined, { terms: it.term, side: true }) : {})}
             onClick={() => {
               onClose();
               it.action?.();

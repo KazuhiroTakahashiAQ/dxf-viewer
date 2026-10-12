@@ -9,7 +9,7 @@ import { activeTab, useUi } from '../../state/store';
 import { listUserFonts, removeUserFont, type StoredFontInfo } from '../../storage/userFonts';
 import { addFontFiles, reloadUserFontsEverywhere } from '../../session/userFonts';
 import { formatBytes } from '../format';
-import { iconTip, tip } from '../Tooltip';
+import { iconTip, Term, termTip, tip } from '../Tooltip';
 
 const STROKE_FONTS: [string, string][] = [
   ['futural', 'Hershey Simplex (txt/simplex/romans)'],
@@ -90,18 +90,24 @@ export function FontsPanel() {
         return (
           <div key={f.requested} className="font-card">
             <div className="font-head">
-              <span className={`badge ${f.kind}`}>{f.kind.toUpperCase()}</span>
+              <span className={`badge ${f.kind}`} {...termTip(f.kind === 'shx' ? 'shx' : 'trueType')}>
+                {f.kind.toUpperCase()}
+              </span>
               <b className="font-name" title={f.requested}>
                 {f.requested}
               </b>
-              {f.bigFont && <span className="badge">{f.bigFont}</span>}
+              {f.bigFont && (
+                <span className="badge" {...termTip('bigFont')}>
+                  {f.bigFont}
+                </span>
+              )}
               <span className="muted small">{t('fonts.texts', { count: f.textCount })}</span>
             </div>
             <div className="font-meta muted small">
-              {f.styles.length > 0 && <span>{t('fonts.styles', { names: f.styles.join(', ') })}</span>}
+              {f.styles.length > 0 && <Term id="textStyle">{t('fonts.styles', { names: f.styles.join(', ') })}</Term>}
             </div>
             <div className="font-resolve small">
-              {t('fonts.substitute')}: <b>{f.substitute}</b>
+              <span {...tip(t('fonts.substitute'), t('fonts.substituteDesc'))}>{t('fonts.substitute')}</span>: <b>{f.substitute}</b>
               {f.localName && (
                 <span className={f.localAvailable ? 'ok' : 'muted'} title={f.localName}>
                   {' '}
@@ -141,11 +147,11 @@ export function FontsPanel() {
                   </optgroup>
                 )}
               </select>
-              <label {...tip(t('fonts.widthScale'))}>
+              <label {...tip(t('fonts.widthScale'), t('fonts.scaleDesc'))}>
                 W×
                 <input type="number" step="0.05" min="0.1" max="5" value={ov?.widthScale ?? 1} onChange={(e) => setOverride(f.requested, { widthScale: Number(e.target.value) || 1 })} />
               </label>
-              <label {...tip(t('fonts.heightScale'))}>
+              <label {...tip(t('fonts.heightScale'), t('fonts.scaleDesc'))}>
                 H×
                 <input type="number" step="0.05" min="0.1" max="5" value={ov?.heightScale ?? 1} onChange={(e) => setOverride(f.requested, { heightScale: Number(e.target.value) || 1 })} />
               </label>
