@@ -131,6 +131,20 @@ export function parseEntityRecord(
     i++;
   }
   spec?.finish?.(e, r);
+  findProxyGraphics(e, tags, start, e.xdataStart ?? end);
+}
+
+/** Locate proxy graphics: a 92 (or 160) size followed by 310 binary chunks. */
+function findProxyGraphics(e: EntityBase, tags: TagStore, start: number, end: number): void {
+  for (let i = start + 1; i < end - 1; i++) {
+    const c = tags.code(i);
+    if ((c === 92 || c === 160) && tags.code(i + 1) === 310) {
+      let j = i + 1;
+      while (j < end && tags.code(j) === 310) j++;
+      e.proxyGraphics = { size: tags.num(i), start: i + 1, end: j };
+      return;
+    }
+  }
 }
 
 function applyCommon(e: EntityBase, code: number, i: number, tags: TagStore): void {

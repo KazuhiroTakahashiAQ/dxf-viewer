@@ -1,6 +1,8 @@
 import type { Vec3 } from '../../geom/vec';
 import type { EntityBase, MTextEntity, Vertex } from '../model';
 import type { EntitySpec, TagReader } from './common';
+import { ACAD_TABLE, ACIS, IMAGE, LEADER, MESH, MLINE, MULTILEADER, OLE2FRAME, PROXY, SHAPE, TOLERANCE, UNDERLAY, XLINE } from './complexSpecs';
+import { HATCH, MPOLYGON } from './hatch';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type E = any;
@@ -528,6 +530,35 @@ export const ENTITY_SPECS: Record<string, EntitySpec> = {
   SPLINE,
   HELIX,
   VIEWPORT,
+  XLINE,
+  RAY: XLINE,
+  HATCH,
+  MPOLYGON,
+  LEADER,
+  MULTILEADER,
+  MLEADER: MULTILEADER,
+  TOLERANCE,
+  MLINE,
+  IMAGE,
+  WIPEOUT: IMAGE,
+  PDFUNDERLAY: UNDERLAY,
+  DWFUNDERLAY: UNDERLAY,
+  DGNUNDERLAY: UNDERLAY,
+  OLE2FRAME,
+  SHAPE,
+  ACAD_TABLE,
+  MESH,
+  '3DSOLID': ACIS,
+  REGION: ACIS,
+  BODY: ACIS,
+  SURFACE: ACIS,
+  EXTRUDEDSURFACE: ACIS,
+  LOFTEDSURFACE: ACIS,
+  REVOLVEDSURFACE: ACIS,
+  SWEPTSURFACE: ACIS,
+  PLANESURFACE: ACIS,
+  NURBSURFACE: ACIS,
+  ACAD_PROXY_ENTITY: PROXY,
 };
 
 export type { EntityBase, Vec3 };

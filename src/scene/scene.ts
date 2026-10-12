@@ -1,10 +1,16 @@
+import type { HatchEntity, PatternLine } from '../dxf/entities/hatch';
+import { aciToRgb } from '../dxf/colors';
 import { nameKey, type DimensionEntity, type DxfDocument, type Entity, type InsertEntity, type MTextEntity, type PointEntity, type TextEntity } from '../dxf/model';
+import { sortTable, spatialFilter } from '../dxf/objects';
 import { affineArcToCanvas } from '../geom/ellipse';
 import { applyPoint, identity, multiply, rotationZ, scaling, translation, type Affine2, type Mat34 } from '../geom/matrix';
 import { ocsToWcs } from '../geom/ocs';
-import { DEG } from '../geom/vec';
+import { DEG, type Vec3 } from '../geom/vec';
+import { COMPLEX_TYPES, complexMethod, emitComplex, emitDimensionFallback, emitProxy } from './complex';
 import { emitEntity, type EmitOptions } from './emit';
 import { BBoxOut, bboxAddPoint, bboxUnion, bboxValid, emptyBBox, Projector, type BBox } from './geoOut';
+import { buildHatchPath } from './hatchGeom';
+import type { EmitHost, ImageBuild } from './host';
 import { styleKey, StyleResolver, TOP_CTX, type InheritCtx, type Style } from './style';
 import { layoutMText, layoutText, type PlacedText, type TextLayout, type TextMeasurer } from './textLayout';
 
@@ -18,6 +24,16 @@ export interface PathLike {
 }
 
 export type PathFactory = () => PathLike;
+
+/** A path that only records nothing (for bounds-only passes). */
+const NULL_PATH: PathLike = {
+  moveTo() {},
+  lineTo() {},
+  bezierCurveTo() {},
+  quadraticCurveTo() {},
+  ellipse() {},
+  closePath() {},
+};
 
 export interface Batch {
   key: string;
@@ -45,6 +61,49 @@ export interface PointItem {
   entity: number;
 }
 
+export interface HatchItem {
+  path: PathLike;
+  /** hatch-local → tile-local */
+  m: Affine2;
+  style: Style;
+  bbox: BBox;
+  /** bounds in hatch-local coordinates */
+  local: BBox;
+  solid: boolean;
+  solidColor?: number;
+  fillRule: 'evenodd' | 'nonzero';
+  gradient?: { name: string; angle: number; shift: number; c1: number; c2: number };
+  lines: PatternLine[];
+  outline: boolean;
+  entity: number;
+}
+
+export interface ImageItem {
+  /** corners in tile-local coordinates: x0,y0,…,x3,y3 */
+  corners: number[];
+  clip?: number[];
+  label: string;
+  fileName?: string;
+  wipeout: boolean;
+  width: number;
+  height: number;
+  style: Style;
+  bbox: BBox;
+  entity: number;
+}
+
+export interface InfiniteItem {
+  x: number;
+  y: number;
+  dx: number;
+  dy: number;
+  ray: boolean;
+  style: Style;
+  entity: number;
+}
+
+export type RunKind = 'geom' | 'text' | 'hatch' | 'image' | 'point' | 'clip';
+
 export interface Tile {
   key: string;
   level: number;
@@ -55,9 +114,17 @@ export interface Tile {
   batchList: Batch[];
   texts: TextItem[];
   points: PointItem[];
+  hatches: HatchItem[];
+  images: ImageItem[];
+  /** XCLIP region in tile-local coordinates */
+  clip?: PathLike;
+  /** strict mode: what this run holds */
+  run?: RunKind;
+  runKey?: string;
+  count: number;
 }
 
-export type RenderMethod = 'native' | 'block' | 'text' | 'frame' | 'none';
+export type RenderMethod = 'native' | 'block' | 'text' | 'frame' | 'proxy' | 'none';
 
 export interface CoverageRow {
   type: string;
@@ -71,9 +138,11 @@ export interface SceneOptions {
   budget: number;
   maxDepth: number;
   fill: boolean;
+  /** draw order: strict follows the file (needed for wipeouts/masks) */
+  drawOrder: 'auto' | 'fast' | 'strict';
 }
 
-export const DEFAULT_SCENE_OPTIONS: SceneOptions = { budget: 5_000_000, maxDepth: 64, fill: true };
+export const DEFAULT_SCENE_OPTIONS: SceneOptions = { budget: 5_000_000, maxDepth: 64, fill: true, drawOrder: 'auto' };
 
 class TileOut extends Projector {
   tile!: Tile;
@@ -81,12 +150,15 @@ class TileOut extends Projector {
   key = '';
   private target: PathLike | null = null;
   emitted = 0;
+  /** resolves the tile for a style key (strict mode runs) */
+  resolve: (key: string) => Tile = () => this.tile;
 
   constructor(private factory: PathFactory) {
     super();
   }
 
   private batch(): Batch {
+    this.tile = this.resolve(this.key);
     let b = this.tile.batches.get(this.key);
     if (!b) {
       b = { key: this.key, style: this.style, stroke: null, fills: [], strokeCount: 0 };
@@ -99,6 +171,7 @@ class TileOut extends Projector {
   beginPath(kind: 'stroke' | 'fill'): void {
     const b = this.batch();
     this.emitted++;
+    this.tile.count++;
     if (kind === 'stroke') {
       b.stroke ??= this.factory();
       b.strokeCount++;
@@ -135,14 +208,19 @@ class TileOut extends Projector {
 }
 
 const TEXT_TYPES = new Set(['TEXT', 'MTEXT', 'ATTRIB', 'ATTDEF']);
-const BLOCK_TYPES = new Set(['INSERT', 'DIMENSION', 'ARC_DIMENSION', 'LARGE_RADIAL_DIMENSION']);
+const DIM_TYPES = new Set(['DIMENSION', 'ARC_DIMENSION', 'LARGE_RADIAL_DIMENSION']);
 const NATIVE_TYPES = new Set(['LINE', 'CIRCLE', 'ARC', 'ELLIPSE', 'LWPOLYLINE', 'POLYLINE', 'SOLID', 'TRACE', '3DFACE', 'SPLINE', 'HELIX', 'POINT']);
+/** Types that occlude what is drawn before them (need file draw order). */
+const OCCLUDERS = new Set(['WIPEOUT', 'IMAGE']);
 
 export interface Scene {
   doc: DxfDocument;
   styles: StyleResolver;
   tiles: Map<string, Tile>;
+  /** fast mode: spatial tiles; strict mode: runs in drawing order */
   tileList: Tile[];
+  strict: boolean;
+  infinite: InfiniteItem[];
   /** top-level entity ids in drawing order */
   items: number[];
   /** per item: minX, minY, maxX, maxY (NaN if none) */
@@ -155,18 +233,99 @@ export interface Scene {
   baseTileSize: number;
 }
 
+/** Bounds-only implementation of EmitHost. */
+class BBoxHost implements EmitHost {
+  readonly out = new BBoxOut();
+  b: BBox = emptyBBox();
+  constructor(private builder: SceneBuilder) {}
+  get doc() {
+    return this.builder.doc;
+  }
+  get measurer() {
+    return this.builder.measurer;
+  }
+  get styles() {
+    return this.builder.scene.styles;
+  }
+  get fill() {
+    return this.builder.fill;
+  }
+  start(): void {
+    this.b = emptyBBox();
+    this.out.reset();
+  }
+  finish(): BBox | null {
+    bboxUnion(this.b, this.out.b);
+    return bboxValid(this.b) ? this.b : null;
+  }
+  use(e: Entity, ctx: InheritCtx): Style {
+    return this.styles.resolve(e, ctx);
+  }
+  useStyle(): void {}
+  text(p: PlacedText, m: Mat34): void {
+    textBBox(p, m, this.b);
+  }
+  hatch(h: HatchEntity, m: Mat34): void {
+    const { bbox } = buildHatchPath(h, NULL_PATH, 0, 0, h.style === 2);
+    if (bboxValid(bbox)) transformBBox(bbox, m, this.b);
+  }
+  image(item: ImageBuild): void {
+    for (const p of item.clip ?? item.corners) bboxAddPoint(this.b, p[0], p[1]);
+  }
+  infinite(): void {
+    /* excluded from extents */
+  }
+  point(p: Vec3): void {
+    bboxAddPoint(this.b, p[0], p[1]);
+  }
+  block(name: string, m: Mat34): boolean {
+    const bb = this.builder.blockBBox(name);
+    if (bb) transformBBox(bb, m, this.b);
+    return !!bb;
+  }
+  child(e: Entity, m: Mat34): void {
+    const eb = this.builder.entityBBox(e, m, true);
+    if (eb) bboxUnion(this.b, eb);
+  }
+  diag(): void {}
+}
+
+function transformBBox(b: BBox, m: Mat34, into: BBox): void {
+  for (const [x, y] of [
+    [b.minX, b.minY],
+    [b.maxX, b.minY],
+    [b.minX, b.maxY],
+    [b.maxX, b.maxY],
+  ]) {
+    const p = applyPoint(m, x, y, 0);
+    bboxAddPoint(into, p[0], p[1]);
+  }
+}
+
+function textBBox(p: PlacedText, m: Mat34, into: BBox): void {
+  const full = multiply(m, p.matrix);
+  const L = p.layout;
+  const bg = L.background;
+  const x0 = Math.min(L.minX, bg?.minX ?? Infinity);
+  const x1 = Math.max(L.maxX, bg?.maxX ?? -Infinity);
+  const y0 = Math.min(L.minY, bg?.minY ?? Infinity);
+  const y1 = Math.max(L.maxY, bg?.maxY ?? -Infinity);
+  transformBBox({ minX: x0, minY: y0, maxX: x1, maxY: y1 }, full, into);
+}
+
 /**
- * Builds render batches for a list of top-level entities (model space or a
- * layout). Work is incremental (`step`) so the worker can render progressively
- * and keep answering messages.
+ * Builds render data for a list of top-level entities (model space or a
+ * layout). Work is incremental (`step`) so the worker can render
+ * progressively and keep answering messages.
  */
-export class SceneBuilder {
+export class SceneBuilder implements EmitHost {
   readonly scene: Scene;
-  private out: TileOut;
-  private bboxOut = new BBoxOut();
+  readonly out: TileOut;
+  private bboxHost: BBoxHost;
   private textCache = new Map<number, PlacedText | null>();
   private blockBBoxCache = new Map<string, BBox | null>();
   private blockCountCache = new Map<string, number>();
+  private blockOrderCache = new Map<string, number[]>();
   private blockStack: string[] = [];
   private next = 0;
   private emitOpts: EmitOptions;
@@ -174,23 +333,35 @@ export class SceneBuilder {
   readonly diagnostics: { code: string; message: string; handle?: string }[] = [];
   private diagSeen = new Set<string>();
   private itemIndex = new Map<number, number>();
+  readonly fill: boolean;
+  /** fast mode: tile of the current top-level entity */
+  private topTile: Tile | null = null;
+  private topBBox: BBox | null = null;
+  private clipTile: Tile | null = null;
+  private runSeq = 0;
 
   constructor(
-    private doc: DxfDocument,
+    readonly doc: DxfDocument,
     items: number[],
-    private measurer: TextMeasurer,
-    factory: PathFactory,
+    readonly measurer: TextMeasurer,
+    private factory: PathFactory,
     private opts: SceneOptions = DEFAULT_SCENE_OPTIONS,
   ) {
     items.forEach((id, k) => this.itemIndex.set(id, k));
     this.out = new TileOut(factory);
+    this.out.resolve = (key) => this.target('geom', key);
+    this.fill = opts.fill;
     this.emitOpts = { fill: opts.fill };
     this.budgetLeft = opts.budget;
+    this.bboxHost = new BBoxHost(this);
+    const strict = opts.drawOrder === 'strict' || (opts.drawOrder === 'auto' && hasOccluders(doc));
     this.scene = {
       doc,
       styles: new StyleResolver(doc),
       tiles: new Map(),
       tileList: [],
+      strict,
+      infinite: [],
       items,
       itemBBox: new Float64Array(items.length * 4).fill(NaN),
       extents: emptyBBox(),
@@ -201,7 +372,11 @@ export class SceneBuilder {
     };
   }
 
-  private diag(code: string, message: string, handle?: string): void {
+  get styles(): StyleResolver {
+    return this.scene.styles;
+  }
+
+  diag(code: string, message: string, handle?: string): void {
     const key = `${code}:${message}`;
     if (this.diagSeen.has(key)) return;
     this.diagSeen.add(key);
@@ -216,6 +391,169 @@ export class SceneBuilder {
     }
     row.count++;
     if (rendered) row.rendered++;
+    if (rendered && row.method === 'none') row.method = method;
+  }
+
+  // ---------- EmitHost ----------
+  use(e: Entity, ctx: InheritCtx): Style {
+    const st = this.scene.styles.resolve(e, ctx);
+    this.useStyle(st);
+    return st;
+  }
+
+  useStyle(st: Style): void {
+    this.out.style = st;
+    this.out.key = styleKey(st);
+  }
+
+  text(p: PlacedText, m: Mat34, st: Style, entity: number): void {
+    const tile = this.target('text');
+    const full = multiply(m, p.matrix);
+    const scale = Math.sqrt(Math.abs(full[0] * full[5] - full[1] * full[4])) || 1;
+    const bbox = emptyBBox();
+    textBBox(p, m, bbox);
+    tile.texts.push({ layout: p.layout, m: [full[0], full[4], full[1], full[5], full[3] - tile.ox, full[7] - tile.oy], scale, style: st, bbox, entity });
+    bboxUnion(tile.bbox, bbox);
+    tile.count++;
+    this.scene.primitives++;
+  }
+
+  hatch(h: HatchEntity, m: Mat34, st: Style, entity: number, o: { solidColor?: number; outline?: boolean }): void {
+    const onlyExternal = h.style === 2;
+    const probe = buildHatchPath(h, NULL_PATH, 0, 0, onlyExternal);
+    if (!bboxValid(probe.bbox) || !probe.loops) {
+      this.diag('hatch-empty', 'HATCH without usable boundary paths', this.doc.entities[entity]?.handle);
+      return;
+    }
+    const b = probe.bbox;
+    const ox = (b.minX + b.maxX) / 2;
+    const oy = (b.minY + b.maxY) / 2;
+    const tile = this.target('hatch');
+    const path = this.factory();
+    buildHatchPath(h, path, ox, oy, onlyExternal);
+    const lm = multiply(m, translation(ox, oy, 0));
+    const bbox = emptyBBox();
+    transformBBox(b, m, bbox);
+    const g = h.gradient;
+    const colorOf = (c: { aci?: number; rgb?: number } | undefined, fallback: number) => (c?.rgb !== undefined ? c.rgb : c?.aci !== undefined && c.aci > 0 && c.aci < 256 ? aciToRgb(c.aci) : fallback);
+    let gradient: HatchItem['gradient'];
+    if (g) {
+      const c1 = colorOf(g.colors[0], st.fg ? 0x808080 : st.rgb);
+      let c2 = colorOf(g.colors[1], 0xffffff);
+      if (g.singleColor || g.colors.length < 2) c2 = tint(c1, g.tint);
+      gradient = { name: g.name || 'LINEAR', angle: g.angle, shift: g.shift, c1, c2 };
+    }
+    tile.hatches.push({
+      path,
+      m: [lm[0], lm[4], lm[1], lm[5], lm[3] - tile.ox, lm[7] - tile.oy],
+      style: st,
+      bbox,
+      local: { minX: b.minX - ox, minY: b.minY - oy, maxX: b.maxX - ox, maxY: b.maxY - oy },
+      solid: (h.solid || o.solidColor !== undefined) && !g,
+      solidColor: o.solidColor,
+      fillRule: onlyExternal ? 'nonzero' : 'evenodd',
+      gradient,
+      lines: h.solid ? [] : h.patternLines.map((l) => ({ ...l, baseX: l.baseX - ox, baseY: l.baseY - oy })),
+      outline: !!o.outline,
+      entity,
+    });
+    bboxUnion(tile.bbox, bbox);
+    tile.count++;
+    this.scene.primitives++;
+  }
+
+  image(item: ImageBuild, st: Style, entity: number): void {
+    const tile = this.target('image');
+    const flat = (pts: Vec3[]) => pts.flatMap((p) => [p[0] - tile.ox, p[1] - tile.oy]);
+    const bbox = emptyBBox();
+    for (const p of item.clip ?? item.corners) bboxAddPoint(bbox, p[0], p[1]);
+    tile.images.push({
+      corners: flat(item.corners),
+      clip: item.clip ? flat(item.clip) : undefined,
+      label: item.label,
+      fileName: item.fileName,
+      wipeout: item.wipeout,
+      width: item.width,
+      height: item.height,
+      style: st,
+      bbox,
+      entity,
+    });
+    bboxUnion(tile.bbox, bbox);
+    tile.count++;
+    this.scene.primitives++;
+  }
+
+  infinite(base: Vec3, dir: Vec3, ray: boolean, st: Style, entity: number): void {
+    const len = Math.hypot(dir[0], dir[1]);
+    if (!(len > 1e-12)) return;
+    this.scene.infinite.push({ x: base[0], y: base[1], dx: dir[0] / len, dy: dir[1] / len, ray, style: st, entity });
+    this.scene.primitives++;
+  }
+
+  point(p: Vec3, st: Style, entity: number): void {
+    const tile = this.target('point');
+    tile.points.push({ x: p[0] - tile.ox, y: p[1] - tile.oy, style: st, entity });
+    bboxAddPoint(tile.bbox, p[0], p[1]);
+    tile.count++;
+    this.scene.primitives++;
+  }
+
+  block(name: string, m: Mat34, owner: Entity, ctx: InheritCtx, depth: number): boolean {
+    const key = nameKey(name);
+    const block = this.doc.blocks.get(key);
+    if (!block) return false;
+    if (depth >= this.opts.maxDepth || this.blockStack.includes(key)) return false;
+    void owner;
+    this.blockStack.push(key);
+    for (const id of this.blockOrder(key)) this.emitAny(this.doc.entities[id], m, ctx, depth + 1, true);
+    this.blockStack.pop();
+    return true;
+  }
+
+  child(e: Entity, m: Mat34, ctx: InheritCtx, depth: number): void {
+    this.emitAny(e, m, ctx, depth, true);
+  }
+
+  // ---------- targets (tiles / runs) ----------
+  private newTile(kind: RunKind | undefined, center: [number, number], runKey?: string): Tile {
+    const key = `run:${this.runSeq++}`;
+    const t: Tile = {
+      key,
+      level: -1,
+      ox: center[0],
+      oy: center[1],
+      bbox: emptyBBox(),
+      batches: new Map(),
+      batchList: [],
+      texts: [],
+      points: [],
+      hatches: [],
+      images: [],
+      run: kind,
+      runKey,
+      count: 0,
+    };
+    this.scene.tiles.set(key, t);
+    this.scene.tileList.push(t);
+    return t;
+  }
+
+  private target(kind: RunKind, key = ''): Tile {
+    if (this.clipTile) return this.clipTile;
+    if (!this.scene.strict) return this.topTile!;
+    const list = this.scene.tileList;
+    const last = list[list.length - 1];
+    const b = this.topBBox;
+    const cx = b ? (b.minX + b.maxX) / 2 : 0;
+    const cy = b ? (b.minY + b.maxY) / 2 : 0;
+    const limit = this.scene.baseTileSize * 16;
+    const run =
+      last && last.run === kind && (kind !== 'geom' || last.runKey === key) && last.count < 20000 && Math.abs(cx - last.ox) < limit && Math.abs(cy - last.oy) < limit
+        ? last
+        : this.newTile(kind, [cx, cy], key);
+    if (b) bboxUnion(run.bbox, b);
+    return run;
   }
 
   // ---------- text ----------
@@ -238,7 +576,7 @@ export class SceneBuilder {
     } catch (err) {
       this.diag('text-layout', `Text layout failed: ${(err as Error).message}`, e.handle);
     }
-    this.textCache.set(e.id, placed);
+    if (!e.virtual) this.textCache.set(e.id, placed);
     return placed;
   }
 
@@ -251,25 +589,6 @@ export class SceneBuilder {
       return !inBlock || (f & 2) !== 0;
     }
     return true;
-  }
-
-  private textBBox(p: PlacedText, m: Mat34, into: BBox): void {
-    const full = multiply(m, p.matrix);
-    const L = p.layout;
-    const bg = L.background;
-    const x0 = Math.min(L.minX, bg?.minX ?? Infinity);
-    const x1 = Math.max(L.maxX, bg?.maxX ?? -Infinity);
-    const y0 = Math.min(L.minY, bg?.minY ?? Infinity);
-    const y1 = Math.max(L.maxY, bg?.maxY ?? -Infinity);
-    for (const [x, y] of [
-      [x0, y0],
-      [x1, y0],
-      [x0, y1],
-      [x1, y1],
-    ]) {
-      const q = applyPoint(full, x, y, 0);
-      bboxAddPoint(into, q[0], q[1]);
-    }
   }
 
   // ---------- block helpers ----------
@@ -294,6 +613,31 @@ export class SceneBuilder {
     return multiply(translation(ins[0], ins[1], ins[2]), multiply(ocs, translation(0, 0, d.textMidpoint?.[2] ?? 0)));
   }
 
+  /** Entity ids of a block in draw order (SORTENTSTABLE in strict mode). */
+  private blockOrder(key: string): number[] {
+    const cached = this.blockOrderCache.get(key);
+    if (cached) return cached;
+    const block = this.doc.blocks.get(key)!;
+    let ids = block.entities;
+    if (this.scene.strict) ids = this.sorted(ids, block.recordHandle);
+    this.blockOrderCache.set(key, ids);
+    return ids;
+  }
+
+  private sorted(ids: number[], recordHandle: string | undefined): number[] {
+    const table = sortTable(this.doc, recordHandle);
+    if (!table) return ids;
+    const sortKey = (id: number) => {
+      const h = this.doc.entities[id].handle.toUpperCase();
+      const s = table.get(h) ?? h;
+      return /^[0-9A-F]+$/.test(s) ? BigInt('0x' + s) : 0n;
+    };
+    return ids
+      .map((id, i) => ({ id, i, k: sortKey(id) }))
+      .sort((a, b) => (a.k < b.k ? -1 : a.k > b.k ? 1 : a.i - b.i))
+      .map((x) => x.id);
+  }
+
   /** Primitive count of a block definition (memoized; cycles count as 0). */
   private blockCount(name: string): number {
     const key = nameKey(name);
@@ -304,12 +648,7 @@ export class SceneBuilder {
     this.blockCountCache.set(key, 0); // cycle guard
     let n = 0;
     for (const id of block.entities) {
-      const e = this.doc.entities[id];
-      if (e.type === 'INSERT') {
-        const ins = e as InsertEntity;
-        n += this.blockCount(ins.name) * Math.max(1, ins.rows) * Math.max(1, ins.columns) + ins.attribs.length;
-      } else if (BLOCK_TYPES.has(e.type)) n += this.blockCount((e as DimensionEntity).blockName);
-      else n += 1;
+      n += this.entityCount(this.doc.entities[id]);
       if (n > 1e15) break;
     }
     this.blockCountCache.set(key, n);
@@ -321,12 +660,13 @@ export class SceneBuilder {
       const ins = e as InsertEntity;
       return this.blockCount(ins.name) * Math.max(1, ins.rows) * Math.max(1, ins.columns) + ins.attribs.length;
     }
-    if (BLOCK_TYPES.has(e.type)) return this.blockCount((e as DimensionEntity).blockName);
+    if (DIM_TYPES.has(e.type)) return this.blockCount((e as DimensionEntity).blockName) || 1;
+    if (e.type === 'ACAD_TABLE') return this.blockCount(String(e.name ?? '')) || 1;
     return 1;
   }
 
   /** Bounding box of a block definition in block coordinates. */
-  private blockBBox(name: string): BBox | null {
+  blockBBox(name: string): BBox | null {
     const key = nameKey(name);
     if (this.blockBBoxCache.has(key)) return this.blockBBoxCache.get(key)!;
     const block = this.doc.blocks.get(key);
@@ -334,8 +674,7 @@ export class SceneBuilder {
     this.blockBBoxCache.set(key, null); // cycle guard
     const b = emptyBBox();
     for (const id of block.entities) {
-      const e = this.doc.entities[id];
-      const eb = this.entityBBox(e, identity(), true);
+      const eb = this.entityBBox(this.doc.entities[id], identity(), true);
       if (eb) bboxUnion(b, eb);
     }
     const res = bboxValid(b) ? b : null;
@@ -343,70 +682,70 @@ export class SceneBuilder {
     return res;
   }
 
-  private transformBBox(b: BBox, m: Mat34, into: BBox): void {
-    for (const [x, y] of [
-      [b.minX, b.minY],
-      [b.maxX, b.minY],
-      [b.minX, b.maxY],
-      [b.maxX, b.maxY],
-    ]) {
-      const p = applyPoint(m, x, y, 0);
-      bboxAddPoint(into, p[0], p[1]);
-    }
+  private clipPolygon(ins: InsertEntity, m: Mat34): Vec3[] | null {
+    const sf = spatialFilter(this.doc, ins);
+    if (!sf) return null;
+    const block = this.doc.blocks.get(nameKey(ins.name));
+    if (!block) return null;
+    const bm = multiply(m, this.insertMatrices({ ...ins, rows: 1, columns: 1 }, block)[0]);
+    return sf.points.map(([x, y]) => applyPoint(bm, x, y, 0));
   }
 
   /** Bounding box of an entity under matrix m (null = no geometry). */
-  private entityBBox(e: Entity, m: Mat34, inBlock: boolean): BBox | null {
+  entityBBox(e: Entity, m: Mat34, inBlock: boolean): BBox | null {
     if (e.invisible) return null;
     const b = emptyBBox();
     if (e.type === 'INSERT') {
       const ins = e as InsertEntity;
       const block = this.doc.blocks.get(nameKey(ins.name));
       if (block) {
-        const bb = this.blockBBox(ins.name);
-        if (bb) {
-          const mats = this.insertMatrices(ins, block);
-          const corners = mats.length > 4 ? [mats[0], mats[ins.columns - 1], mats[mats.length - ins.columns], mats[mats.length - 1]] : mats;
-          for (const cm of corners) this.transformBBox(bb, multiply(m, cm), b);
+        const clip = this.clipPolygon(ins, m);
+        if (clip) for (const p of clip) bboxAddPoint(b, p[0], p[1]);
+        else {
+          const bb = this.blockBBox(ins.name);
+          if (bb) {
+            const mats = this.insertMatrices(ins, block);
+            const corners = mats.length > 4 ? [mats[0], mats[ins.columns - 1], mats[mats.length - ins.columns], mats[mats.length - 1]] : mats;
+            for (const cm of corners) transformBBox(bb, multiply(m, cm), b);
+          }
         }
       }
       for (const a of ins.attribs) {
         const ab = this.entityBBox(a, m, inBlock);
         if (ab) bboxUnion(b, ab);
       }
-    } else if (BLOCK_TYPES.has(e.type)) {
+    } else if (DIM_TYPES.has(e.type)) {
       const d = e as DimensionEntity;
       const bb = this.blockBBox(d.blockName);
-      if (bb) this.transformBBox(bb, multiply(m, this.dimensionMatrix(d)), b);
+      if (bb) transformBBox(bb, multiply(m, this.dimensionMatrix(d)), b);
+      else {
+        const host = this.bboxHost;
+        host.start();
+        emitDimensionFallback(host, d, m, TOP_CTX, 0);
+        return host.finish();
+      }
     } else if (TEXT_TYPES.has(e.type)) {
       if (!this.textVisible(e, inBlock)) return null;
       const p = this.placedText(e);
-      if (p) this.textBBox(p, m, b);
+      if (p) textBBox(p, m, b);
     } else if (e.type === 'POINT') {
       const p = applyPoint(m, ...(e as PointEntity).position);
       bboxAddPoint(b, p[0], p[1]);
+    } else if (NATIVE_TYPES.has(e.type)) {
+      const out = this.bboxHost.out;
+      out.reset();
+      if (!emitEntity(e, out, m, this.emitOpts)) return null;
+      return bboxValid(out.b) ? { ...out.b } : null;
     } else {
-      this.bboxOut.reset();
-      if (!emitEntity(e, this.bboxOut, m, this.emitOpts)) return null;
-      return bboxValid(this.bboxOut.b) ? { ...this.bboxOut.b } : null;
+      const host = this.bboxHost;
+      host.start();
+      const ok = COMPLEX_TYPES.has(e.type) ? emitComplex(host, e, m, TOP_CTX, 0) : emitProxy(host, e, m, TOP_CTX, 0);
+      return ok ? host.finish() : null;
     }
     return bboxValid(b) ? b : null;
   }
 
-  /** World bounds of an entity (top-level items, attributes); null if unknown. */
-  boundsOf(id: number): BBox | null {
-    const k = this.itemIndex.get(id);
-    const ib = this.scene.itemBBox;
-    if (k !== undefined) {
-      if (Number.isNaN(ib[k * 4])) return null;
-      return { minX: ib[k * 4], minY: ib[k * 4 + 1], maxX: ib[k * 4 + 2], maxY: ib[k * 4 + 3] };
-    }
-    const e = this.doc.entities[id];
-    if (e && typeof e.parentInsert === 'number') return this.entityBBox(e, identity(), false);
-    return null;
-  }
-
-  // ---------- tiles ----------
+  // ---------- spatial tiles (fast mode) ----------
   private tileFor(b: BBox): Tile {
     const s0 = this.scene.baseTileSize;
     const size = Math.max(b.maxX - b.minX, b.maxY - b.minY);
@@ -416,14 +755,25 @@ export class SceneBuilder {
       s *= 4;
       level++;
     }
-    const cx = (b.minX + b.maxX) / 2;
-    const cy = (b.minY + b.maxY) / 2;
-    const ix = Math.floor(cx / s);
-    const iy = Math.floor(cy / s);
+    const ix = Math.floor((b.minX + b.maxX) / 2 / s);
+    const iy = Math.floor((b.minY + b.maxY) / 2 / s);
     const key = `${level}:${ix}:${iy}`;
     let t = this.scene.tiles.get(key);
     if (!t) {
-      t = { key, level, ox: (ix + 0.5) * s, oy: (iy + 0.5) * s, bbox: emptyBBox(), batches: new Map(), batchList: [], texts: [], points: [] };
+      t = {
+        key,
+        level,
+        ox: (ix + 0.5) * s,
+        oy: (iy + 0.5) * s,
+        bbox: emptyBBox(),
+        batches: new Map(),
+        batchList: [],
+        texts: [],
+        points: [],
+        hatches: [],
+        images: [],
+        count: 0,
+      };
       this.scene.tiles.set(key, t);
       this.scene.tileList.push(t);
     }
@@ -432,6 +782,15 @@ export class SceneBuilder {
 
   /** Pass 1: bounding boxes, extents and the base tile size. */
   prepare(): void {
+    const ms = this.doc.tableRecords.find((r) => r.table === 'BLOCK_RECORD' && /^\*model_space$/i.test(r.name));
+    if (this.scene.items === this.doc.modelSpace && ms?.handle) {
+      const ordered = this.sorted(this.scene.items, ms.handle);
+      if (ordered !== this.scene.items) {
+        this.scene.items = ordered;
+        this.itemIndex.clear();
+        ordered.forEach((id, k) => this.itemIndex.set(id, k));
+      }
+    }
     const { items, itemBBox } = this.scene;
     const centersX: number[] = [];
     const centersY: number[] = [];
@@ -448,7 +807,6 @@ export class SceneBuilder {
       centersX.push((b.minX + b.maxX) / 2);
       centersY.push((b.minY + b.maxY) / 2);
     });
-    // robust extent (2nd–98th percentile) so stray far-away entities do not inflate tiles
     const robust = (arr: number[]) => {
       if (!arr.length) return 1;
       const s = [...arr].sort((a, b) => a - b);
@@ -457,9 +815,21 @@ export class SceneBuilder {
       return hi - lo;
     };
     const span = Math.max(robust(centersX), robust(centersY));
-    const n = Math.max(1, items.length);
-    const divisions = Math.max(4, Math.min(64, Math.round(Math.sqrt(n / 64))));
+    const divisions = Math.max(4, Math.min(64, Math.round(Math.sqrt(Math.max(1, items.length) / 64))));
     this.scene.baseTileSize = span > 0 ? span / divisions : 1;
+  }
+
+  /** World bounds of an entity (top-level items, attributes); null if unknown. */
+  boundsOf(id: number): BBox | null {
+    const k = this.itemIndex.get(id);
+    const ib = this.scene.itemBBox;
+    if (k !== undefined) {
+      if (Number.isNaN(ib[k * 4])) return null;
+      return { minX: ib[k * 4], minY: ib[k * 4 + 1], maxX: ib[k * 4 + 2], maxY: ib[k * 4 + 3] };
+    }
+    const e = this.doc.entities[id];
+    if (e && typeof e.parentInsert === 'number') return this.entityBBox(e, identity(), false);
+    return null;
   }
 
   get done(): boolean {
@@ -470,50 +840,51 @@ export class SceneBuilder {
     return this.scene.items.length ? this.next / this.scene.items.length : 1;
   }
 
-  /** Pass 2: emit geometry until `deadline` (performance.now()). Returns true when finished. */
+  /** Pass 2: emit geometry until `deadline`. Returns true when finished. */
   step(deadline: number, now: () => number): boolean {
     const { items, itemBBox } = this.scene;
     while (this.next < items.length) {
       const k = this.next++;
-      if (Number.isNaN(itemBBox[k * 4])) {
-        const e = this.doc.entities[items[k]];
-        this.cover(e.type, NATIVE_TYPES.has(e.type) ? 'native' : TEXT_TYPES.has(e.type) ? 'text' : BLOCK_TYPES.has(e.type) ? 'block' : 'none', false);
-        if (!NATIVE_TYPES.has(e.type) && !TEXT_TYPES.has(e.type) && !BLOCK_TYPES.has(e.type)) {
-          this.diag('not-rendered', `${e.type} entities are not rendered yet`);
+      const e = this.doc.entities[items[k]];
+      const infinite = e.type === 'XLINE' || e.type === 'RAY';
+      if (Number.isNaN(itemBBox[k * 4]) && !infinite) {
+        this.cover(e.type, 'none', false);
+        if (!NATIVE_TYPES.has(e.type) && !TEXT_TYPES.has(e.type) && !DIM_TYPES.has(e.type) && e.type !== 'INSERT' && !e.invisible) {
+          this.diag('not-rendered', `${e.type} entities are not rendered`);
         }
         continue;
       }
-      const b: BBox = { minX: itemBBox[k * 4], minY: itemBBox[k * 4 + 1], maxX: itemBBox[k * 4 + 2], maxY: itemBBox[k * 4 + 3] };
-      const tile = this.tileFor(b);
-      bboxUnion(tile.bbox, b);
-      this.out.tile = tile;
-      this.emitTop(this.doc.entities[items[k]], tile);
+      const b: BBox = infinite ? { minX: 0, minY: 0, maxX: 0, maxY: 0 } : { minX: itemBBox[k * 4], minY: itemBBox[k * 4 + 1], maxX: itemBBox[k * 4 + 2], maxY: itemBBox[k * 4 + 3] };
+      this.topBBox = b;
+      if (!this.scene.strict) {
+        this.topTile = this.tileFor(b);
+        bboxUnion(this.topTile.bbox, b);
+      }
+      this.emitTop(e);
       if ((k & 63) === 0 && now() > deadline) break;
     }
     return this.done;
   }
 
-  private emitTop(e: Entity, tile: Tile): void {
-    if (e.type === 'INSERT' || BLOCK_TYPES.has(e.type)) {
+  private emitTop(e: Entity): void {
+    if (e.type === 'INSERT' || DIM_TYPES.has(e.type) || e.type === 'ACAD_TABLE') {
       const cost = this.entityCount(e);
       if (cost > this.budgetLeft) {
         this.scene.budgetExceeded++;
         this.diag('budget', `Block reference expansion exceeds the budget; drawing bounding frames instead`, e.handle);
-        this.emitFrame(e, tile);
+        this.emitFrame(e);
         this.cover(e.type, 'frame', true);
         return;
       }
       this.budgetLeft -= cost;
     }
-    this.emitAny(e, identity(), TOP_CTX, 0, false, tile);
+    this.emitAny(e, identity(), TOP_CTX, 0, false);
   }
 
-  private emitFrame(e: Entity, tile: Tile): void {
-    const k = this.scene.items.indexOf(e.id);
+  private emitFrame(e: Entity): void {
+    const k = this.itemIndex.get(e.id)!;
     const ib = this.scene.itemBBox;
-    const st = this.scene.styles.resolve(e, TOP_CTX);
-    this.out.style = st;
-    this.out.key = styleKey(st);
+    this.use(e, TOP_CTX);
     this.out.setMatrix(identity());
     this.out.beginPath('stroke');
     const [x0, y0, x1, y1] = [ib[k * 4], ib[k * 4 + 1], ib[k * 4 + 2], ib[k * 4 + 3]];
@@ -526,94 +897,110 @@ export class SceneBuilder {
     this.out.moveTo(x0, y0, 0);
     this.out.lineTo(x1, y1, 0);
     this.out.endPath();
-    void tile;
   }
 
-  private emitAny(e: Entity, m: Mat34, ctx: InheritCtx, depth: number, inBlock: boolean, tile: Tile): void {
+  private emitAny(e: Entity, m: Mat34, ctx: InheritCtx, depth: number, inBlock: boolean): void {
     if (e.invisible) return;
     const styles = this.scene.styles;
+    if (depth > 0 || !e.virtual) styles.layers[styles.layerIdx(styles.effectiveLayer(e, ctx))].count++;
     if (e.type === 'INSERT') {
-      const ins = e as InsertEntity;
-      const block = this.doc.blocks.get(nameKey(ins.name));
-      const st = styles.resolve(e, ctx);
-      styles.layers[st.layer].count++;
-      if (!block) {
-        this.diag('missing-block', `Block "${ins.name}" is not defined`, e.handle);
-        if (depth === 0) this.cover(e.type, 'block', false);
-      } else if (depth >= this.opts.maxDepth || this.blockStack.includes(nameKey(ins.name))) {
-        this.diag('block-recursion', `Block "${ins.name}" is nested too deeply or references itself`, e.handle);
-      } else {
-        const sx = Math.abs(ins.scale[0] || 1);
-        const sy = Math.abs(ins.scale[1] || 1);
-        const child = styles.childCtx(e, ctx, Math.sqrt(sx * sy));
-        this.blockStack.push(nameKey(ins.name));
-        for (const bm of this.insertMatrices(ins, block)) {
-          const mm = multiply(m, bm);
-          for (const id of block.entities) this.emitAny(this.doc.entities[id], mm, child, depth + 1, true, tile);
-        }
-        this.blockStack.pop();
-        if (depth === 0) this.cover(e.type, 'block', true);
-      }
-      // attributes are positioned in their own coordinates (not block space)
-      const attrCtx = block ? styles.childCtx(e, ctx, 1) : ctx;
-      for (const a of ins.attribs) this.emitAny(a, m, { ...attrCtx, layer: ctx.layer }, depth + 1, false, tile);
+      this.emitInsert(e as InsertEntity, m, ctx, depth);
       return;
     }
-    if (BLOCK_TYPES.has(e.type)) {
+    if (DIM_TYPES.has(e.type)) {
       const d = e as DimensionEntity;
       const block = this.doc.blocks.get(nameKey(d.blockName));
-      const st = styles.resolve(e, ctx);
-      styles.layers[st.layer].count++;
-      if (!block) {
-        if (depth === 0) this.cover(e.type, 'block', false);
-        this.diag('dimension-block', `${e.type} without geometry block (not rendered yet)`, e.handle);
+      if (!block || !block.entities.length) {
+        emitDimensionFallback(this, d, m, ctx, depth);
+        if (depth === 0) this.cover(e.type, 'native', true);
+        if (!block) this.diag('dimension-block', `${e.type} without geometry block: drawn from definition points`, e.handle);
         return;
       }
-      if (depth >= this.opts.maxDepth || this.blockStack.includes(nameKey(d.blockName))) return;
       const child = styles.childCtx(e, ctx, 1);
-      const mm = multiply(m, this.dimensionMatrix(d));
-      this.blockStack.push(nameKey(d.blockName));
-      for (const id of block.entities) this.emitAny(this.doc.entities[id], mm, child, depth + 1, true, tile);
-      this.blockStack.pop();
+      this.block(d.blockName, multiply(m, this.dimensionMatrix(d)), e, child, depth);
       if (depth === 0) this.cover(e.type, 'block', true);
       return;
     }
-    const st = styles.resolve(e, ctx);
-    styles.layers[st.layer].count++;
-    this.out.style = st;
-    this.out.key = styleKey(st);
     if (TEXT_TYPES.has(e.type)) {
       if (!this.textVisible(e, inBlock)) return;
+      const st = this.use(e, ctx);
       const p = this.placedText(e);
-      if (p) {
-        const full = multiply(m, p.matrix);
-        const scale = Math.sqrt(Math.abs(full[0] * full[5] - full[1] * full[4])) || 1;
-        const bbox = emptyBBox();
-        this.textBBox(p, m, bbox);
-        tile.texts.push({
-          layout: p.layout,
-          m: [full[0], full[4], full[1], full[5], full[3] - tile.ox, full[7] - tile.oy],
-          scale,
-          style: st,
-          bbox,
-          entity: e.id,
-        });
-        this.scene.primitives++;
-      }
+      if (p) this.text(p, m, st, e.id);
       if (depth === 0) this.cover(e.type, 'text', !!p);
       return;
     }
     if (e.type === 'POINT') {
-      const p = applyPoint(m, ...(e as PointEntity).position);
-      tile.points.push({ x: p[0] - tile.ox, y: p[1] - tile.oy, style: st, entity: e.id });
-      this.scene.primitives++;
+      const st = this.use(e, ctx);
+      this.point(applyPoint(m, ...(e as PointEntity).position), st, e.id);
       if (depth === 0) this.cover(e.type, 'native', true);
       return;
     }
+    if (NATIVE_TYPES.has(e.type)) {
+      this.use(e, ctx);
+      const before = this.out.emitted;
+      const ok = emitEntity(e, this.out, m, this.emitOpts);
+      this.scene.primitives += this.out.emitted - before;
+      if (depth === 0) this.cover(e.type, 'native', ok);
+      return;
+    }
     const before = this.out.emitted;
-    const ok = emitEntity(e, this.out, m, this.emitOpts);
+    const ok = COMPLEX_TYPES.has(e.type) ? emitComplex(this, e, m, ctx, depth) : emitProxy(this, e, m, ctx, depth);
     this.scene.primitives += this.out.emitted - before;
-    if (depth === 0) this.cover(e.type, ok ? 'native' : 'none', ok);
-    if (!ok) this.diag('not-rendered', `${e.type} entities are not rendered yet`);
+    if (depth === 0) this.cover(e.type, COMPLEX_TYPES.has(e.type) ? complexMethod(e.type) : 'proxy', ok);
+    if (!ok) this.diag('not-rendered', `${e.type} entities are not rendered`);
   }
+
+  private emitInsert(ins: InsertEntity, m: Mat34, ctx: InheritCtx, depth: number): void {
+    const styles = this.scene.styles;
+    const block = this.doc.blocks.get(nameKey(ins.name));
+    if (!block) {
+      this.diag('missing-block', `Block "${ins.name}" is not defined`, ins.handle);
+      if (depth === 0) this.cover(ins.type, 'block', false);
+    } else if (depth >= this.opts.maxDepth || this.blockStack.includes(nameKey(ins.name))) {
+      this.diag('block-recursion', `Block "${ins.name}" is nested too deeply or references itself`, ins.handle);
+    } else {
+      if (block.flags & 4) this.diag('xref', `External reference "${ins.name}" (${block.xrefPath ?? ''}) is not loaded`, ins.handle);
+      const sx = Math.abs(ins.scale[0] || 1);
+      const sy = Math.abs(ins.scale[1] || 1);
+      const child = styles.childCtx(ins, ctx, Math.sqrt(sx * sy));
+      // XCLIP: draw the block contents into a clipped group
+      const clip = !this.clipTile ? this.clipPolygon(ins, m) : null;
+      const prevClip = this.clipTile;
+      if (clip) {
+        const cb = emptyBBox();
+        for (const p of clip) bboxAddPoint(cb, p[0], p[1]);
+        const ct = this.newTile('clip', [(cb.minX + cb.maxX) / 2, (cb.minY + cb.maxY) / 2]);
+        const path = this.factory();
+        clip.forEach((p, i) => (i === 0 ? path.moveTo(p[0] - ct.ox, p[1] - ct.oy) : path.lineTo(p[0] - ct.ox, p[1] - ct.oy)));
+        path.closePath();
+        ct.clip = path;
+        ct.bbox = cb;
+        this.clipTile = ct;
+      }
+      for (const bm of this.insertMatrices(ins, block)) this.block(ins.name, multiply(m, bm), ins, child, depth);
+      this.clipTile = prevClip;
+      if (depth === 0) this.cover(ins.type, 'block', true);
+    }
+    // attributes are positioned in their own coordinates (not block space)
+    const attrCtx = block ? styles.childCtx(ins, ctx, 1) : ctx;
+    for (const a of ins.attribs) this.emitAny(a, m, { ...attrCtx, layer: ctx.layer }, depth + 1, false);
+  }
+}
+
+/** Whether the drawing needs file draw order (wipeouts, images, masked MTEXT). */
+function hasOccluders(doc: DxfDocument): boolean {
+  for (const e of doc.entities) {
+    if (OCCLUDERS.has(e.type)) return true;
+    if (e.type === 'MTEXT' && ((e as MTextEntity).bgFlags & 3) !== 0) return true;
+  }
+  return false;
+}
+
+/** One-color gradient tint: 0 = black … 0.5 = color … 1 = white. */
+function tint(rgb: number, t: number): number {
+  const r = (rgb >> 16) & 0xff;
+  const g = (rgb >> 8) & 0xff;
+  const b = rgb & 0xff;
+  const mix = (c: number) => (t >= 0.5 ? c + (255 - c) * (t - 0.5) * 2 : c * t * 2);
+  return (Math.round(mix(r)) << 16) | (Math.round(mix(g)) << 8) | Math.round(mix(b));
 }
