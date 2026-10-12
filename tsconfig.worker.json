@@ -1,8 +1,22 @@
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "lib": ["ES2023", "WebWorker"],
-    "types": ["vite/client"]
+    "lib": [
+      "ES2023",
+      "WebWorker"
+    ],
+    "types": [
+      "vite/client"
+    ]
   },
-  "include": ["src/worker", "src/dxf", "src/geom", "src/scene", "src/render", "src/fonts/worker", "src/filter", "src/shared"]
+  "include": [
+    "src/worker",
+    "src/dxf",
+    "src/geom",
+    "src/scene",
+    "src/render",
+    "src/fonts",
+    "src/filter",
+    "src/shared"
+  ]
 }

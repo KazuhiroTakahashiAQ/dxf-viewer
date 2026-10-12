@@ -1,9 +1,21 @@
 {
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "lib": ["ES2023", "DOM", "DOM.Iterable"],
-    "types": ["vite/client", "vite-plugin-pwa/react", "vite-plugin-pwa/info"]
+    "lib": [
+      "ES2023",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "types": [
+      "vite/client",
+      "vite-plugin-pwa/react",
+      "vite-plugin-pwa/info"
+    ]
   },
-  "include": ["src", "tests"],
-  "exclude": ["src/worker"]
+  "include": [
+    "src"
+  ],
+  "exclude": [
+    "src/worker"
+  ]
 }

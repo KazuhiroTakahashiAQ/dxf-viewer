@@ -1,0 +1,12 @@
+[project]
+name = "dxf-viewer-samples"
+version = "0.1.0"
+description = "Sample DXF generation and reference rendering for dxf-viewer"
+requires-python = ">=3.12"
+dependencies = [
+    "ezdxf[draw]",
+]
+
+[tool.uv]
+exclude-newer = "7 days"
+package = false

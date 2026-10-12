@@ -1,0 +1,42 @@
+[
+ {
+  "file": "basic_entities.dxf",
+  "version": "AC1032"
+ },
+ {
+  "file": "japanese_sjis_r2000.dxf",
+  "version": "AC1015"
+ },
+ {
+  "file": "jwcad_like_r12.dxf",
+  "version": "AC1009"
+ },
+ {
+  "file": "autocad_like_shx.dxf",
+  "version": "AC1027"
+ },
+ {
+  "file": "revit_archicad_like.dxf",
+  "version": "AC1024"
+ },
+ {
+  "file": "unicode_escapes_r2000.dxf",
+  "version": "AC1015"
+ },
+ {
+  "file": "binary.dxf",
+  "version": "AC1024"
+ },
+ {
+  "file": "large_offset.dxf",
+  "version": "AC1032"
+ },
+ {
+  "file": "minsert_budget.dxf",
+  "version": "AC1032"
+ },
+ {
+  "file": "layouts.dxf",
+  "version": "AC1032"
+ }
+]

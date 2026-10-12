@@ -1,0 +1,265 @@
+{
+ "basic_entities.dxf": {
+  "version": "AC1032",
+  "encoding": "cp1252",
+  "modelspace": {
+   "LINE": 8,
+   "CIRCLE": 10,
+   "ARC": 2,
+   "ELLIPSE": 2,
+   "LWPOLYLINE": 3,
+   "POLYLINE": 4,
+   "SPLINE": 3,
+   "POINT": 3,
+   "SOLID": 1,
+   "TRACE": 1,
+   "3DFACE": 1,
+   "XLINE": 1,
+   "RAY": 1,
+   "TEXT": 12,
+   "MTEXT": 4,
+   "INSERT": 6,
+   "DIMENSION": 5,
+   "HATCH": 3,
+   "LEADER": 1,
+   "MULTILEADER": 1,
+   "MESH": 1,
+   "WIPEOUT": 1,
+   "MLINE": 1
+  },
+  "layers": [
+   "0",
+   "CENTER",
+   "DIM",
+   "DOOR",
+   "Defpoints",
+   "FROZEN_LAYER",
+   "HIDDEN_LAYER",
+   "TEXT",
+   "TRUECOLOR",
+   "WALL"
+  ],
+  "blocks": [
+   "DOOR",
+   "ROOM",
+   "_ARCHTICK",
+   "_CLOSEDBLANK",
+   "_CLOSEDFILLED"
+  ],
+  "texts": [
+   "ALIGNED text",
+   "Align BOTTOM_LEFT",
+   "Align CENTER",
+   "Align LEFT",
+   "Align MIDDLE_CENTER",
+   "Align RIGHT",
+   "Align TOP_RIGHT",
+   "Background mask",
+   "Backward",
+   "FIT text",
+   "Oblique + width",
+   "Rotated 30° %%c50 %%p0.1 %%uunderline%%u",
+   "Rotated MTEXT",
+   "Upside down",
+   "Wrapped paragraph text that should wrap within the reference width of thirty units.",
+   "{\\fArial|b1|i0;Bold Arial} plain \\Pline 2 {\\C1;red} {\\H2x;big} \\S1/2; \\S3^4; \\Lunder\\l \\Oover\\o \\Kstrike\\k"
+  ]
+ },
+ "japanese_sjis_r2000.dxf": {
+  "version": "AC1015",
+  "encoding": "cp1252",
+  "modelspace": {
+   "LWPOLYLINE": 1,
+   "TEXT": 3,
+   "MTEXT": 1,
+   "DIMENSION": 1
+  },
+  "layers": [
+   "0",
+   "Defpoints",
+   "壁",
+   "寸法",
+   "建具",
+   "文字"
+  ],
+  "blocks": [
+   "_CLOSEDFILLED"
+  ],
+  "texts": [
+   "{\\fＭＳ ゴシック|b0|i0|c128|p49;複数行テキスト}\\P２行目：①②③　㎡　℃",
+   "中央揃え（全角ＡＢＣ）",
+   "会議室",
+   "平面図　Ｓ＝１：１００"
+  ]
+ },
+ "jwcad_like_r12.dxf": {
+  "version": "AC1009",
+  "encoding": "cp1252",
+  "modelspace": {
+   "LINE": 10,
+   "CIRCLE": 1,
+   "ARC": 1,
+   "TEXT": 2
+  },
+  "layers": [
+   "0",
+   "0-1",
+   "0-2",
+   "Defpoints"
+  ],
+  "blocks": [],
+  "texts": [
+   "半角ｶﾀｶﾅ と 全角カタカナ",
+   "Ｊｗ＿ｃａｄ風の文字列　寸法１２３４"
+  ],
+  "note": "$DWGCODEPAGE removed after saving"
+ },
+ "autocad_like_shx.dxf": {
+  "version": "AC1027",
+  "encoding": "cp1252",
+  "modelspace": {
+   "TEXT": 3,
+   "MTEXT": 1
+  },
+  "layers": [
+   "0",
+   "Defpoints"
+  ],
+  "blocks": [
+   "_ARCHTICK",
+   "_CLOSEDBLANK",
+   "_CLOSEDFILLED"
+  ],
+  "texts": [
+   "MTEXT with \\fMS Gothic;ＭＳゴシック\\f;and {\\Fromand.shx;ROMAND}",
+   "ROMANS + EXTFONT2 日本語",
+   "SIMPLEX 0123456789",
+   "TXT.SHX %%c25 %%d45"
+  ]
+ },
+ "revit_archicad_like.dxf": {
+  "version": "AC1024",
+  "encoding": "cp1252",
+  "modelspace": {
+   "TEXT": 3,
+   "MTEXT": 1
+  },
+  "layers": [
+   "0",
+   "Defpoints"
+  ],
+  "blocks": [],
+  "texts": [
+   "Arial 2.5mm – Room 101",
+   "Arial Narrow condensed",
+   "Level 1\\PFFL +0.000",
+   "Times New Roman Bold"
+  ]
+ },
+ "unicode_escapes_r2000.dxf": {
+  "version": "AC1015",
+  "encoding": "cp1252",
+  "modelspace": {
+   "TEXT": 1,
+   "MTEXT": 1
+  },
+  "layers": [
+   "0",
+   "Defpoints",
+   "図面枠"
+  ],
+  "blocks": [],
+  "texts": [
+   "MTEXT 東京\\P第二段落",
+   "Unicode 漢字 ÄÖÜ €"
+  ],
+  "note": "MIF escape \\M+18ABF inserted"
+ },
+ "binary.dxf": {
+  "version": "AC1024",
+  "encoding": "cp1252",
+  "modelspace": {
+   "LINE": 1,
+   "CIRCLE": 1,
+   "TEXT": 1
+  },
+  "layers": [
+   "0",
+   "Defpoints"
+  ],
+  "blocks": [],
+  "texts": [
+   "Binary DXF"
+  ]
+ },
+ "large_offset.dxf": {
+  "version": "AC1032",
+  "encoding": "cp1252",
+  "modelspace": {
+   "LINE": 20,
+   "CIRCLE": 1,
+   "TEXT": 1,
+   "LWPOLYLINE": 1
+  },
+  "layers": [
+   "0",
+   "Defpoints"
+  ],
+  "blocks": [],
+  "texts": [
+   "0.1 spacing at 1e8"
+  ],
+  "origin": [
+   -123456789.0,
+   98765432.0
+  ]
+ },
+ "minsert_budget.dxf": {
+  "version": "AC1032",
+  "encoding": "cp1252",
+  "modelspace": {
+   "INSERT": 1,
+   "TEXT": 1
+  },
+  "layers": [
+   "0",
+   "Defpoints"
+  ],
+  "blocks": [
+   "CELL",
+   "GRID1",
+   "GRID2",
+   "GRID3"
+  ],
+  "texts": [
+   "Budget test: nested 40x40 MINSERTs"
+  ]
+ },
+ "layouts.dxf": {
+  "version": "AC1032",
+  "encoding": "cp1252",
+  "modelspace": {
+   "LWPOLYLINE": 1,
+   "CIRCLE": 1,
+   "TEXT": 1
+  },
+  "layers": [
+   "0",
+   "Defpoints",
+   "VP_FROZEN"
+  ],
+  "blocks": [
+   "_ARCHTICK",
+   "_CLOSEDBLANK",
+   "_CLOSEDFILLED"
+  ],
+  "texts": [
+   "Model space"
+  ],
+  "layouts": [
+   "Model",
+   "Layout1",
+   "Layout2"
+  ]
+ }
+}
