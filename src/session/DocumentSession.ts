@@ -95,6 +95,11 @@ export class DocumentSession {
       this.fit();
       const [layers, layouts] = await Promise.all([this.rpc.call('getLayers', undefined), this.rpc.call('getLayouts', undefined)]);
       useUi.getState().setTab(this.id, { layers, layouts });
+      // nothing in model space but content on a sheet: show that layout first
+      if (summary.modelSpaceCount === 0) {
+        const sheet = layouts.find((l) => l.kind === 'paper' && l.count > 0);
+        if (sheet) await this.setLayout(sheet.name);
+      }
     } catch (err) {
       if ((err as Error).message === 'superseded') return;
       ui.setTab(this.id, { status: 'error', error: (err as Error).message });

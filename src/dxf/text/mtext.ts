@@ -277,7 +277,9 @@ export function parseMText(content: string, baseHeight: number): ParsedMText {
           const next = { ...props, tabs: [...props.tabs] };
           let tabsReset = false;
           for (const part of arg.split(',')) {
-            const p = part.trim();
+            let p = part.trim();
+            // "\\pxqr;" / "\\pxi-3,l3;": the leading x marks the extended syntax
+            if (p.length > 1 && p[0] === 'x' && /[ilrqt]/.test(p[1])) p = p.slice(1);
             if (!p || p === 'x') continue;
             const key = p[0];
             const val = p.slice(1);

@@ -1,0 +1,695 @@
+{
+ "version": 1,
+ "description": "Publicly available DXF files from real applications used for invariant tests. Only this manifest is committed; files are downloaded to tests/real/.cache by tools/corpus/fetch.ts.",
+ "files": [
+  {
+   "id": "ezdxf-text_fonts",
+   "url": "https://raw.githubusercontent.com/mozman/ezdxf/7c64bce52c9d60b9db2dad4d2793c1168c8d3f64/examples_dxf/text_fonts.dxf",
+   "sha256": "c69dbb759042ebdb3e23047e61f4053cfcd48d210ca846490d3c3ffc64d56ea1",
+   "license": "MIT (ezdxf)",
+   "source": "https://github.com/mozman/ezdxf/tree/master/examples_dxf",
+   "generator": "BricsCAD / AutoCAD (ezdxf example files)"
+  },
+  {
+   "id": "ezdxf-uncommon",
+   "url": "https://raw.githubusercontent.com/mozman/ezdxf/7c64bce52c9d60b9db2dad4d2793c1168c8d3f64/examples_dxf/uncommon.dxf",
+   "sha256": "5efdd671e3b6d8c45bd0688b1d6479d523f2290f0b390f1584348bf46e34c965",
+   "license": "MIT (ezdxf)",
+   "source": "https://github.com/mozman/ezdxf/tree/master/examples_dxf",
+   "generator": "BricsCAD / AutoCAD (ezdxf example files)"
+  },
+  {
+   "id": "ezdxf-hatches_1",
+   "url": "https://raw.githubusercontent.com/mozman/ezdxf/7c64bce52c9d60b9db2dad4d2793c1168c8d3f64/examples_dxf/hatches_1.dxf",
+   "sha256": "2dc2930b4f7d5fb16698437e4f6972986e580a81b2b5d36a780b4311f85fb326",
+   "license": "MIT (ezdxf)",
+   "source": "https://github.com/mozman/ezdxf/tree/master/examples_dxf",
+   "generator": "BricsCAD / AutoCAD (ezdxf example files)"
+  },
+  {
+   "id": "ezdxf-hatches_2",
+   "url": "https://raw.githubusercontent.com/mozman/ezdxf/7c64bce52c9d60b9db2dad4d2793c1168c8d3f64/examples_dxf/hatches_2.dxf",
+   "sha256": "a50f02abbbafb0fedef5140e3f99691012bcffa192ecb298470fe8c5b2b9aad6",
+   "license": "MIT (ezdxf)",
+   "source": "https://github.com/mozman/ezdxf/tree/master/examples_dxf",
+   "generator": "BricsCAD / AutoCAD (ezdxf example files)"
+  },
+  {
+   "id": "ezdxf-columns_R2018",
+   "url": "https://raw.githubusercontent.com/mozman/ezdxf/7c64bce52c9d60b9db2dad4d2793c1168c8d3f64/examples_dxf/columns_R2018.dxf",
+   "sha256": "0110c42731224a851baca4fd93209a40ebcd19b18d98e75201715d3cd3baa649",
+   "license": "MIT (ezdxf)",
+   "source": "https://github.com/mozman/ezdxf/tree/master/examples_dxf",
+   "generator": "BricsCAD / AutoCAD (ezdxf example files)"
+  },
+  {
+   "id": "ezdxf-mtext_complex_inline_codes",
+   "url": "https://raw.githubusercontent.com/mozman/ezdxf/7c64bce52c9d60b9db2dad4d2793c1168c8d3f64/examples_dxf/mtext_complex_inline_codes.dxf",
+   "sha256": "fb09a7af8882787553149a675c6d15b45bab8ff4a49f58200460832eab3de401",
+   "license": "MIT (ezdxf)",
+   "source": "https://github.com/mozman/ezdxf/tree/master/examples_dxf",
+   "generator": "BricsCAD / AutoCAD (ezdxf example files)"
+  },
+  {
+   "id": "ezdxf-wipeout_door",
+   "url": "https://raw.githubusercontent.com/mozman/ezdxf/7c64bce52c9d60b9db2dad4d2793c1168c8d3f64/examples_dxf/wipeout_door.dxf",
+   "sha256": "26794284e4e52db626b889fbbaf847fabb3c6ac85603096af244d7b6d95448bb",
+   "license": "MIT (ezdxf)",
+   "source": "https://github.com/mozman/ezdxf/tree/master/examples_dxf",
+   "generator": "BricsCAD / AutoCAD (ezdxf example files)"
+  },
+  {
+   "id": "ezdxf-acad_table_with_blk_ref",
+   "url": "https://raw.githubusercontent.com/mozman/ezdxf/7c64bce52c9d60b9db2dad4d2793c1168c8d3f64/examples_dxf/acad_table_with_blk_ref.dxf",
+   "sha256": "7c42eac2e0c21b386273294b7937845ddda3da58f85c30fe130db229570f8015",
+   "license": "MIT (ezdxf)",
+   "source": "https://github.com/mozman/ezdxf/tree/master/examples_dxf",
+   "generator": "AutoCAD (ezdxf example files)"
+  },
+  {
+   "id": "ezdxf-viewport_frozen_layers",
+   "url": "https://raw.githubusercontent.com/mozman/ezdxf/7c64bce52c9d60b9db2dad4d2793c1168c8d3f64/examples_dxf/viewport_frozen_layers.dxf",
+   "sha256": "c04a78677627e94c0056b2c01f641770439668932bd2288392ae9ec654a5e222",
+   "license": "MIT (ezdxf)",
+   "source": "https://github.com/mozman/ezdxf/tree/master/examples_dxf",
+   "generator": "BricsCAD / AutoCAD (ezdxf example files)"
+  },
+  {
+   "id": "ezdxf-insert_bricscad_level_1",
+   "url": "https://raw.githubusercontent.com/mozman/ezdxf/7c64bce52c9d60b9db2dad4d2793c1168c8d3f64/examples_dxf/insert_bricscad_level_1.dxf",
+   "sha256": "c2597f95c007852db2ba82dedd9558f9318981115dda82fccfc0267ca60e5a56",
+   "license": "MIT (ezdxf)",
+   "source": "https://github.com/mozman/ezdxf/tree/master/examples_dxf",
+   "generator": "BricsCAD"
+  },
+  {
+   "id": "ezdxf-dimension_in_nested_blocks",
+   "url": "https://raw.githubusercontent.com/mozman/ezdxf/7c64bce52c9d60b9db2dad4d2793c1168c8d3f64/examples_dxf/dimension_in_nested_blocks.dxf",
+   "sha256": "03b50bf9a29513147d2b66f6ec1a4377494ced38437082c979639dfa42d613ea",
+   "license": "MIT (ezdxf)",
+   "source": "https://github.com/mozman/ezdxf/tree/master/examples_dxf",
+   "generator": "BricsCAD / AutoCAD (ezdxf example files)"
+  },
+  {
+   "id": "ezdxf-text_mirror_shx_font",
+   "url": "https://raw.githubusercontent.com/mozman/ezdxf/7c64bce52c9d60b9db2dad4d2793c1168c8d3f64/examples_dxf/text_mirror_shx_font.dxf",
+   "sha256": "5bed117ca6271aefb54e23203cee730c8205064ae2e8fae7afe2aed0d0946602",
+   "license": "MIT (ezdxf)",
+   "source": "https://github.com/mozman/ezdxf/tree/master/examples_dxf",
+   "generator": "BricsCAD / AutoCAD (ezdxf example files)"
+  },
+  {
+   "id": "ezdxf-VP4",
+   "url": "https://raw.githubusercontent.com/mozman/ezdxf/7c64bce52c9d60b9db2dad4d2793c1168c8d3f64/examples_dxf/VP4.dxf",
+   "sha256": "aa535057afadab4ed0fc8cadb4b624d272c90603c7e03f44df1e6a6d1a15acc0",
+   "license": "MIT (ezdxf)",
+   "source": "https://github.com/mozman/ezdxf/tree/master/examples_dxf",
+   "generator": "BricsCAD / AutoCAD (ezdxf example files)"
+  },
+  {
+   "id": "ezdxf-colors",
+   "url": "https://raw.githubusercontent.com/mozman/ezdxf/7c64bce52c9d60b9db2dad4d2793c1168c8d3f64/examples_dxf/colors.dxf",
+   "sha256": "70c12f1e3fd291c4ab02df7628624956fce315263c0ebcb18734d0b6e5b9974a",
+   "license": "MIT (ezdxf)",
+   "source": "https://github.com/mozman/ezdxf/tree/master/examples_dxf",
+   "generator": "BricsCAD / AutoCAD (ezdxf example files)"
+  },
+  {
+   "id": "ezdxf-3dface",
+   "url": "https://raw.githubusercontent.com/mozman/ezdxf/7c64bce52c9d60b9db2dad4d2793c1168c8d3f64/examples_dxf/3dface.dxf",
+   "sha256": "c9447d342e267052354bede75028a934da35bd2bb1a96c1c084bdf7e5f0abc2a",
+   "license": "MIT (ezdxf)",
+   "source": "https://github.com/mozman/ezdxf/tree/master/examples_dxf",
+   "generator": "BricsCAD / AutoCAD (ezdxf example files)"
+  },
+  {
+   "id": "ezdxf-visibility",
+   "url": "https://raw.githubusercontent.com/mozman/ezdxf/7c64bce52c9d60b9db2dad4d2793c1168c8d3f64/examples_dxf/visibility.dxf",
+   "sha256": "b67896731e038949e6c11f21a90ea8d345009226f8ec82f24c22d11565be8275",
+   "license": "MIT (ezdxf)",
+   "source": "https://github.com/mozman/ezdxf/tree/master/examples_dxf",
+   "generator": "BricsCAD / AutoCAD (ezdxf example files)"
+  },
+  {
+   "id": "ezdxf-Minimal_DXF_AC1009",
+   "url": "https://raw.githubusercontent.com/mozman/ezdxf/7c64bce52c9d60b9db2dad4d2793c1168c8d3f64/examples_dxf/Minimal_DXF_AC1009.dxf",
+   "sha256": "7286a35c85164d0165b6e0e2bd8093c25f818cdc31b9abd34a46646924fcccc3",
+   "license": "MIT (ezdxf)",
+   "source": "https://github.com/mozman/ezdxf/tree/master/examples_dxf",
+   "generator": "hand-written minimal R12"
+  },
+  {
+   "id": "ezdxf-Minimal_DXF_AC1006",
+   "url": "https://raw.githubusercontent.com/mozman/ezdxf/7c64bce52c9d60b9db2dad4d2793c1168c8d3f64/examples_dxf/Minimal_DXF_AC1006.dxf",
+   "sha256": "93c8197ca313b3224647c4b7c88ce857ab55e2e8c0258cc0298c40c847882ebc",
+   "license": "MIT (ezdxf)",
+   "source": "https://github.com/mozman/ezdxf/tree/master/examples_dxf",
+   "generator": "hand-written minimal R10"
+  },
+  {
+   "id": "ezdxf-caret_encoding",
+   "url": "https://raw.githubusercontent.com/mozman/ezdxf/7c64bce52c9d60b9db2dad4d2793c1168c8d3f64/examples_dxf/caret_encoding.dxf",
+   "sha256": "c1e3ec3d1a46d40aebb325d23a0d1ffefe5df64ed1336609e883e0517391faf0",
+   "license": "MIT (ezdxf)",
+   "source": "https://github.com/mozman/ezdxf/tree/master/examples_dxf",
+   "generator": "BricsCAD / AutoCAD (ezdxf example files)"
+  },
+  {
+   "id": "ezdxf-xclip",
+   "url": "https://raw.githubusercontent.com/mozman/ezdxf/7c64bce52c9d60b9db2dad4d2793c1168c8d3f64/examples_dxf/xclip.dxf",
+   "sha256": "cc1e5ffd5c88bd4b11f74324dc397a45f337471267a6458d5b8a2a213e6f7551",
+   "license": "MIT (ezdxf)",
+   "source": "https://github.com/mozman/ezdxf/tree/master/examples_dxf",
+   "generator": "BricsCAD"
+  },
+  {
+   "id": "ezdxf-valid_lineweights",
+   "url": "https://raw.githubusercontent.com/mozman/ezdxf/7c64bce52c9d60b9db2dad4d2793c1168c8d3f64/examples_dxf/valid_lineweights.dxf",
+   "sha256": "d94201194185d1511416abe43c3bc679ba8c7bf99a8dd43cd96c4ce46c38fc61",
+   "license": "MIT (ezdxf)",
+   "source": "https://github.com/mozman/ezdxf/tree/master/examples_dxf",
+   "generator": "BricsCAD / AutoCAD (ezdxf example files)"
+  },
+  {
+   "id": "ezdxf-transform_hatch_pattern",
+   "url": "https://raw.githubusercontent.com/mozman/ezdxf/7c64bce52c9d60b9db2dad4d2793c1168c8d3f64/examples_dxf/transform_hatch_pattern.dxf",
+   "sha256": "e302137e76a4178a9c81276c5c902222207940f0fbece31d9efcb9b331d16e35",
+   "license": "MIT (ezdxf)",
+   "source": "https://github.com/mozman/ezdxf/tree/master/examples_dxf",
+   "generator": "BricsCAD / AutoCAD (ezdxf example files)"
+  },
+  {
+   "id": "ezdxf-text_negative_extrusion",
+   "url": "https://raw.githubusercontent.com/mozman/ezdxf/7c64bce52c9d60b9db2dad4d2793c1168c8d3f64/examples_dxf/text_negative_extrusion.dxf",
+   "sha256": "6c183742a7c226e3196ba03b50eb8c32ab6a0dfbf12256d349ce2fc4b078b310",
+   "license": "MIT (ezdxf)",
+   "source": "https://github.com/mozman/ezdxf/tree/master/examples_dxf",
+   "generator": "BricsCAD / AutoCAD (ezdxf example files)"
+  },
+  {
+   "id": "ezdxf-hatch_issues",
+   "url": "https://raw.githubusercontent.com/mozman/ezdxf/7c64bce52c9d60b9db2dad4d2793c1168c8d3f64/examples_dxf/hatch_issues.dxf",
+   "sha256": "16ff6d4b687124d6ea681529260a4273858b87d9d5dd02eaec5d55d36dff30fb",
+   "license": "MIT (ezdxf)",
+   "source": "https://github.com/mozman/ezdxf/tree/master/examples_dxf",
+   "generator": "BricsCAD / AutoCAD (ezdxf example files)"
+  },
+  {
+   "id": "ezdxf-text_in_viewports",
+   "url": "https://raw.githubusercontent.com/mozman/ezdxf/7c64bce52c9d60b9db2dad4d2793c1168c8d3f64/examples_dxf/text_in_viewports.dxf",
+   "sha256": "51dc85fbbcc04c4c3c103d92b99524bde9ef7272a9f818ad321a683cd6877d10",
+   "license": "MIT (ezdxf)",
+   "source": "https://github.com/mozman/ezdxf/tree/master/examples_dxf",
+   "generator": "BricsCAD / AutoCAD (ezdxf example files)"
+  },
+  {
+   "id": "ezdxf-multi_insert_with_attribs",
+   "url": "https://raw.githubusercontent.com/mozman/ezdxf/7c64bce52c9d60b9db2dad4d2793c1168c8d3f64/examples_dxf/multi_insert_with_attribs.dxf",
+   "sha256": "14951dbef1c750fefc0a452e0bd4fb5b281dc092820d5b6da31b3855dddb4411",
+   "license": "MIT (ezdxf)",
+   "source": "https://github.com/mozman/ezdxf/tree/master/examples_dxf",
+   "generator": "BricsCAD / AutoCAD (ezdxf example files)"
+  },
+  {
+   "id": "gdal-assorted",
+   "url": "https://raw.githubusercontent.com/OSGeo/gdal/0d57017e566dfa576f46bfb3e4cac3dabd91d3a8/autotest/ogr/data/dxf/assorted.dxf",
+   "sha256": "c0226925e3ca9b896def206af49c7364b80bbc9154b019da3937e68ee6ae701d",
+   "license": "MIT-style (GDAL LICENSE.TXT)",
+   "source": "https://github.com/OSGeo/gdal/tree/master/autotest/ogr/data/dxf",
+   "generator": "AutoCAD-family test data"
+  },
+  {
+   "id": "gdal-leader-mleader",
+   "url": "https://raw.githubusercontent.com/OSGeo/gdal/0d57017e566dfa576f46bfb3e4cac3dabd91d3a8/autotest/ogr/data/dxf/leader-mleader.dxf",
+   "sha256": "5ed87163c08b2d2dd08d2a189ab0a42faa36b5d358144980dfd24159a4273538",
+   "license": "MIT-style (GDAL LICENSE.TXT)",
+   "source": "https://github.com/OSGeo/gdal/tree/master/autotest/ogr/data/dxf",
+   "generator": "AutoCAD-family test data"
+  },
+  {
+   "id": "gdal-spline_qcad",
+   "url": "https://raw.githubusercontent.com/OSGeo/gdal/0d57017e566dfa576f46bfb3e4cac3dabd91d3a8/autotest/ogr/data/dxf/spline_qcad.dxf",
+   "sha256": "b9ab3ec8070b546e9248139ad3238db95be1abfddbc2b7c0b36fd0c5dfa8f58c",
+   "license": "MIT-style (GDAL LICENSE.TXT)",
+   "source": "https://github.com/OSGeo/gdal/tree/master/autotest/ogr/data/dxf",
+   "generator": "QCAD"
+  },
+  {
+   "id": "gdal-bin_dxf_r2000",
+   "url": "https://raw.githubusercontent.com/OSGeo/gdal/0d57017e566dfa576f46bfb3e4cac3dabd91d3a8/autotest/ogr/data/dxf/bin_dxf_r2000.dxf",
+   "sha256": "bdbe44e042bc6f56fbf5bd4fde0053fa1b82dcf90305f21a521a7b70d2c37320",
+   "license": "MIT-style (GDAL LICENSE.TXT)",
+   "source": "https://github.com/OSGeo/gdal/tree/master/autotest/ogr/data/dxf",
+   "generator": "Binary DXF R2000"
+  },
+  {
+   "id": "gdal-bin_dxf_r12",
+   "url": "https://raw.githubusercontent.com/OSGeo/gdal/0d57017e566dfa576f46bfb3e4cac3dabd91d3a8/autotest/ogr/data/dxf/bin_dxf_r12.dxf",
+   "sha256": "1e7a904d67bc7036bd3f78a6273cdf28124ba7e8b731604c0593288182f2aa0e",
+   "license": "MIT-style (GDAL LICENSE.TXT)",
+   "source": "https://github.com/OSGeo/gdal/tree/master/autotest/ogr/data/dxf",
+   "generator": "Binary DXF R12"
+  },
+  {
+   "id": "gdal-BINARY_wipeout",
+   "url": "https://raw.githubusercontent.com/OSGeo/gdal/0d57017e566dfa576f46bfb3e4cac3dabd91d3a8/autotest/ogr/data/dxf/BINARY_wipeout.dxf",
+   "sha256": "713a7e6691d6647f1e1c038ffbea3cda32949aaa2e30e7dc614d76b6b691d5f3",
+   "license": "MIT-style (GDAL LICENSE.TXT)",
+   "source": "https://github.com/OSGeo/gdal/tree/master/autotest/ogr/data/dxf",
+   "generator": "Binary DXF"
+  },
+  {
+   "id": "gdal-utf-8",
+   "url": "https://raw.githubusercontent.com/OSGeo/gdal/0d57017e566dfa576f46bfb3e4cac3dabd91d3a8/autotest/ogr/data/dxf/utf-8.dxf",
+   "sha256": "952ae219659c70ff82b2c5c6a2ceeedb8b7387ca6ed2ad8551beb580453e5838",
+   "license": "MIT-style (GDAL LICENSE.TXT)",
+   "source": "https://github.com/OSGeo/gdal/tree/master/autotest/ogr/data/dxf",
+   "generator": "UTF-8 test data"
+  },
+  {
+   "id": "gdal-text-fancy",
+   "url": "https://raw.githubusercontent.com/OSGeo/gdal/0d57017e566dfa576f46bfb3e4cac3dabd91d3a8/autotest/ogr/data/dxf/text-fancy.dxf",
+   "sha256": "8e88d8f184515581605ec0e3542d40e06d9a373603f9ab5c5885b635f8dde0a5",
+   "license": "MIT-style (GDAL LICENSE.TXT)",
+   "source": "https://github.com/OSGeo/gdal/tree/master/autotest/ogr/data/dxf",
+   "generator": "test data"
+  },
+  {
+   "id": "gdal-hatch_as_multipolygon",
+   "url": "https://raw.githubusercontent.com/OSGeo/gdal/0d57017e566dfa576f46bfb3e4cac3dabd91d3a8/autotest/ogr/data/dxf/hatch_as_multipolygon.dxf",
+   "sha256": "f14c1d4cad64035c4857a2214b6798300149314509e8ca8b9ad007911a4c2ba2",
+   "license": "MIT-style (GDAL LICENSE.TXT)",
+   "source": "https://github.com/OSGeo/gdal/tree/master/autotest/ogr/data/dxf",
+   "generator": "test data"
+  },
+  {
+   "id": "gdal-ocs2wcs1",
+   "url": "https://raw.githubusercontent.com/OSGeo/gdal/0d57017e566dfa576f46bfb3e4cac3dabd91d3a8/autotest/ogr/data/dxf/ocs2wcs1.dxf",
+   "sha256": "59ac900011b83aa0dd332eabce31e2e8aefe3d4b2333426cfa0356250da68dfe",
+   "license": "MIT-style (GDAL LICENSE.TXT)",
+   "source": "https://github.com/OSGeo/gdal/tree/master/autotest/ogr/data/dxf",
+   "generator": "test data"
+  },
+  {
+   "id": "gdal-ocs2wcs3",
+   "url": "https://raw.githubusercontent.com/OSGeo/gdal/0d57017e566dfa576f46bfb3e4cac3dabd91d3a8/autotest/ogr/data/dxf/ocs2wcs3.dxf",
+   "sha256": "e57e3227f6ccee02917f12404dcc9950588142e339a478946a045b7c470ed11e",
+   "license": "MIT-style (GDAL LICENSE.TXT)",
+   "source": "https://github.com/OSGeo/gdal/tree/master/autotest/ogr/data/dxf",
+   "generator": "test data"
+  },
+  {
+   "id": "gdal-3d",
+   "url": "https://raw.githubusercontent.com/OSGeo/gdal/0d57017e566dfa576f46bfb3e4cac3dabd91d3a8/autotest/ogr/data/dxf/3d.dxf",
+   "sha256": "bf6ee31550567592fdd203ef1e4f1a76f8a1d532328e9d9c248e4a9b692a1a2f",
+   "license": "MIT-style (GDAL LICENSE.TXT)",
+   "source": "https://github.com/OSGeo/gdal/tree/master/autotest/ogr/data/dxf",
+   "generator": "test data"
+  },
+  {
+   "id": "gdal-dimension",
+   "url": "https://raw.githubusercontent.com/OSGeo/gdal/0d57017e566dfa576f46bfb3e4cac3dabd91d3a8/autotest/ogr/data/dxf/dimension.dxf",
+   "sha256": "541d9283a9db397a9f3d2043fde879867958cd351a608dc0fd2cc31fcf2041c8",
+   "license": "MIT-style (GDAL LICENSE.TXT)",
+   "source": "https://github.com/OSGeo/gdal/tree/master/autotest/ogr/data/dxf",
+   "generator": "test data"
+  },
+  {
+   "id": "gdal-linetypes",
+   "url": "https://raw.githubusercontent.com/OSGeo/gdal/0d57017e566dfa576f46bfb3e4cac3dabd91d3a8/autotest/ogr/data/dxf/linetypes.dxf",
+   "sha256": "69671125b99a2a5abf048cd7e9c880b5477cd90589cc7d3255427a4159e21701",
+   "license": "MIT-style (GDAL LICENSE.TXT)",
+   "source": "https://github.com/OSGeo/gdal/tree/master/autotest/ogr/data/dxf",
+   "generator": "test data"
+  },
+  {
+   "id": "gdal-transparency",
+   "url": "https://raw.githubusercontent.com/OSGeo/gdal/0d57017e566dfa576f46bfb3e4cac3dabd91d3a8/autotest/ogr/data/dxf/transparency.dxf",
+   "sha256": "18ced742b40621e5315e29faf82168b8f6ff56c8c36d703505e481ea03382f8d",
+   "license": "MIT-style (GDAL LICENSE.TXT)",
+   "source": "https://github.com/OSGeo/gdal/tree/master/autotest/ogr/data/dxf",
+   "generator": "test data"
+  },
+  {
+   "id": "gdal-header_extended",
+   "url": "https://raw.githubusercontent.com/OSGeo/gdal/0d57017e566dfa576f46bfb3e4cac3dabd91d3a8/autotest/ogr/data/dxf/header_extended.dxf",
+   "sha256": "b929894a20ccc5b6332cd1212a8b0c88ea86c78e3c275a7381a7dbc11518a4cf",
+   "license": "MIT-style (GDAL LICENSE.TXT)",
+   "source": "https://github.com/OSGeo/gdal/tree/master/autotest/ogr/data/dxf",
+   "generator": "test data"
+  },
+  {
+   "id": "gdal-insert-recursive-pair",
+   "url": "https://raw.githubusercontent.com/OSGeo/gdal/0d57017e566dfa576f46bfb3e4cac3dabd91d3a8/autotest/ogr/data/dxf/insert-recursive-pair.dxf",
+   "sha256": "c50903b56d87946ad42f6d037e94c8b47da7cf48e61cc090f44a0a8c45d7a5c2",
+   "license": "MIT-style (GDAL LICENSE.TXT)",
+   "source": "https://github.com/OSGeo/gdal/tree/master/autotest/ogr/data/dxf",
+   "generator": "test data (recursive block references)"
+  },
+  {
+   "id": "gdal-lwpolyline_smooth",
+   "url": "https://raw.githubusercontent.com/OSGeo/gdal/0d57017e566dfa576f46bfb3e4cac3dabd91d3a8/autotest/ogr/data/dxf/lwpolyline_smooth.dxf",
+   "sha256": "493a352db8ac29043aeb6c500418e298d86889b71b88f4463f2a0f4f6d3deb38",
+   "license": "MIT-style (GDAL LICENSE.TXT)",
+   "source": "https://github.com/OSGeo/gdal/tree/master/autotest/ogr/data/dxf",
+   "generator": "test data"
+  },
+  {
+   "id": "gdal-solid-vertex-ordering",
+   "url": "https://raw.githubusercontent.com/OSGeo/gdal/0d57017e566dfa576f46bfb3e4cac3dabd91d3a8/autotest/ogr/data/dxf/solid-vertex-ordering.dxf",
+   "sha256": "ab65aa3823e385c52c1fde7f15e0deadc6f4c12f1cb26431111cd5ff977ec1da",
+   "license": "MIT-style (GDAL LICENSE.TXT)",
+   "source": "https://github.com/OSGeo/gdal/tree/master/autotest/ogr/data/dxf",
+   "generator": "test data"
+  },
+  {
+   "id": "gdal-mtext-ocs-reduced",
+   "url": "https://raw.githubusercontent.com/OSGeo/gdal/0d57017e566dfa576f46bfb3e4cac3dabd91d3a8/autotest/ogr/data/dxf/mtext-ocs-reduced.dxf",
+   "sha256": "b394bc388aa5edab1d0def8eb7853f4610fdebd3d6cb4434182410589c57b652",
+   "license": "MIT-style (GDAL LICENSE.TXT)",
+   "source": "https://github.com/OSGeo/gdal/tree/master/autotest/ogr/data/dxf",
+   "generator": "test data"
+  },
+  {
+   "id": "gdal-elliptical-arc-hatch-min",
+   "url": "https://raw.githubusercontent.com/OSGeo/gdal/0d57017e566dfa576f46bfb3e4cac3dabd91d3a8/autotest/ogr/data/dxf/elliptical-arc-hatch-min.dxf",
+   "sha256": "daa87be8d8f3a4b2d60013ce8dcc1249dd5b7dd016a0f3edc8bb9fddb5087db8",
+   "license": "MIT-style (GDAL LICENSE.TXT)",
+   "source": "https://github.com/OSGeo/gdal/tree/master/autotest/ogr/data/dxf",
+   "generator": "test data"
+  },
+  {
+   "id": "gdal-wipeout",
+   "url": "https://raw.githubusercontent.com/OSGeo/gdal/0d57017e566dfa576f46bfb3e4cac3dabd91d3a8/autotest/ogr/data/dxf/wipeout.dxf",
+   "sha256": "fd00f6651b422cd08cf0946552bc8e0605176dea9c70e3baf0b3b4061cd0724a",
+   "license": "MIT-style (GDAL LICENSE.TXT)",
+   "source": "https://github.com/OSGeo/gdal/tree/master/autotest/ogr/data/dxf",
+   "generator": "BricsCAD"
+  },
+  {
+   "id": "gdal-clusterfuzz-testcase-minimized-dxf_fuzzer-540037",
+   "url": "https://raw.githubusercontent.com/OSGeo/gdal/0d57017e566dfa576f46bfb3e4cac3dabd91d3a8/autotest/ogr/data/dxf/clusterfuzz-testcase-minimized-dxf_fuzzer-5400376672124928.dxf",
+   "sha256": "25ca8e9be611bf05f78816c2361fecac491d4f3f561ff8b1be1b62687c1eb1eb",
+   "license": "MIT-style (GDAL LICENSE.TXT)",
+   "source": "https://github.com/OSGeo/gdal/tree/master/autotest/ogr/data/dxf",
+   "generator": "fuzzer output (malformed)",
+   "expect": {
+    "malformed": true
+   }
+  },
+  {
+   "id": "gdal-clusterfuzz-testcase-minimized-shape_fuzzer-6126",
+   "url": "https://raw.githubusercontent.com/OSGeo/gdal/0d57017e566dfa576f46bfb3e4cac3dabd91d3a8/autotest/ogr/data/dxf/clusterfuzz-testcase-minimized-shape_fuzzer-6126814756995072.dxf",
+   "sha256": "ba1f2186b6f28e085e5beb510b06bce945d35c3fa8b34e504448c30ea67953e2",
+   "license": "MIT-style (GDAL LICENSE.TXT)",
+   "source": "https://github.com/OSGeo/gdal/tree/master/autotest/ogr/data/dxf",
+   "generator": "fuzzer output (malformed)",
+   "expect": {
+    "malformed": true
+   }
+  },
+  {
+   "id": "gdal-insert-too-many-errors",
+   "url": "https://raw.githubusercontent.com/OSGeo/gdal/0d57017e566dfa576f46bfb3e4cac3dabd91d3a8/autotest/ogr/data/dxf/insert-too-many-errors.dxf",
+   "sha256": "0f5d481ccad6f9b39b6d6d04d3565ae9a3e26cabdc46d1ecb7b140b827244a0a",
+   "license": "MIT-style (GDAL LICENSE.TXT)",
+   "source": "https://github.com/OSGeo/gdal/tree/master/autotest/ogr/data/dxf",
+   "generator": "test data (malformed)",
+   "expect": {
+    "malformed": true
+   }
+  },
+  {
+   "id": "trimesh-wrench",
+   "url": "https://raw.githubusercontent.com/mikedh/trimesh/dc8490c825c382d2d58b5bd87ecacc74790ead27/models/2D/wrench.dxf",
+   "sha256": "d7c528cb21762208937206249e77e9d52462160c1e2477b6f54905721d54fa45",
+   "license": "MIT (trimesh)",
+   "source": "https://github.com/mikedh/trimesh/tree/main/models/2D",
+   "generator": "mechanical CAD exports (SolidWorks / AutoCAD family)"
+  },
+  {
+   "id": "trimesh-types",
+   "url": "https://raw.githubusercontent.com/mikedh/trimesh/dc8490c825c382d2d58b5bd87ecacc74790ead27/models/2D/types.dxf",
+   "sha256": "c5b537e9ad9ac5e87454801428e33ab91babadf2f0638c63a8376890cd21189c",
+   "license": "MIT (trimesh)",
+   "source": "https://github.com/mikedh/trimesh/tree/main/models/2D",
+   "generator": "mechanical CAD exports (SolidWorks / AutoCAD family)"
+  },
+  {
+   "id": "trimesh-text",
+   "url": "https://raw.githubusercontent.com/mikedh/trimesh/dc8490c825c382d2d58b5bd87ecacc74790ead27/models/2D/text.dxf",
+   "sha256": "1df74a2a765a659a39d1fb819a2e93b5859332465b37c0b73a63c782194bb34a",
+   "license": "MIT (trimesh)",
+   "source": "https://github.com/mikedh/trimesh/tree/main/models/2D",
+   "generator": "mechanical CAD exports (SolidWorks / AutoCAD family)"
+  },
+  {
+   "id": "trimesh-insert",
+   "url": "https://raw.githubusercontent.com/mikedh/trimesh/dc8490c825c382d2d58b5bd87ecacc74790ead27/models/2D/insert.dxf",
+   "sha256": "5b39e714d7f4c6d8fd1d8e13971ff7cb7717d02f611ce099ec9a5c3200088b1f",
+   "license": "MIT (trimesh)",
+   "source": "https://github.com/mikedh/trimesh/tree/main/models/2D",
+   "generator": "mechanical CAD exports (SolidWorks / AutoCAD family)"
+  },
+  {
+   "id": "trimesh-insert_r14",
+   "url": "https://raw.githubusercontent.com/mikedh/trimesh/dc8490c825c382d2d58b5bd87ecacc74790ead27/models/2D/insert_r14.dxf",
+   "sha256": "4b1da4feeb9bb4f8f292863d828c7ca30dd0d8691309b8e2ba52f322fcff4c10",
+   "license": "MIT (trimesh)",
+   "source": "https://github.com/mikedh/trimesh/tree/main/models/2D",
+   "generator": "mechanical CAD exports (SolidWorks / AutoCAD family)"
+  },
+  {
+   "id": "trimesh-spline",
+   "url": "https://raw.githubusercontent.com/mikedh/trimesh/dc8490c825c382d2d58b5bd87ecacc74790ead27/models/2D/spline.DXF",
+   "sha256": "cc405daa0352e91435ce3807d2f40c8f51a67145c98cf823989a646c6b2925e2",
+   "license": "MIT (trimesh)",
+   "source": "https://github.com/mikedh/trimesh/tree/main/models/2D",
+   "generator": "mechanical CAD exports (SolidWorks / AutoCAD family)"
+  },
+  {
+   "id": "trimesh-125_aluminum_srcMH",
+   "url": "https://raw.githubusercontent.com/mikedh/trimesh/dc8490c825c382d2d58b5bd87ecacc74790ead27/models/2D/125_aluminum_srcMH.DXF",
+   "sha256": "8eed0854b69b89a457558d6c6370994f38f4eb1ec5b861d5003e7c9af58261e9",
+   "license": "MIT (trimesh)",
+   "source": "https://github.com/mikedh/trimesh/tree/main/models/2D",
+   "generator": "mechanical CAD exports (SolidWorks / AutoCAD family)"
+  },
+  {
+   "id": "trimesh-tray-easy1",
+   "url": "https://raw.githubusercontent.com/mikedh/trimesh/dc8490c825c382d2d58b5bd87ecacc74790ead27/models/2D/tray-easy1.dxf",
+   "sha256": "25e59ce978b50c1919337cbdefa68ec8da49a1a9a4d2b17db26739fc0f2b0b31",
+   "license": "MIT (trimesh)",
+   "source": "https://github.com/mikedh/trimesh/tree/main/models/2D",
+   "generator": "mechanical CAD exports (SolidWorks / AutoCAD family)"
+  },
+  {
+   "id": "trimesh-v-ae.r12a",
+   "url": "https://raw.githubusercontent.com/mikedh/trimesh/dc8490c825c382d2d58b5bd87ecacc74790ead27/models/2D/versions/ae.r12a.dxf",
+   "sha256": "97ae43ccf38a8e647f0c9a416bc547318358efd159186877b4de1318d03a8795",
+   "license": "MIT (trimesh)",
+   "source": "https://github.com/mikedh/trimesh/tree/main/models/2D",
+   "generator": "mechanical CAD exports (SolidWorks / AutoCAD family)"
+  },
+  {
+   "id": "trimesh-v-ae.r14b",
+   "url": "https://raw.githubusercontent.com/mikedh/trimesh/dc8490c825c382d2d58b5bd87ecacc74790ead27/models/2D/versions/ae.r14b.dxf",
+   "sha256": "e13a89743a548b958e4e3f165159dfdb44acd3468646bef9ed90bdf7f731e226",
+   "license": "MIT (trimesh)",
+   "source": "https://github.com/mikedh/trimesh/tree/main/models/2D",
+   "generator": "mechanical CAD exports (SolidWorks / AutoCAD family)"
+  },
+  {
+   "id": "trimesh-v-ae.r2000a",
+   "url": "https://raw.githubusercontent.com/mikedh/trimesh/dc8490c825c382d2d58b5bd87ecacc74790ead27/models/2D/versions/ae.r2000a.dxf",
+   "sha256": "9a440c03e17383752778cc7235986a48b431c6d43c5f2232642c99a5c14c6ee0",
+   "license": "MIT (trimesh)",
+   "source": "https://github.com/mikedh/trimesh/tree/main/models/2D",
+   "generator": "mechanical CAD exports (SolidWorks / AutoCAD family)"
+  },
+  {
+   "id": "trimesh-v-ae.r2007a",
+   "url": "https://raw.githubusercontent.com/mikedh/trimesh/dc8490c825c382d2d58b5bd87ecacc74790ead27/models/2D/versions/ae.r2007a.dxf",
+   "sha256": "368ad73cb7b9089e567fd92ee1e3cff89c9c760a4a10436c1935dfea2ff11da2",
+   "license": "MIT (trimesh)",
+   "source": "https://github.com/mikedh/trimesh/tree/main/models/2D",
+   "generator": "mechanical CAD exports (SolidWorks / AutoCAD family)"
+  },
+  {
+   "id": "trimesh-v-ae.r2013a",
+   "url": "https://raw.githubusercontent.com/mikedh/trimesh/dc8490c825c382d2d58b5bd87ecacc74790ead27/models/2D/versions/ae.r2013a.dxf",
+   "sha256": "dc017dd2440b41461ec09830d0e3842b7d3ea2b94a187c8d4a524591c3228fec",
+   "license": "MIT (trimesh)",
+   "source": "https://github.com/mikedh/trimesh/tree/main/models/2D",
+   "generator": "mechanical CAD exports (SolidWorks / AutoCAD family)"
+  },
+  {
+   "id": "trimesh-v-uc.r2013b",
+   "url": "https://raw.githubusercontent.com/mikedh/trimesh/dc8490c825c382d2d58b5bd87ecacc74790ead27/models/2D/versions/uc.r2013b.dxf",
+   "sha256": "068f7abcc79a2187997f8e0927c628272e805a6bd23b7b1993ddd0b26f521e4f",
+   "license": "MIT (trimesh)",
+   "source": "https://github.com/mikedh/trimesh/tree/main/models/2D",
+   "generator": "mechanical CAD exports (SolidWorks / AutoCAD family)"
+  },
+  {
+   "id": "trimesh-v-uc.r12b",
+   "url": "https://raw.githubusercontent.com/mikedh/trimesh/dc8490c825c382d2d58b5bd87ecacc74790ead27/models/2D/versions/uc.r12b.dxf",
+   "sha256": "932153224bce3ebc4bb20ba6ab1bf68bdfeb9ac42bbae1435a7d5c274b127daa",
+   "license": "MIT (trimesh)",
+   "source": "https://github.com/mikedh/trimesh/tree/main/models/2D",
+   "generator": "mechanical CAD exports (SolidWorks / AutoCAD family)"
+  },
+  {
+   "id": "jwcad-q032rt",
+   "url": "https://raw.githubusercontent.com/monozukuri-ai/ezjww/47bad029226ebfc55bbd80cf73b7bdf430a585dc/jwc_samples/generated/q032rt.dxf",
+   "sha256": "e5e68759427738ab8334651dbfcb4bc98c11f2a8968c5d3c45dbfdddae4e78ef",
+   "license": "MIT (ezjww; native Jw_cad 10.02.1 output)",
+   "source": "https://github.com/monozukuri-ai/ezjww/tree/main/jwc_samples",
+   "generator": "Jw_cad 10.02.1",
+   "expect": {
+    "generator": "Jw_cad"
+   }
+  },
+  {
+   "id": "jwcad-q033rt",
+   "url": "https://raw.githubusercontent.com/monozukuri-ai/ezjww/47bad029226ebfc55bbd80cf73b7bdf430a585dc/jwc_samples/generated/q033rt.dxf",
+   "sha256": "777ee48abdf15c68e0e2f1c4c62f0d462fd4df3cad3f77d531b742d40e9e6840",
+   "license": "MIT (ezjww; native Jw_cad 10.02.1 output)",
+   "source": "https://github.com/monozukuri-ai/ezjww/tree/main/jwc_samples",
+   "generator": "Jw_cad 10.02.1",
+   "expect": {
+    "generator": "Jw_cad"
+   }
+  },
+  {
+   "id": "jwcad-q034rt",
+   "url": "https://raw.githubusercontent.com/monozukuri-ai/ezjww/47bad029226ebfc55bbd80cf73b7bdf430a585dc/jwc_samples/generated/q034rt.dxf",
+   "sha256": "9ff60df38164db50f5f42033f8b28f85187a16f1c855bb0a5d99a2bf05b59905",
+   "license": "MIT (ezjww; native Jw_cad 10.02.1 output)",
+   "source": "https://github.com/monozukuri-ai/ezjww/tree/main/jwc_samples",
+   "generator": "Jw_cad 10.02.1",
+   "expect": {
+    "generator": "Jw_cad"
+   }
+  },
+  {
+   "id": "jwcad-q039rt",
+   "url": "https://raw.githubusercontent.com/monozukuri-ai/ezjww/47bad029226ebfc55bbd80cf73b7bdf430a585dc/jwc_samples/generated/q039rt.dxf",
+   "sha256": "e25455a6868a78e57fad8bbfe8944fb3ad3fd8954fdf5d82a3c0ced1f5eeb32f",
+   "license": "MIT (ezjww; native Jw_cad 10.02.1 output)",
+   "source": "https://github.com/monozukuri-ai/ezjww/tree/main/jwc_samples",
+   "generator": "Jw_cad 10.02.1",
+   "expect": {
+    "generator": "Jw_cad"
+   }
+  },
+  {
+   "id": "jwcad-q056rt",
+   "url": "https://raw.githubusercontent.com/monozukuri-ai/ezjww/47bad029226ebfc55bbd80cf73b7bdf430a585dc/jwc_samples/generated/q056rt.dxf",
+   "sha256": "f6faac468c5dae4259b59094b7a24139e8eb118304dfe957cb2926b8204d059e",
+   "license": "MIT (ezjww; native Jw_cad 10.02.1 output)",
+   "source": "https://github.com/monozukuri-ai/ezjww/tree/main/jwc_samples",
+   "generator": "Jw_cad 10.02.1",
+   "expect": {
+    "generator": "Jw_cad"
+   }
+  },
+  {
+   "id": "jwcad-q057rt",
+   "url": "https://raw.githubusercontent.com/monozukuri-ai/ezjww/47bad029226ebfc55bbd80cf73b7bdf430a585dc/jwc_samples/generated/q057rt.dxf",
+   "sha256": "23f77e5b121cbac3c6a659d42aed5ab56c8ba424e68298f68d7de2d4aec7002f",
+   "license": "MIT (ezjww; native Jw_cad 10.02.1 output)",
+   "source": "https://github.com/monozukuri-ai/ezjww/tree/main/jwc_samples",
+   "generator": "Jw_cad 10.02.1",
+   "expect": {
+    "generator": "Jw_cad"
+   }
+  },
+  {
+   "id": "jwcad-q070rt",
+   "url": "https://raw.githubusercontent.com/monozukuri-ai/ezjww/47bad029226ebfc55bbd80cf73b7bdf430a585dc/jwc_samples/generated/q070rt.dxf",
+   "sha256": "bcfd7cd9c0e7f2fac1fb48eabb99af03dff517fdb8b7f3f924ef47cf797376fe",
+   "license": "MIT (ezjww; native Jw_cad 10.02.1 output)",
+   "source": "https://github.com/monozukuri-ai/ezjww/tree/main/jwc_samples",
+   "generator": "Jw_cad 10.02.1",
+   "expect": {
+    "generator": "Jw_cad"
+   }
+  },
+  {
+   "id": "jwcad-r000rt",
+   "url": "https://raw.githubusercontent.com/monozukuri-ai/ezjww/47bad029226ebfc55bbd80cf73b7bdf430a585dc/jwc_samples/generated/r000rt.dxf",
+   "sha256": "686d53908c92d66de88bf87eeb0d1d0c2c1ffabed61b3239de33d7680a6a0523",
+   "license": "MIT (ezjww; native Jw_cad 10.02.1 output)",
+   "source": "https://github.com/monozukuri-ai/ezjww/tree/main/jwc_samples",
+   "generator": "Jw_cad 10.02.1",
+   "expect": {
+    "generator": "Jw_cad"
+   }
+  },
+  {
+   "id": "jwcad-r013rt",
+   "url": "https://raw.githubusercontent.com/monozukuri-ai/ezjww/47bad029226ebfc55bbd80cf73b7bdf430a585dc/jwc_samples/generated/r013rt.dxf",
+   "sha256": "b256054523873cefb1a2d6fe98f5f95278e238e55d406eec371ac5512a3e6573",
+   "license": "MIT (ezjww; native Jw_cad 10.02.1 output)",
+   "source": "https://github.com/monozukuri-ai/ezjww/tree/main/jwc_samples",
+   "generator": "Jw_cad 10.02.1",
+   "expect": {
+    "generator": "Jw_cad"
+   }
+  },
+  {
+   "id": "jwcad-r024rt",
+   "url": "https://raw.githubusercontent.com/monozukuri-ai/ezjww/47bad029226ebfc55bbd80cf73b7bdf430a585dc/jwc_samples/generated/r024rt.dxf",
+   "sha256": "d4fc8f69289d44a2aafb9538d4a46ba4ddf530d314e13d769c312b42814215d2",
+   "license": "MIT (ezjww; native Jw_cad 10.02.1 output)",
+   "source": "https://github.com/monozukuri-ai/ezjww/tree/main/jwc_samples",
+   "generator": "Jw_cad 10.02.1",
+   "expect": {
+    "generator": "Jw_cad"
+   }
+  },
+  {
+   "id": "jwcad-r080rt",
+   "url": "https://raw.githubusercontent.com/monozukuri-ai/ezjww/47bad029226ebfc55bbd80cf73b7bdf430a585dc/jwc_samples/generated/r080rt.dxf",
+   "sha256": "38980c9a3f891914232cf1cd6b04895125d62196c53eec6a20d3ca4280673e7c",
+   "license": "MIT (ezjww; native Jw_cad 10.02.1 output)",
+   "source": "https://github.com/monozukuri-ai/ezjww/tree/main/jwc_samples",
+   "generator": "Jw_cad 10.02.1",
+   "expect": {
+    "generator": "Jw_cad"
+   }
+  },
+  {
+   "id": "jwcad-r081rt",
+   "url": "https://raw.githubusercontent.com/monozukuri-ai/ezjww/47bad029226ebfc55bbd80cf73b7bdf430a585dc/jwc_samples/generated/r081rt.dxf",
+   "sha256": "4ec42a04c90b5c8f2fbb009236b93c7afbcf459fafc89e24eaf80611ddb18529",
+   "license": "MIT (ezjww; native Jw_cad 10.02.1 output)",
+   "source": "https://github.com/monozukuri-ai/ezjww/tree/main/jwc_samples",
+   "generator": "Jw_cad 10.02.1",
+   "expect": {
+    "generator": "Jw_cad"
+   }
+  },
+  {
+   "id": "suzaka-08ID061",
+   "url": "https://www.city.suzaka.nagano.jp/material/files/group/19/08ID061.zip",
+   "sha256": "d8c779e4712c46d0d30e5ddfebace979e114ca79d8844bd7680358004daada67",
+   "license": "CC BY (須坂市オープンデータ; 「CCBY須坂市」)",
+   "source": "https://www.city.suzaka.nagano.jp/soshiki/6010/1/935.html",
+   "generator": "Japanese municipal survey map (都市計画基本図)",
+   "notes": "ZIP contains PDF + DXF; the first .dxf entry is used",
+   "zipEntry": "*.dxf"
+  },
+  {
+   "id": "suzaka-08HD751",
+   "url": "https://www.city.suzaka.nagano.jp/material/files/group/19/08HD751.zip",
+   "sha256": "490ee5b31f0e54176f489f87042252fe1d8a1a3362752c6e86e5e132a7141f52",
+   "license": "CC BY (須坂市オープンデータ; 「CCBY須坂市」)",
+   "source": "https://www.city.suzaka.nagano.jp/soshiki/6010/1/935.html",
+   "generator": "Japanese municipal survey map (都市計画基本図)",
+   "notes": "ZIP contains PDF + DXF; the first .dxf entry is used",
+   "zipEntry": "*.dxf"
+  }
+ ]
+}

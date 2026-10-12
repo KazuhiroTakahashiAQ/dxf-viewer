@@ -189,3 +189,40 @@ function sjisTable(): Map<string, number[]> {
   cached = m;
   return m;
 }
+
+describe('encoding detection heuristics', () => {
+  it('a lone high byte next to ASCII letters is Windows-1252, not Shift_JIS', async () => {
+    const { detectEncoding } = await import('../../src/dxf/reader/encoding');
+    const bytes = new Uint8Array([...new TextEncoder().encode('  0\nSECTION\n  2\nENTITIES\n  0\nTEXT\n  1\nSample1'), 0xbf, ...new TextEncoder().encode('\n  0\nENDSEC\n  0\nEOF\n')]);
+    expect(detectEncoding(bytes).encoding).toBe('windows-1252');
+  });
+  it('Shift_JIS double-byte text without a code page is still detected', async () => {
+    const { detectEncoding } = await import('../../src/dxf/reader/encoding');
+    // "平面図" in Shift_JIS
+    const bytes = new Uint8Array([...new TextEncoder().encode('  0\nTEXT\n  1\n'), 0x95, 0xbd, 0x96, 0xca, 0x90, 0x7d, ...new TextEncoder().encode('\n  0\nEOF\n')]);
+    expect(detectEncoding(bytes).encoding).toBe('shift_jis');
+  });
+});
+
+describe('MTEXT embedded object (R2018 columns)', () => {
+  it('keeps the main properties and reads the column settings', () => {
+    const doc = parseDxf(
+      enc(
+        dxf(
+          entitiesDoc([
+            [0, 'MTEXT'], [8, '0'], [100, 'AcDbMText'], [10, 72.95], [20, 49.46], [30, 0], [40, 0.8], [41, 13.88], [71, 1], [72, 5], [1, 'POLYLINE WITH BULGE'], [73, 1], [44, 1],
+            [101, 'Embedded Object'], [70, 1], [10, 1], [20, 0], [30, 0], [11, 72.95], [21, 49.46], [31, 0], [40, 13.88], [41, 0], [42, 12.58], [43, 0.83],
+            [71, 2], [72, 3], [44, 13.88], [45, 1.5], [73, 0], [74, 0], [46, 5], [46, 6], [46, 7],
+          ]),
+        ),
+      ),
+      { name: 't.dxf' },
+    );
+    const m = doc.entities[doc.modelSpace[0]] as unknown as Record<string, unknown>;
+    expect(m.height).toBe(0.8);
+    expect(m.insert).toEqual([72.95, 49.46, 0]);
+    expect(m.attachment).toBe(1);
+    expect(m.xAxis ?? [1, 0, 0]).toEqual([1, 0, 0]);
+    expect([m.columnType, m.columnCount, m.columnWidth, m.columnGutter, m.columnHeights]).toEqual([2, 3, 13.88, 1.5, [5, 6, 7]]);
+  });
+});

@@ -192,6 +192,8 @@ export interface MTextEntity extends EntityBase {
   xAxis?: Vec3;
   /** radians */
   rotation: number;
+  /** group code 50 present (otherwise the default direction is the WCS x-axis) */
+  hasRotation?: boolean;
   lineSpacingStyle: number;
   lineSpacingFactor: number;
   bgFlags: number;

@@ -103,11 +103,22 @@ uv run python generate.py          # public/samples/*.dxf と tests/fixtures/sam
 uv run python generate.py --perf   # 性能確認用の大きなファイル（コミットしません）
 ```
 
-ブラウザでの表示確認には、ローカルの Google Chrome をヘッドレスで操作するスクリプトを使います。
+ブラウザでの表示確認には、ローカルの Google Chrome をヘッドレスで操作するスクリプトを使います（開発サーバーを起動しておきます）。
 
 ```sh
 node tools/e2e/shot.ts --file public/samples/basic_entities.dxf --out shot.png
+node tools/e2e/perf.ts tests/real/.cache/perf/perf_498436.dxf   # 性能計測
 ```
+
+### 実ファイルコーパスと参照レンダリング
+
+```sh
+node tools/corpus/fetch.ts        # tests/real/corpus.json の公開 DXF を tests/real/.cache/ に取得（SHA-256 を検証）
+npm test                          # 取得済みなら実ファイルの不変条件テストも実行
+sh tools/reference/render.sh public/samples/*.dxf   # ezdxf・LibreCAD・このビューアの比較画像（macOS）
+```
+
+取得したファイルと比較画像はリポジトリに含めません。結果の要約は [docs/coverage.md](docs/coverage.md) にあります。
 
 ### テストの考え方
 

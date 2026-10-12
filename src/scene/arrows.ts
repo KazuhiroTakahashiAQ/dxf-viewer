@@ -16,7 +16,8 @@ export function emitArrow(host: EmitHost, name: string, tip: Vec3, angle: number
   const m = multiply(multiply(translation(tip[0], tip[1], tip[2]), rotationZ(angle)), scaling(size, size, size));
   const n = name.trim();
   if (n && host.doc.blocks.has(nameKey(n)) && !/^_?closedfilled$/i.test(n)) {
-    host.block(n, m, owner, ctx, depth);
+    // block contents inherit from the arrow's owner (BYBLOCK = leader / dimension line color)
+    host.block(n, m, owner, host.styles.childCtx(owner, ctx, size), depth);
     return;
   }
   const key = n.replace(/^_/, '').toUpperCase();

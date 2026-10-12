@@ -386,6 +386,8 @@ export class SceneBuilder implements EmitHost {
   readonly scene: Scene;
   readonly out: TileOut;
   private bboxHost: BBoxHost;
+  private bboxHosts: BBoxHost[] = [];
+  private bboxDepth = 0;
   private textCache = new Map<number, PlacedText | null>();
   private blockBBoxCache = new Map<string, BBox | null>();
   private blockCountCache = new Map<string, number>();
@@ -422,6 +424,7 @@ export class SceneBuilder implements EmitHost {
     this.emitOpts = { fill: opts.fill };
     this.budgetLeft = opts.budget;
     this.bboxHost = new BBoxHost(this);
+    this.bboxHosts.push(this.bboxHost);
     const strict = opts.drawOrder === 'strict' || (opts.drawOrder === 'auto' && hasOccluders(doc));
     this.scene = {
       doc,
@@ -766,6 +769,19 @@ export class SceneBuilder implements EmitHost {
   /** Bounding box of an entity under matrix m (null = no geometry). */
   entityBBox(e: Entity, m: Mat34, inBlock: boolean): BBox | null {
     if (e.invisible) return null;
+    // bounding-box hosts are per nesting level: computing a block's bounds for the
+    // first time recurses into entityBBox while the outer entity is still collecting
+    const level = this.bboxDepth++;
+    try {
+      this.bboxHost = this.bboxHosts[level] ??= new BBoxHost(this);
+      return this.entityBBoxAt(e, m, inBlock);
+    } finally {
+      this.bboxDepth--;
+      this.bboxHost = this.bboxHosts[Math.max(0, this.bboxDepth - 1)] ?? this.bboxHosts[0];
+    }
+  }
+
+  private entityBBoxAt(e: Entity, m: Mat34, inBlock: boolean): BBox | null {
     const b = emptyBBox();
     if (e.type === 'INSERT') {
       const ins = e as InsertEntity;

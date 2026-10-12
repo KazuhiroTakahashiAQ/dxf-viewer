@@ -156,6 +156,26 @@ export function shiftJisScore(bytes: Uint8Array): number {
   return high === 0 ? 0 : good / high;
 }
 
+/**
+ * Positive evidence for Shift_JIS: double-byte pairs, or runs of at least two
+ * half-width katakana. A lone byte in A1–DF (e.g. "¿" or "é" of Windows-1252
+ * next to ASCII letters) is not enough on its own.
+ */
+export function shiftJisEvidence(bytes: Uint8Array): boolean {
+  let run = 0;
+  for (let i = 0; i < bytes.length; i++) {
+    const b = bytes[i];
+    if ((b >= 0x81 && b <= 0x9f) || (b >= 0xe0 && b <= 0xfc)) {
+      const t = bytes[i + 1];
+      if (t !== undefined && t >= 0x40 && t <= 0xfc && t !== 0x7f) return true;
+    }
+    if (b >= 0xa1 && b <= 0xdf) {
+      if (++run >= 2) return true;
+    } else run = 0;
+  }
+  return false;
+}
+
 export function eucJpScore(bytes: Uint8Array): number {
   let high = 0;
   let good = 0;
@@ -216,7 +236,7 @@ export function detectEncoding(bytes: Uint8Array): Omit<EncodingInfo, 'replaceme
   if (cpEncoding && cpEncoding !== 'windows-1252' && cpEncoding !== 'utf-8') {
     return { encoding: cpEncoding, reason: `$DWGCODEPAGE = ${codepage}`, codepage };
   }
-  if (sjis > 0.98) {
+  if (sjis > 0.98 && shiftJisEvidence(bytes)) {
     return {
       encoding: 'shift_jis',
       reason: codepage

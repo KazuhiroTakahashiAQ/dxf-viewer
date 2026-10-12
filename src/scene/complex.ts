@@ -92,7 +92,9 @@ function emitLeader(host: EmitHost, e: E, m: Mat34, ctx: InheritCtx, depth: numb
   if (verts.length < 2) return;
   const dv = dimVars(host.doc, e.dimStyle, e);
   const asz = dv.asz * (dv.scale || 1);
-  host.use(e, ctx);
+  // leader line and arrow use DIMCLRD (BYBLOCK = the leader's own color)
+  const lineEntity: E = dv.clrd && dv.clrd !== 0 ? { ...e, color: dv.clrd, trueColor: undefined } : e;
+  host.use(lineEntity, ctx);
   host.out.setMatrix(m);
   if (e.pathType === 1 && verts.length > 2) {
     const segs = fitPointsToBeziers(verts);
@@ -115,7 +117,7 @@ function emitLeader(host: EmitHost, e: E, m: Mat34, ctx: InheritCtx, depth: numb
   if (e.arrow) {
     const p0 = applyPoint(m, ...(verts[0] as [number, number, number]));
     const p1 = applyPoint(m, ...(verts[1] as [number, number, number]));
-    emitArrow(host, dv.ldrblk, p0, Math.atan2(p0[1] - p1[1], p0[0] - p1[0]), asz, e, ctx, depth + 1);
+    emitArrow(host, dv.ldrblk, p0, Math.atan2(p0[1] - p1[1], p0[0] - p1[0]), asz, lineEntity, ctx, depth + 1);
   }
 }
 
@@ -126,9 +128,11 @@ function mleaderAttachment(v: number | undefined): number {
 function emitMLeader(host: EmitHost, e: E, m: Mat34, ctx: InheritCtx, depth: number): void {
   const c = e.ctx ?? {};
   const st = host.use(e, ctx);
+  // BYBLOCK in the line / text / block overrides refers to the MULTILEADER itself
+  const subCtx = host.styles.childCtx(e, ctx, 1);
   // leader line color/linetype overrides
   const lineEntity = { ...e, ...rawColor(e.lineColor) };
-  const lineStyle = host.use(lineEntity, ctx);
+  const lineStyle = host.use(lineEntity, subCtx);
   const arrowSize = c.arrowSize || (e.arrowSize ?? 0) * (c.scale || 1) || 2.5;
   const arrowName = blockNameByRecord(host.doc, e.arrowBlock) ?? '';
   if (e.lineType !== 0) {
@@ -187,7 +191,7 @@ function emitMLeader(host: EmitHost, e: E, m: Mat34, ctx: InheritCtx, depth: num
       extrusion: c.textNormal,
     });
     const p = layoutMText(mt, (n) => host.doc.styles.get(nameKey(n)), host.measurer);
-    if (p) host.text(p, m, host.use(textEntity, ctx), e.id);
+    if (p) host.text(p, m, host.use(textEntity, subCtx), e.id);
   }
   // block content
   if (c.hasBlock && c.block) {
@@ -197,7 +201,7 @@ function emitMLeader(host: EmitHost, e: E, m: Mat34, ctx: InheritCtx, depth: num
       const sc: Vec3 = c.blockScale ?? [1, 1, 1];
       const bm = multiply(multiply(multiply(m, translation(loc[0], loc[1], loc[2])), rotationZ(c.blockRotation ?? 0)), scaling(sc[0] || 1, sc[1] || 1, sc[2] || 1));
       const blockEntity = { ...e, ...rawColor(e.blockColor) };
-      host.block(name, bm, blockEntity, ctx, depth + 1);
+      host.block(name, bm, blockEntity, host.styles.childCtx(blockEntity, subCtx, 1), depth + 1);
     }
   }
   void st;

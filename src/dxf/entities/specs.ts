@@ -283,6 +283,26 @@ const TEXT: EntitySpec = {
   },
 };
 
+/** Column data of an R2018 MTEXT "Embedded Object" (layout as read by ezdxf). */
+function parseMTextColumnsObject(e: E, i: number, r: TagReader): number {
+  let j = i + 1;
+  const heights: number[] = [];
+  while (j < r.end) {
+    const code = r.tags.code(j);
+    if (code >= 1000) break;
+    if (code === 71) e.columnType = r.n(j);
+    else if (code === 72) e.columnCount = r.n(j);
+    else if (code === 44) e.columnWidth = r.n(j);
+    else if (code === 45) e.columnGutter = r.n(j);
+    else if (code === 73) e.columnAutoHeight = r.n(j);
+    else if (code === 74) e.columnFlowReversed = r.n(j);
+    else if (code === 46) heights.push(r.n(j));
+    j++;
+  }
+  if (heights.length) e.columnHeights = heights;
+  return j - i;
+}
+
 function parseEmbeddedMText(e: E, i: number, r: TagReader): number {
   const m: E = { type: 'MTEXT', layer: e.layer, color: e.color };
   MTEXT.init(m);
@@ -336,6 +356,7 @@ const MTEXT: EntitySpec = {
       case 50:
         if (e.columnType > 0 && e._afterColumns) { e.columnHeights.push(r.n(i)); return 1; }
         e.rotation = r.n(i);
+        e.hasRotation = true;
         return 1;
       case 73: e.lineSpacingStyle = r.n(i); return 1;
       case 44: e.lineSpacingFactor = r.n(i) || 1; return 1;
@@ -344,6 +365,9 @@ const MTEXT: EntitySpec = {
       case 421: e.bgTrueColor = r.n(i) & 0xffffff; return 1;
       case 45: e.bgScale = r.n(i); return 1;
       case 441: e.bgTransparency = r.n(i); return 1;
+      // R2018: column settings live in an "Embedded Object" after the MTEXT data;
+      // its codes (10, 11, 40, 41, …) must not overwrite the main properties
+      case 101: return parseMTextColumnsObject(e, i, r);
       case 75: e.columnType = r.n(i); e._afterColumns = true; return 1;
       case 76: e.columnCount = r.n(i); return 1;
       case 78: e.columnFlowReversed = r.n(i); return 1;

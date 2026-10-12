@@ -1,0 +1,1281 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`real-world corpus > ezdxf-3dface 1`] = `
+{
+  "binary": false,
+  "blocks": 5,
+  "encoding": "utf-8",
+  "entities": 74,
+  "generator": [
+    "AutoCAD or an ODA-based CAD",
+  ],
+  "layers": 1,
+  "model": 71,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1032",
+}
+`;
+
+exports[`real-world corpus > ezdxf-Minimal_DXF_AC1006 1`] = `
+{
+  "binary": false,
+  "blocks": 0,
+  "encoding": "utf-8",
+  "entities": 3,
+  "generator": [],
+  "layers": 3,
+  "model": 3,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1006",
+}
+`;
+
+exports[`real-world corpus > ezdxf-Minimal_DXF_AC1009 1`] = `
+{
+  "binary": false,
+  "blocks": 0,
+  "encoding": "utf-8",
+  "entities": 0,
+  "generator": [],
+  "layers": 1,
+  "model": 0,
+  "notRendered": [],
+  "paper": 0,
+  "version": null,
+}
+`;
+
+exports[`real-world corpus > ezdxf-VP4 1`] = `
+{
+  "binary": false,
+  "blocks": 4,
+  "encoding": "utf-8",
+  "entities": 27,
+  "generator": [
+    "AutoCAD or an ODA-based CAD",
+  ],
+  "layers": 2,
+  "model": 6,
+  "notRendered": [],
+  "paper": 21,
+  "version": "AC1027",
+}
+`;
+
+exports[`real-world corpus > ezdxf-acad_table_with_blk_ref 1`] = `
+{
+  "binary": false,
+  "blocks": 6,
+  "encoding": "utf-8",
+  "entities": 61,
+  "generator": [
+    "AutoCAD or an ODA-based CAD",
+  ],
+  "layers": 2,
+  "model": 1,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1032",
+}
+`;
+
+exports[`real-world corpus > ezdxf-caret_encoding 1`] = `
+{
+  "binary": false,
+  "blocks": 2,
+  "encoding": "utf-8",
+  "entities": 61,
+  "generator": [
+    "AutoCAD or an ODA-based CAD",
+  ],
+  "layers": 2,
+  "model": 61,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1027",
+}
+`;
+
+exports[`real-world corpus > ezdxf-colors 1`] = `
+{
+  "binary": false,
+  "blocks": 6,
+  "encoding": "utf-8",
+  "entities": 45,
+  "generator": [
+    "AutoCAD or an ODA-based CAD",
+  ],
+  "layers": 3,
+  "model": 28,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1032",
+}
+`;
+
+exports[`real-world corpus > ezdxf-columns_R2018 1`] = `
+{
+  "binary": false,
+  "blocks": 6,
+  "encoding": "utf-8",
+  "entities": 59,
+  "generator": [
+    "AutoCAD or an ODA-based CAD",
+  ],
+  "layers": 1,
+  "model": 52,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1032",
+}
+`;
+
+exports[`real-world corpus > ezdxf-dimension_in_nested_blocks 1`] = `
+{
+  "binary": false,
+  "blocks": 9,
+  "encoding": "utf-8",
+  "entities": 41,
+  "generator": [
+    "AcDim ARX App For Dimension",
+  ],
+  "layers": 2,
+  "model": 4,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1027",
+}
+`;
+
+exports[`real-world corpus > ezdxf-hatch_issues 1`] = `
+{
+  "binary": false,
+  "blocks": 3,
+  "encoding": "utf-8",
+  "entities": 12,
+  "generator": [
+    "AutoCAD or an ODA-based CAD",
+  ],
+  "layers": 2,
+  "model": 12,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1032",
+}
+`;
+
+exports[`real-world corpus > ezdxf-hatches_1 1`] = `
+{
+  "binary": false,
+  "blocks": 3,
+  "encoding": "utf-8",
+  "entities": 32,
+  "generator": [
+    "AutoCAD or an ODA-based CAD",
+  ],
+  "layers": 1,
+  "model": 32,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1032",
+}
+`;
+
+exports[`real-world corpus > ezdxf-hatches_2 1`] = `
+{
+  "binary": false,
+  "blocks": 3,
+  "encoding": "utf-8",
+  "entities": 11,
+  "generator": [
+    "AutoCAD or an ODA-based CAD",
+  ],
+  "layers": 1,
+  "model": 11,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1032",
+}
+`;
+
+exports[`real-world corpus > ezdxf-insert_bricscad_level_1 1`] = `
+{
+  "binary": false,
+  "blocks": 5,
+  "encoding": "utf-8",
+  "entities": 57,
+  "generator": [
+    "AutoCAD or an ODA-based CAD",
+  ],
+  "layers": 2,
+  "model": 24,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1027",
+}
+`;
+
+exports[`real-world corpus > ezdxf-mtext_complex_inline_codes 1`] = `
+{
+  "binary": false,
+  "blocks": 3,
+  "encoding": "utf-8",
+  "entities": 12,
+  "generator": [
+    "AutoCAD or an ODA-based CAD",
+  ],
+  "layers": 1,
+  "model": 12,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1027",
+}
+`;
+
+exports[`real-world corpus > ezdxf-multi_insert_with_attribs 1`] = `
+{
+  "binary": false,
+  "blocks": 3,
+  "encoding": "utf-8",
+  "entities": 9,
+  "generator": [
+    "AutoCAD or an ODA-based CAD",
+  ],
+  "layers": 3,
+  "model": 1,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1027",
+}
+`;
+
+exports[`real-world corpus > ezdxf-text_fonts 1`] = `
+{
+  "binary": false,
+  "blocks": 2,
+  "encoding": "utf-8",
+  "entities": 1344,
+  "generator": [
+    "AutoCAD or an ODA-based CAD",
+  ],
+  "layers": 4,
+  "model": 1344,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1027",
+}
+`;
+
+exports[`real-world corpus > ezdxf-text_in_viewports 1`] = `
+{
+  "binary": false,
+  "blocks": 3,
+  "encoding": "utf-8",
+  "entities": 25,
+  "generator": [
+    "AutoCAD or an ODA-based CAD",
+  ],
+  "layers": 2,
+  "model": 8,
+  "notRendered": [],
+  "paper": 17,
+  "version": "AC1027",
+}
+`;
+
+exports[`real-world corpus > ezdxf-text_mirror_shx_font 1`] = `
+{
+  "binary": false,
+  "blocks": 2,
+  "encoding": "utf-8",
+  "entities": 672,
+  "generator": [
+    "AutoCAD or an ODA-based CAD",
+  ],
+  "layers": 2,
+  "model": 672,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1027",
+}
+`;
+
+exports[`real-world corpus > ezdxf-text_negative_extrusion 1`] = `
+{
+  "binary": false,
+  "blocks": 5,
+  "encoding": "utf-8",
+  "entities": 235,
+  "generator": [
+    "AutoCAD or an ODA-based CAD",
+  ],
+  "layers": 2,
+  "model": 222,
+  "notRendered": [],
+  "paper": 2,
+  "version": "AC1032",
+}
+`;
+
+exports[`real-world corpus > ezdxf-transform_hatch_pattern 1`] = `
+{
+  "binary": false,
+  "blocks": 4,
+  "encoding": "utf-8",
+  "entities": 30,
+  "generator": [
+    "ezdxf (Python)",
+  ],
+  "layers": 4,
+  "model": 24,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1027",
+}
+`;
+
+exports[`real-world corpus > ezdxf-uncommon 1`] = `
+{
+  "binary": false,
+  "blocks": 33,
+  "encoding": "utf-8",
+  "entities": 327,
+  "generator": [
+    "AcDim ARX App For Dimension",
+  ],
+  "layers": 2,
+  "model": 82,
+  "notRendered": [
+    "3DSOLID",
+  ],
+  "paper": 2,
+  "version": "AC1032",
+}
+`;
+
+exports[`real-world corpus > ezdxf-valid_lineweights 1`] = `
+{
+  "binary": false,
+  "blocks": 2,
+  "encoding": "utf-8",
+  "entities": 50,
+  "generator": [
+    "AutoCAD or an ODA-based CAD",
+  ],
+  "layers": 2,
+  "model": 50,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1027",
+}
+`;
+
+exports[`real-world corpus > ezdxf-viewport_frozen_layers 1`] = `
+{
+  "binary": false,
+  "blocks": 2,
+  "encoding": "utf-8",
+  "entities": 11,
+  "generator": [
+    "AutoCAD or an ODA-based CAD",
+  ],
+  "layers": 5,
+  "model": 4,
+  "notRendered": [],
+  "paper": 7,
+  "version": "AC1027",
+}
+`;
+
+exports[`real-world corpus > ezdxf-visibility 1`] = `
+{
+  "binary": false,
+  "blocks": 4,
+  "encoding": "utf-8",
+  "entities": 8,
+  "generator": [
+    "AutoCAD or an ODA-based CAD",
+  ],
+  "layers": 4,
+  "model": 6,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1032",
+}
+`;
+
+exports[`real-world corpus > ezdxf-wipeout_door 1`] = `
+{
+  "binary": false,
+  "blocks": 4,
+  "encoding": "utf-8",
+  "entities": 218,
+  "generator": [
+    "Object Enabler for WipeOut entity / WipeOut Dbx Application",
+  ],
+  "layers": 2,
+  "model": 149,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1032",
+}
+`;
+
+exports[`real-world corpus > ezdxf-xclip 1`] = `
+{
+  "binary": false,
+  "blocks": 5,
+  "encoding": "utf-8",
+  "entities": 31,
+  "generator": [
+    "BricsCAD",
+  ],
+  "layers": 2,
+  "model": 18,
+  "notRendered": [],
+  "paper": 7,
+  "version": "AC1027",
+}
+`;
+
+exports[`real-world corpus > gdal-3d 1`] = `
+{
+  "binary": false,
+  "blocks": 4,
+  "encoding": "utf-8",
+  "entities": 7,
+  "generator": [],
+  "layers": 1,
+  "model": 5,
+  "notRendered": [
+    "3DSOLID",
+    "INSERT",
+  ],
+  "paper": 0,
+  "version": "AC1027",
+}
+`;
+
+exports[`real-world corpus > gdal-BINARY_wipeout 1`] = `
+{
+  "binary": true,
+  "blocks": 5,
+  "encoding": "auto",
+  "entities": 8,
+  "generator": [
+    "BricsCAD",
+  ],
+  "layers": 2,
+  "model": 2,
+  "notRendered": [],
+  "paper": 1,
+  "version": "AC1032",
+}
+`;
+
+exports[`real-world corpus > gdal-assorted 1`] = `
+{
+  "binary": false,
+  "blocks": 4,
+  "encoding": "windows-1252",
+  "entities": 18,
+  "generator": [
+    "QCAD (dxflib)",
+  ],
+  "layers": 1,
+  "model": 10,
+  "notRendered": [],
+  "paper": 1,
+  "version": "AC1015",
+}
+`;
+
+exports[`real-world corpus > gdal-bin_dxf_r12 1`] = `
+{
+  "binary": true,
+  "blocks": 2,
+  "encoding": "auto",
+  "entities": 3,
+  "generator": [],
+  "layers": 1,
+  "model": 3,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1009",
+}
+`;
+
+exports[`real-world corpus > gdal-bin_dxf_r2000 1`] = `
+{
+  "binary": true,
+  "blocks": 2,
+  "encoding": "auto",
+  "entities": 1,
+  "generator": [
+    "AutoCAD or an ODA-based CAD",
+  ],
+  "layers": 2,
+  "model": 1,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1015",
+}
+`;
+
+exports[`real-world corpus > gdal-dimension 1`] = `
+{
+  "binary": false,
+  "blocks": 9,
+  "encoding": "utf-8",
+  "entities": 36,
+  "generator": [],
+  "layers": 1,
+  "model": 3,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1027",
+}
+`;
+
+exports[`real-world corpus > gdal-elliptical-arc-hatch-min 1`] = `
+{
+  "binary": false,
+  "blocks": 0,
+  "encoding": "utf-8",
+  "entities": 2,
+  "generator": [],
+  "layers": 1,
+  "model": 2,
+  "notRendered": [],
+  "paper": 0,
+  "version": null,
+}
+`;
+
+exports[`real-world corpus > gdal-hatch_as_multipolygon 1`] = `
+{
+  "binary": false,
+  "blocks": 3,
+  "encoding": "utf-8",
+  "entities": 1,
+  "generator": [
+    "AutoCAD or an ODA-based CAD",
+  ],
+  "layers": 2,
+  "model": 1,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1032",
+}
+`;
+
+exports[`real-world corpus > gdal-header_extended 1`] = `
+{
+  "binary": false,
+  "blocks": 4,
+  "encoding": "utf-8",
+  "entities": 5,
+  "generator": [
+    "AutoCAD or an ODA-based CAD",
+  ],
+  "layers": 1,
+  "model": 0,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1018",
+}
+`;
+
+exports[`real-world corpus > gdal-insert-recursive-pair 1`] = `
+{
+  "binary": false,
+  "blocks": 2,
+  "encoding": "utf-8",
+  "entities": 5,
+  "generator": [],
+  "layers": 1,
+  "model": 1,
+  "notRendered": [],
+  "paper": 0,
+  "version": null,
+}
+`;
+
+exports[`real-world corpus > gdal-leader-mleader 1`] = `
+{
+  "binary": false,
+  "blocks": 5,
+  "encoding": "utf-8",
+  "entities": 22,
+  "generator": [],
+  "layers": 1,
+  "model": 18,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1027",
+}
+`;
+
+exports[`real-world corpus > gdal-linetypes 1`] = `
+{
+  "binary": false,
+  "blocks": 3,
+  "encoding": "utf-8",
+  "entities": 4,
+  "generator": [],
+  "layers": 1,
+  "model": 4,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1015",
+}
+`;
+
+exports[`real-world corpus > gdal-lwpolyline_smooth 1`] = `
+{
+  "binary": false,
+  "blocks": 0,
+  "encoding": "utf-8",
+  "entities": 1,
+  "generator": [],
+  "layers": 1,
+  "model": 1,
+  "notRendered": [],
+  "paper": 0,
+  "version": null,
+}
+`;
+
+exports[`real-world corpus > gdal-mtext-ocs-reduced 1`] = `
+{
+  "binary": false,
+  "blocks": 4,
+  "encoding": "utf-8",
+  "entities": 6,
+  "generator": [],
+  "layers": 1,
+  "model": 6,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1027",
+}
+`;
+
+exports[`real-world corpus > gdal-ocs2wcs1 1`] = `
+{
+  "binary": false,
+  "blocks": 2,
+  "encoding": "utf-8",
+  "entities": 54,
+  "generator": [],
+  "layers": 1,
+  "model": 52,
+  "notRendered": [],
+  "paper": 2,
+  "version": "AC1027",
+}
+`;
+
+exports[`real-world corpus > gdal-ocs2wcs3 1`] = `
+{
+  "binary": false,
+  "blocks": 3,
+  "encoding": "utf-8",
+  "entities": 11,
+  "generator": [],
+  "layers": 2,
+  "model": 10,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1027",
+}
+`;
+
+exports[`real-world corpus > gdal-solid-vertex-ordering 1`] = `
+{
+  "binary": false,
+  "blocks": 0,
+  "encoding": "utf-8",
+  "entities": 2,
+  "generator": [],
+  "layers": 1,
+  "model": 2,
+  "notRendered": [],
+  "paper": 0,
+  "version": null,
+}
+`;
+
+exports[`real-world corpus > gdal-spline_qcad 1`] = `
+{
+  "binary": false,
+  "blocks": 3,
+  "encoding": "utf-8",
+  "entities": 1,
+  "generator": [
+    "QCAD (dxflib)",
+  ],
+  "layers": 1,
+  "model": 1,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1015",
+}
+`;
+
+exports[`real-world corpus > gdal-text-fancy 1`] = `
+{
+  "binary": false,
+  "blocks": 6,
+  "encoding": "utf-8",
+  "entities": 8,
+  "generator": [],
+  "layers": 2,
+  "model": 4,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1027",
+}
+`;
+
+exports[`real-world corpus > gdal-transparency 1`] = `
+{
+  "binary": false,
+  "blocks": 2,
+  "encoding": "utf-8",
+  "entities": 1,
+  "generator": [
+    "AutoCAD or an ODA-based CAD",
+  ],
+  "layers": 1,
+  "model": 1,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1018",
+}
+`;
+
+exports[`real-world corpus > gdal-utf-8 1`] = `
+{
+  "binary": false,
+  "blocks": 2,
+  "encoding": "utf-8",
+  "entities": 1,
+  "generator": [
+    "AutoCAD or an ODA-based CAD",
+  ],
+  "layers": 2,
+  "model": 1,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1018",
+}
+`;
+
+exports[`real-world corpus > gdal-wipeout 1`] = `
+{
+  "binary": false,
+  "blocks": 5,
+  "encoding": "utf-8",
+  "entities": 8,
+  "generator": [
+    "BricsCAD",
+  ],
+  "layers": 2,
+  "model": 2,
+  "notRendered": [],
+  "paper": 1,
+  "version": "AC1032",
+}
+`;
+
+exports[`real-world corpus > jwcad-q032rt 1`] = `
+{
+  "binary": false,
+  "blocks": 0,
+  "encoding": "shift_jis",
+  "entities": 1,
+  "generator": [
+    "Jw_cad",
+  ],
+  "layers": 3,
+  "model": 1,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1009",
+}
+`;
+
+exports[`real-world corpus > jwcad-q033rt 1`] = `
+{
+  "binary": false,
+  "blocks": 0,
+  "encoding": "shift_jis",
+  "entities": 1,
+  "generator": [
+    "Jw_cad",
+  ],
+  "layers": 3,
+  "model": 1,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1009",
+}
+`;
+
+exports[`real-world corpus > jwcad-q034rt 1`] = `
+{
+  "binary": false,
+  "blocks": 0,
+  "encoding": "shift_jis",
+  "entities": 1,
+  "generator": [
+    "Jw_cad",
+  ],
+  "layers": 3,
+  "model": 1,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1009",
+}
+`;
+
+exports[`real-world corpus > jwcad-q039rt 1`] = `
+{
+  "binary": false,
+  "blocks": 0,
+  "encoding": "shift_jis",
+  "entities": 1,
+  "generator": [
+    "Jw_cad",
+  ],
+  "layers": 3,
+  "model": 1,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1009",
+}
+`;
+
+exports[`real-world corpus > jwcad-q056rt 1`] = `
+{
+  "binary": false,
+  "blocks": 0,
+  "encoding": "shift_jis",
+  "entities": 1,
+  "generator": [
+    "Jw_cad",
+  ],
+  "layers": 3,
+  "model": 1,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1009",
+}
+`;
+
+exports[`real-world corpus > jwcad-q057rt 1`] = `
+{
+  "binary": false,
+  "blocks": 0,
+  "encoding": "shift_jis",
+  "entities": 1,
+  "generator": [
+    "Jw_cad",
+  ],
+  "layers": 3,
+  "model": 1,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1009",
+}
+`;
+
+exports[`real-world corpus > jwcad-q070rt 1`] = `
+{
+  "binary": false,
+  "blocks": 0,
+  "encoding": "shift_jis",
+  "entities": 4,
+  "generator": [
+    "Jw_cad",
+  ],
+  "layers": 3,
+  "model": 4,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1009",
+}
+`;
+
+exports[`real-world corpus > jwcad-r000rt 1`] = `
+{
+  "binary": false,
+  "blocks": 0,
+  "encoding": "shift_jis",
+  "entities": 2,
+  "generator": [
+    "Jw_cad",
+  ],
+  "layers": 3,
+  "model": 2,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1009",
+}
+`;
+
+exports[`real-world corpus > jwcad-r013rt 1`] = `
+{
+  "binary": false,
+  "blocks": 0,
+  "encoding": "shift_jis",
+  "entities": 38,
+  "generator": [
+    "Jw_cad",
+  ],
+  "layers": 3,
+  "model": 38,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1009",
+}
+`;
+
+exports[`real-world corpus > jwcad-r024rt 1`] = `
+{
+  "binary": false,
+  "blocks": 0,
+  "encoding": "shift_jis",
+  "entities": 6,
+  "generator": [
+    "Jw_cad",
+  ],
+  "layers": 3,
+  "model": 6,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1009",
+}
+`;
+
+exports[`real-world corpus > jwcad-r080rt 1`] = `
+{
+  "binary": false,
+  "blocks": 0,
+  "encoding": "shift_jis",
+  "entities": 4,
+  "generator": [
+    "Jw_cad",
+  ],
+  "layers": 5,
+  "model": 4,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1009",
+}
+`;
+
+exports[`real-world corpus > jwcad-r081rt 1`] = `
+{
+  "binary": false,
+  "blocks": 0,
+  "encoding": "shift_jis",
+  "entities": 38,
+  "generator": [
+    "Jw_cad",
+  ],
+  "layers": 3,
+  "model": 38,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1009",
+}
+`;
+
+exports[`real-world corpus > suzaka-08HD751 1`] = `
+{
+  "binary": false,
+  "blocks": 9,
+  "encoding": "shift_jis",
+  "entities": 3989,
+  "generator": [
+    "Autodesk Civil 3D / Autodesk Architectural Desktop 2007",
+  ],
+  "layers": 33,
+  "model": 3958,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1015",
+}
+`;
+
+exports[`real-world corpus > suzaka-08ID061 1`] = `
+{
+  "binary": false,
+  "blocks": 11,
+  "encoding": "shift_jis",
+  "entities": 3847,
+  "generator": [
+    "Autodesk Civil 3D / Autodesk Architectural Desktop 2007",
+  ],
+  "layers": 43,
+  "model": 3810,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1015",
+}
+`;
+
+exports[`real-world corpus > trimesh-125_aluminum_srcMH 1`] = `
+{
+  "binary": false,
+  "blocks": 6,
+  "encoding": "utf-8",
+  "entities": 317,
+  "generator": [
+    "AutoCAD or an ODA-based CAD",
+  ],
+  "layers": 2,
+  "model": 301,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1021",
+}
+`;
+
+exports[`real-world corpus > trimesh-insert 1`] = `
+{
+  "binary": false,
+  "blocks": 4,
+  "encoding": "utf-8",
+  "entities": 6,
+  "generator": [
+    "LibreCAD (libdxfrw)",
+  ],
+  "layers": 1,
+  "model": 2,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1021",
+}
+`;
+
+exports[`real-world corpus > trimesh-insert_r14 1`] = `
+{
+  "binary": false,
+  "blocks": 4,
+  "encoding": "utf-8",
+  "entities": 6,
+  "generator": [
+    "LibreCAD (libdxfrw)",
+  ],
+  "layers": 1,
+  "model": 2,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1014",
+}
+`;
+
+exports[`real-world corpus > trimesh-spline 1`] = `
+{
+  "binary": false,
+  "blocks": 3,
+  "encoding": "utf-8",
+  "entities": 10,
+  "generator": [
+    "AutoCAD or an ODA-based CAD",
+  ],
+  "layers": 1,
+  "model": 10,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1015",
+}
+`;
+
+exports[`real-world corpus > trimesh-text 1`] = `
+{
+  "binary": false,
+  "blocks": 2,
+  "encoding": "utf-8",
+  "entities": 1,
+  "generator": [
+    "LibreCAD (libdxfrw)",
+  ],
+  "layers": 1,
+  "model": 1,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1014",
+}
+`;
+
+exports[`real-world corpus > trimesh-tray-easy1 1`] = `
+{
+  "binary": false,
+  "blocks": 299,
+  "encoding": "utf-8",
+  "entities": 3172,
+  "generator": [
+    "AutoCAD or an ODA-based CAD",
+  ],
+  "layers": 2,
+  "model": 0,
+  "notRendered": [],
+  "paper": 470,
+  "version": "AC1021",
+}
+`;
+
+exports[`real-world corpus > trimesh-types 1`] = `
+{
+  "binary": false,
+  "blocks": 3,
+  "encoding": "utf-8",
+  "entities": 6,
+  "generator": [
+    "AutoCAD or an ODA-based CAD",
+  ],
+  "layers": 1,
+  "model": 6,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1021",
+}
+`;
+
+exports[`real-world corpus > trimesh-v-ae.r12a 1`] = `
+{
+  "binary": false,
+  "blocks": 2,
+  "encoding": "utf-8",
+  "entities": 17,
+  "generator": [],
+  "layers": 1,
+  "model": 17,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1009",
+}
+`;
+
+exports[`real-world corpus > trimesh-v-ae.r14b 1`] = `
+{
+  "binary": true,
+  "blocks": 3,
+  "encoding": "auto",
+  "entities": 17,
+  "generator": [
+    "AutoCAD or an ODA-based CAD",
+  ],
+  "layers": 1,
+  "model": 17,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1014",
+}
+`;
+
+exports[`real-world corpus > trimesh-v-ae.r2000a 1`] = `
+{
+  "binary": false,
+  "blocks": 3,
+  "encoding": "utf-8",
+  "entities": 17,
+  "generator": [
+    "AutoCAD or an ODA-based CAD",
+  ],
+  "layers": 1,
+  "model": 17,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1015",
+}
+`;
+
+exports[`real-world corpus > trimesh-v-ae.r2007a 1`] = `
+{
+  "binary": false,
+  "blocks": 3,
+  "encoding": "utf-8",
+  "entities": 17,
+  "generator": [
+    "AutoCAD or an ODA-based CAD",
+  ],
+  "layers": 1,
+  "model": 17,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1021",
+}
+`;
+
+exports[`real-world corpus > trimesh-v-ae.r2013a 1`] = `
+{
+  "binary": false,
+  "blocks": 3,
+  "encoding": "utf-8",
+  "entities": 17,
+  "generator": [
+    "AutoCAD or an ODA-based CAD",
+  ],
+  "layers": 1,
+  "model": 17,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1027",
+}
+`;
+
+exports[`real-world corpus > trimesh-v-uc.r12b 1`] = `
+{
+  "binary": true,
+  "blocks": 2,
+  "encoding": "auto",
+  "entities": 1,
+  "generator": [],
+  "layers": 1,
+  "model": 1,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1009",
+}
+`;
+
+exports[`real-world corpus > trimesh-v-uc.r2013b 1`] = `
+{
+  "binary": true,
+  "blocks": 3,
+  "encoding": "auto",
+  "entities": 1,
+  "generator": [
+    "AutoCAD or an ODA-based CAD",
+  ],
+  "layers": 1,
+  "model": 1,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1027",
+}
+`;
+
+exports[`real-world corpus > trimesh-wrench 1`] = `
+{
+  "binary": false,
+  "blocks": 6,
+  "encoding": "utf-8",
+  "entities": 51,
+  "generator": [
+    "AutoCAD or an ODA-based CAD",
+  ],
+  "layers": 2,
+  "model": 39,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1018",
+}
+`;

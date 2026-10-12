@@ -256,6 +256,8 @@ export function layoutMText(
     align: 'l' | 'c' | 'r' | 'j' | 'd';
     left: number;
     columnBreak: boolean;
+    /** last line of its paragraph (not stretched when justified) */
+    last?: boolean;
   }
   const lines: Line[] = [];
 
@@ -286,7 +288,9 @@ export function layoutMText(
     }
     const indentFirst = para.props.indent * h;
     const leftIndent = para.props.left * h;
-    const avail = refWidth - leftIndent - para.props.right * h;
+    // with columns, text wraps at the column width (not the total width)
+    const wrapWidth = e.columnType > 0 && e.columnWidth > 0 ? e.columnWidth : refWidth;
+    const avail = wrapWidth - leftIndent - para.props.right * h;
     let cur: Line = { units: [], width: 0, maxH: h, align, left: leftIndent + indentFirst, columnBreak: para.columnBreak };
     let lastBreak = -1;
     const pushLine = () => {
@@ -322,6 +326,7 @@ export function layoutMText(
       if (u.breakAfter) lastBreak = cur.units.length - 1;
     }
     pushLine();
+    lines[lines.length - 1].last = true;
   }
 
   // columns: static (1) / dynamic (2) column layout
@@ -334,7 +339,15 @@ export function layoutMText(
   let y = 0;
   let colTop = true;
   let maxColH = 0;
-  const colHeight = (c: number) => (e.columnHeights[c] ?? e.verticalHeight ?? Infinity) as number;
+  // a column height of 0 means "auto": use the defined height of the text frame
+  const colHeight = (c: number): number => {
+    const v = e.columnHeights[c];
+    if (v > 0) return v;
+    const defined = Number(e.definedHeight) || 0;
+    const vertical = Number(e.verticalHeight) || 0;
+    if (defined > 0) return defined;
+    return vertical > 0 ? vertical : Infinity;
+  };
   for (const ln of lines) {
     const adv = colTop ? ln.maxH : lineAdvance(ln);
     const wouldBe = -(y - adv);
@@ -365,9 +378,15 @@ export function layoutMText(
     const base = baseline + oy;
     let x = ox + colX + ln.left;
     const free = lineBoxWidth - ln.left - ln.width;
+    // justified (all but the last line) and distributed lines stretch the spaces
+    let stretch = 0;
     if (Number.isFinite(free)) {
       if (ln.align === 'c') x += free / 2;
       else if (ln.align === 'r') x += free;
+      else if (free > 0 && ((ln.align === 'j' && !ln.last) || ln.align === 'd')) {
+        const spaces = ln.units.filter((u) => u.kind === 'space').length;
+        if (spaces) stretch = free / spaces;
+      }
     }
     for (const u of ln.units) {
       const it = u.item;
@@ -412,7 +431,7 @@ export function layoutMText(
           if (it.type === '/') layout.lines.push(x, base + sh * 0.4, x + u.width, base + sh * 0.4);
         }
       }
-      x += u.width;
+      x += u.width + (u.kind === 'space' ? stretch : 0);
     }
     if (ln.units.length) {
       minX = Math.min(minX, ox + colX + ln.left);
@@ -445,6 +464,10 @@ export function layoutMText(
   if (e.xAxis && Math.hypot(e.xAxis[0], e.xAxis[1], e.xAxis[2]) > 1e-12) {
     const d = e.xAxis[0] * z[0] + e.xAxis[1] * z[1] + e.xAxis[2] * z[2];
     xAxis = norm3([e.xAxis[0] - d * z[0], e.xAxis[1] - d * z[1], e.xAxis[2] - d * z[2]]);
+  } else if (!e.hasRotation && Math.abs(z[2]) > 1e-9) {
+    // neither 11 nor 50: the WCS x-axis projected onto the text plane (as ezdxf
+    // MText.get_text_direction); matters for mirrored MTEXT with extrusion (0, 0, -1)
+    xAxis = norm3([1 - z[0] * z[0], -z[0] * z[1], -z[0] * z[2]]);
   } else {
     const ax = ocsAxes(z);
     const r = e.rotation || 0;

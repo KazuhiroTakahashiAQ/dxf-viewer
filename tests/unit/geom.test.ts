@@ -202,3 +202,29 @@ describe('image / wipeout clip boundary', () => {
     ]);
   });
 });
+
+describe('scene extents', () => {
+  it('a table whose block bounds are computed on demand does not leak block coordinates', async () => {
+    const { parseDxf } = await import('../../src/dxf/parser');
+    const { SceneBuilder } = await import('../../src/scene/scene');
+    const { StyleResolver } = await import('../../src/scene/style');
+    const { SvgPath } = await import('../../src/render/svgContext');
+    const { dxf, enc } = await import('./helpers');
+    const text = dxf([
+      [0, 'SECTION'], [2, 'BLOCKS'],
+      [0, 'BLOCK'], [8, '0'], [2, '*T1'], [70, 1], [10, 0], [20, 0], [30, 0],
+      [0, 'LINE'], [8, '0'], [10, 0], [20, 0], [30, 0], [11, 200], [21, 0], [31, 0],
+      [0, 'LINE'], [8, '0'], [10, 120], [20, -92], [30, 0], [11, 120], [21, -56], [31, 0],
+      [0, 'ENDBLK'], [8, '0'],
+      [0, 'ENDSEC'],
+      [0, 'SECTION'], [2, 'ENTITIES'],
+      [0, 'ACAD_TABLE'], [8, '0'], [100, 'AcDbBlockReference'], [2, '*T1'], [10, 1000], [20, 500], [30, 0],
+      [0, 'ENDSEC'], [0, 'EOF'],
+    ]);
+    const doc = parseDxf(enc(text), { name: 't.dxf' });
+    const m = { width: (t: string) => t.length, metrics: () => ({ capHeight: 0.7, ascent: 0.9, descent: 0.2 }) };
+    const b = new SceneBuilder(doc, doc.modelSpace, m, () => new SvgPath() as unknown as Path2D, undefined, new StyleResolver(doc));
+    b.prepare();
+    expect(b.scene.extents).toEqual({ minX: 1000, minY: 408, maxX: 1200, maxY: 500 });
+  });
+});

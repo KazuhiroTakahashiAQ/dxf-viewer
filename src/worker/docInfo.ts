@@ -207,8 +207,24 @@ export function guessGenerator(doc: DxfDocument): GeneratorGuess {
   const layerNames = [...doc.layers.values()].map((l) => l.name);
   const styles = [...doc.styles.values()];
   const all = [...comments, ...appids, ...classApps, ...dicts].join('\n').toUpperCase();
+  const ltNames = new Set([...doc.linetypes.values()].map((l) => l.name.toUpperCase()));
+  const jwLinetypes = ['RAND1', 'RAND5', 'LONG1', 'DUMMY'].every((n) => ltNames.has(n));
+  const jwVertical = styles.some((s) => s.name.toUpperCase() === 'TATEGAKI' && /bigfont/i.test(s.bigFont));
 
+  const classNames = doc.classes.map((c) => `${c.name} ${c.cppName}`).join(' ');
+  // object enablers name their product in the CLASSES application field
+  const products = [...new Set(classApps.map((a) => /Product Desc:\s*([^|]+)/i.exec(a)?.[1].trim()).filter((x): x is string => !!x))];
+  const vertical = products.length
+    ? { name: products.join(' / '), reason: 'product named by CLASSES application entries (object enablers)' }
+    : /\bAecc/.test(classNames)
+      ? { name: 'AutoCAD Civil 3D', reason: 'Aecc* classes' }
+      : /\bAecb?Db/.test(classNames)
+        ? { name: 'AutoCAD Architecture / MEP', reason: 'AecDb* classes' }
+        : /\bAcMap/.test(classNames)
+          ? { name: 'AutoCAD Map 3D', reason: 'AcMap* classes' }
+          : null;
   const rules: [string, boolean, string][] = [
+    [vertical?.name ?? '', !!vertical, vertical?.reason ?? ''],
     ['ezdxf (Python)', dicts.has('EZDXF_META') || /EZDXF/.test(all), 'EZDXF_META dictionary / EZDXF marker'],
     ['LibreCAD (libdxfrw)', /DXFRW|LIBRECAD/.test(all), 'dxfrw / LibreCAD comment'],
     ['QCAD (dxflib)', /DXFLIB|QCAD/.test(all), 'dxflib / QCAD comment'],
@@ -220,11 +236,18 @@ export function guessGenerator(doc: DxfDocument): GeneratorGuess {
     ['Adobe Illustrator', /ILLUSTRATOR|ADOBE/.test(all), 'Adobe marker'],
     ['Rebro', /REBRO|NYK/.test(all), 'Rebro marker'],
     ['TFAS', /TFAS|TFASW/.test(all), 'TFAS marker'],
-    ['Jw_cad', /JW_?CAD|JWW/.test(all) || (ver === 'AC1009' && !hasHandles && layerNames.some((n) => /^[0-9A-F]-[0-9A-F]$/i.test(n))), 'R12 without handles and "group-layer" names like 0-1'],
+    [
+      'Jw_cad',
+      /JW_?CAD|JWW/.test(all) ||
+        jwLinetypes ||
+        jwVertical ||
+        (ver === 'AC1009' && layerNames.some((n) => /^_?[0-9A-F]-[0-9A-F](_[0-9A-F])?$/i.test(n))),
+      jwLinetypes ? 'Jw_cad linetype set (RAND1…RAND5, LONG1…, DUMMY)' : jwVertical ? 'TATEGAKI (vertical) text style with bigfont.shx' : 'R12 with Jw_cad "group-layer" names such as _0-1_0 / 0-1',
+    ],
   ];
   const hits = rules.filter((r) => r[1]);
   if (!hits.length && styles.some((s) => /ＭＳ|MS (ゴシック|明朝)|msgothic|msmincho/i.test(`${s.font} ${s.family ?? ''} ${s.name}`)) && cp === 'ANSI_932')
-    hits.push(['Japanese Windows CAD (TFAS / Rebro / similar)', true, 'ANSI_932 with MS Gothic / Mincho styles']);
+    hits.push(['Japanese Windows application', true, 'ANSI_932 with MS Gothic / Mincho text styles (TFAS, Rebro and others write such files)']);
   if (!hits.length && classApps.some((a) => /ObjectDBX/i.test(a)))
     hits.push(['AutoCAD or an ODA-based CAD', true, 'ObjectDBX classes (written by AutoCAD and ODA/Teigha-based applications)']);
   return {
