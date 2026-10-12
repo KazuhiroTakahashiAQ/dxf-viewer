@@ -64,13 +64,20 @@ function intersects(a: Box, b: Box): boolean {
 }
 
 const strokePathCache = new Map<string, Path2D>();
+let pathFactory: () => Path2D = () => new Path2D();
+
+/** Use another Path2D implementation (SVG export); null restores the native one. */
+export function setPathFactory(f: (() => Path2D) | null): void {
+  pathFactory = f ?? (() => new Path2D());
+  strokePathCache.clear();
+}
 
 /** Path of a whole string in a stroke font (glyph units, y down). */
 function strokeTextPath(font: string, text: string): Path2D {
   const key = font + '\u0000' + text;
   let p = strokePathCache.get(key);
   if (p) return p;
-  p = new Path2D();
+  p = pathFactory();
   const sp = strokeProvider(font);
   if (!sp) return p;
   let x = 0;

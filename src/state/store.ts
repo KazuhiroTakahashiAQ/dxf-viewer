@@ -2,6 +2,7 @@ import { create } from 'zustand';
 
 import type { BuildInfo, DocSummary, EntityMeasure, FilterResult, FontOverrideInfo, LayerInfo, LayoutInfo, RenderSettings, SnapKind } from '../shared/docApi';
 import type { MeasureMode } from '../ui/measure';
+import type { RecentMode } from '../storage/recentFiles';
 import type { FilterSpec } from '../shared/filterSpec';
 
 export type DockSide = 'left' | 'right' | 'bottom';
@@ -15,6 +16,8 @@ export interface DockState {
 export interface TabState {
   id: string;
   name: string;
+  /** SHA-256 of the file content */
+  hash?: string;
   status: 'loading' | 'ready' | 'error';
   phase: string;
   progress: number;
@@ -52,6 +55,10 @@ export interface ViewerSettings extends RenderSettings {
   preferLocalFonts: boolean;
   /** keyed by lower-case requested font name */
   fontOverrides: Record<string, FontOverrideInfo>;
+  /** what "recent files" records: nothing, names only (default), or the drawings too */
+  recentMode: RecentMode;
+  /** reopen the previous tabs at startup (requires stored drawings) */
+  restoreTabs: boolean;
   snap: boolean;
   snapKinds: SnapKind[];
   showGrid: boolean;
@@ -102,9 +109,15 @@ export interface UiState {
   /** filter received through a shared link (not applied until confirmed) */
   pendingFilter: FilterSpec | null;
   setPendingFilter(f: FilterSpec | null): void;
+  /** request for the Raw panel to scroll to a line */
+  rawJump: { line: number; seq: number } | null;
+  setRawJump(j: { line: number; seq: number } | null): void;
   /** handle requested for inspection in the Document panel */
   inspectHandle: string | null;
   setInspectHandle(h: string | null): void;
+  /** bumped whenever the recent-files list changes */
+  recentVersion: number;
+  bumpRecent(): void;
   /** bumped whenever user fonts change */
   userFontsVersion: number;
   bumpUserFonts(): void;
@@ -142,6 +155,8 @@ const DEFAULT_SETTINGS: ViewerSettings = {
   trackpadPan: true,
   preferLocalFonts: true,
   fontOverrides: {},
+  recentMode: 'meta',
+  restoreTabs: false,
   snap: true,
   snapKinds: ['endpoint', 'midpoint', 'center', 'quadrant', 'intersection', 'insertion', 'node', 'nearest'],
   showGrid: false,
@@ -195,8 +210,12 @@ export const useUi = create<UiState>((set, get) => ({
   setRegionPick: (k) => set({ regionPick: k }),
   pendingFilter: null,
   setPendingFilter: (f) => set({ pendingFilter: f }),
+  rawJump: null,
+  setRawJump: (j) => set({ rawJump: j }),
   inspectHandle: null,
   setInspectHandle: (h) => set({ inspectHandle: h }),
+  recentVersion: 0,
+  bumpRecent: () => set((s) => ({ recentVersion: s.recentVersion + 1 })),
   userFontsVersion: 0,
   bumpUserFonts: () => set((s) => ({ userFontsVersion: s.userFontsVersion + 1 })),
   setTab: (id, patch) => set((s) => ({ tabs: s.tabs.map((t) => (t.id === id ? { ...t, ...patch } : t)) })),

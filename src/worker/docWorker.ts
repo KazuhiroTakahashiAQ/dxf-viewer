@@ -8,7 +8,8 @@ import { configureFonts, fontConfig, resolveFont, type FontSpec, type UserFontIn
 import { makeShxProvider } from '../fonts/shxProvider';
 import { registerStrokeFont, unregisterStrokeFonts } from '../fonts/strokeFont';
 import { fontKey, getAllUserFonts } from '../storage/userFonts';
-import { Renderer, type RenderOptions } from '../render/renderer';
+import { Renderer, setPathFactory, type RenderOptions } from '../render/renderer';
+import { SvgContext, SvgPath } from '../render/svgContext';
 import { SceneBuilder, type Scene } from '../scene/scene';
 import { StyleResolver, TOP_CTX, type LayerOverride } from '../scene/style';
 import { LS_FROZEN, LS_OFF, LSR_COLOR, LSR_FROZEN, LSR_LINETYPE, LSR_LINEWEIGHT, LSR_ON, LSR_TRANSPARENCY, readLayerStates } from '../dxf/layerStates';
@@ -18,6 +19,7 @@ import { TextIndex } from './textIndex';
 import { entityInfo, rawTags } from './inspect';
 import { Picker } from './picking';
 import { snapAt } from './snap';
+import { guessGenerator, headerVars, inspectHandle, objectChildren, rawRows, rawSearch, tableGroups, tagAtLine, tagOwner, typeStats } from './docInfo';
 import { blockInfos, makeContains, referencedBlock, treeChildren } from './blocks';
 import { FilterEngine, type CompiledFilter } from './filtering';
 import { regexIssues } from '../shared/filterSpec';
@@ -244,7 +246,7 @@ function renderOptions(d: DxfDocument): RenderOptions {
 }
 
 /** Paper layout: sheet, model space through viewports, then paper space entities. */
-function renderPaper(c: OffscreenCanvasRenderingContext2D, ls: LayoutState, opts: RenderOptions) {
+function renderPaper(c: OffscreenCanvasRenderingContext2D, ls: LayoutState, opts: RenderOptions, view = currentView(), viewport = currentViewport(), renderers?: { model: Renderer | null; paper: Renderer }) {
   const dpr = viewport.dpr;
   const W = viewport.width * dpr;
   const H = viewport.height * dpr;
@@ -274,9 +276,9 @@ function renderPaper(c: OffscreenCanvasRenderingContext2D, ls: LayoutState, opts
     c.lineWidth = dpr;
     c.stroke();
   }
-  const model = layouts.get('Model');
+  const modelRenderer = renderers ? renderers.model : (layouts.get('Model')?.renderer ?? null);
   let stats = { tiles: 0, batches: 0, texts: 0, ms: 0 };
-  if (model && styles) {
+  if (modelRenderer && styles) {
     for (const vp of ls.scene.viewports) {
       const s = vp.height / (vp.viewHeight || vp.height);
       const tw = vp.twist;
@@ -315,13 +317,87 @@ function renderPaper(c: OffscreenCanvasRenderingContext2D, ls: LayoutState, opts
         c.clip(vp.clip as Path2D);
         c.setTransform(1, 0, 0, 1, 0, 0);
       }
-      const r = model.renderer.render(c, modelView, viewport, { ...opts, layerOn, layerFrozen }, { clear: false, origin: toDev(vp.cx, vp.cy), rect: box, extraFrozen: frozen });
+      const r = modelRenderer.render(c, modelView, viewport, { ...opts, layerOn, layerFrozen }, { clear: false, origin: toDev(vp.cx, vp.cy), rect: box, extraFrozen: frozen });
       c.restore();
       stats = { tiles: stats.tiles + r.tiles, batches: stats.batches + r.batches, texts: stats.texts + r.texts, ms: stats.ms };
     }
   }
-  const r = ls.renderer.render(c, view, viewport, opts, { clear: false });
+  const r = (renderers?.paper ?? ls.renderer).render(c, view, viewport, opts, { clear: false });
   return { tiles: stats.tiles + r.tiles, batches: stats.batches + r.batches, texts: stats.texts + r.texts, ms: r.ms };
+}
+
+// module-level view state accessors (defaults for renderPaper)
+function currentView(): ViewState {
+  return view;
+}
+function currentViewport(): Viewport {
+  return viewport;
+}
+
+/** Finish building a layout synchronously (exports need the complete scene). */
+function finishBuild(b: SceneBuilder): void {
+  let guard = 0;
+  while (!b.done && guard++ < 1e6) b.step(Infinity, () => 0);
+}
+
+/** Render the active layout to PNG or SVG (current view or the whole extents). */
+async function exportLayout(p: { format: 'png' | 'svg'; area: 'view' | 'extents'; scale: number }): Promise<{ png?: Blob; svg?: string; width: number; height: number }> {
+  const ls = layouts.get(active);
+  if (!ls || !doc || !styles) throw new Error('No drawing');
+  finishBuild(ls.builder);
+  if (ls.kind === 'paper') {
+    const model = layouts.get('Model');
+    if (model) finishBuild(model.builder);
+  }
+  let v = view;
+  let vpX: Viewport = { width: viewport.width, height: viewport.height, dpr: 1 };
+  if (p.area === 'extents') {
+    const ext = ls.kind === 'paper' && ls.sheet ? ls.sheet : ls.scene.extents;
+    if (!(ext.minX <= ext.maxX)) throw new Error('Empty layout');
+    const cos = Math.abs(Math.cos(view.rotation));
+    const sin = Math.abs(Math.sin(view.rotation));
+    const w = (ext.maxX - ext.minX) * cos + (ext.maxY - ext.minY) * sin;
+    const h = (ext.maxX - ext.minX) * sin + (ext.maxY - ext.minY) * cos;
+    const longest = 2000;
+    const k = longest / Math.max(w, h, 1e-12);
+    vpX = { width: Math.max(16, Math.round(w * k * 1.04)), height: Math.max(16, Math.round(h * k * 1.04)), dpr: 1 };
+    v = fitView(ext, vpX, view, 0.02);
+  }
+  syncLayerArrays();
+  const opts = renderOptions(doc);
+  if (p.format === 'png') {
+    const dpr = Math.max(0.25, Math.min(8, p.scale));
+    const vpp = { ...vpX, dpr };
+    const W = Math.round(vpp.width * dpr);
+    const H = Math.round(vpp.height * dpr);
+    if (W * H > 16384 * 16384 || W > 32767 || H > 32767) throw new Error('Image too large');
+    const cv = new OffscreenCanvas(W, H);
+    const c = cv.getContext('2d', { alpha: false })!;
+    if (ls.kind === 'model') ls.renderer.render(c, v, vpp, opts);
+    else renderPaper(c, ls, opts, v, vpp);
+    return { png: await cv.convertToBlob({ type: 'image/png' }), width: W, height: H };
+  }
+  // SVG: rebuild the scenes with recording paths and render through the recording context
+  const svgScene = (src: LayoutState) => {
+    const b = new SceneBuilder(doc!, src.items, measurer, () => new SvgPath() as unknown as Path2D, undefined, styles!);
+    b.filter = src.builder.filter;
+    b.prepare();
+    finishBuild(b);
+    return new Renderer(b.scene);
+  };
+  setPathFactory(() => new SvgPath() as unknown as Path2D);
+  try {
+    const sc = new SvgContext(vpX.width, vpX.height);
+    const c = sc as unknown as OffscreenCanvasRenderingContext2D;
+    if (ls.kind === 'model') svgScene(ls).render(c, v, vpX, opts);
+    else {
+      const model = layouts.get('Model');
+      renderPaper(c, ls, opts, v, vpX, { model: model ? svgScene(model) : null, paper: svgScene(ls) });
+    }
+    return { svg: sc.toSvg(`${doc.source.name} — ${active}`), width: vpX.width, height: vpX.height };
+  } finally {
+    setPathFactory(null);
+  }
 }
 
 function renderNow(): void {
@@ -609,8 +685,11 @@ const api: DocApi = {
   async open(p) {
     const gen = ++generation;
     if (p.fontOptions) configureFonts({ preferLocal: p.fontOptions.preferLocal, overrides: Object.fromEntries(Object.entries(p.fontOptions.overrides).map(([k, v]) => [k.toLowerCase(), v])) });
-    const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', p.bytes));
-    fileHash = Array.from(digest, (b) => b.toString(16).padStart(2, '0')).join('');
+    if (p.hash) fileHash = p.hash;
+    else {
+      const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', p.bytes));
+      fileHash = Array.from(digest, (b) => b.toString(16).padStart(2, '0')).join('');
+    }
     const t0 = performance.now();
     const d = parseDxf(new Uint8Array(p.bytes), {
       name: p.name,
@@ -989,6 +1068,47 @@ const api: DocApi = {
     const ls = layouts.get(active);
     if (!ls || !doc || !hasView) return [];
     return pickerOf(ls).pick(view, viewport, p.x, p.y, p.tolerance ?? 5, entityVisible);
+  },
+
+  headerVars() {
+    return doc ? headerVars(doc) : [];
+  },
+  tableGroups() {
+    return doc ? tableGroups(doc) : [];
+  },
+  classes() {
+    return doc ? doc.classes.map((c) => ({ name: c.name, cppName: c.cppName, app: c.app, flags: c.flags, line: doc!.tags.line(c.tag) })) : [];
+  },
+  objectChildren(p) {
+    return doc ? objectChildren(doc, p.handle) : [];
+  },
+  inspectHandle(p) {
+    return doc ? inspectHandle(doc, p.handle) : null;
+  },
+  thumbnail() {
+    return doc?.thumbnail ?? null;
+  },
+  typeStats() {
+    return doc ? typeStats(doc) : [];
+  },
+  generator() {
+    return doc ? guessGenerator(doc) : { guess: [], reasons: [], evidence: [] };
+  },
+  rawRows(p) {
+    return doc ? rawRows(doc, p.offset, p.limit) : [];
+  },
+  rawSearch(p) {
+    return doc ? rawSearch(doc, p) : null;
+  },
+  tagAtLine(p) {
+    return doc ? tagAtLine(doc, p.line) : 0;
+  },
+  tagOwner(p) {
+    return doc ? tagOwner(doc, p.index) : null;
+  },
+
+  exportImage(p) {
+    return exportLayout(p);
   },
 
   snap(p) {

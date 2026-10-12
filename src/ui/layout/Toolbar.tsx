@@ -20,6 +20,10 @@ import {
 import { t } from '../../i18n';
 import { ENCODING_CHOICES } from '../../dxf/reader/encoding';
 import { openFiles, sessions } from '../../session/DocumentSession';
+import { chooseFiles } from '../fileOpen';
+import { RecentList } from '../RecentList';
+import { ExportMenu } from './ExportMenu';
+import { SettingsMenu } from './SettingsMenu';
 import { normalizeAngle, rotateView, rotationForDirection, zoomAt } from '../../shared/view';
 import { activeTab, useUi, type ViewerSettings } from '../../state/store';
 import { rgbCss } from '../format';
@@ -73,10 +77,16 @@ export function Toolbar() {
           e.target.value = '';
         }}
       />
-      <button type="button" className="tb-btn" onClick={() => fileRef.current?.click()} title={t('welcome.open')}>
+      <button type="button" className="tb-btn" onClick={() => void chooseFiles(fileRef.current)} title={t('welcome.open')}>
         <FolderOpen size={16} />
         <span>{t('toolbar.open')}</span>
       </button>
+      <details className="tb-menu recent-menu">
+        <summary title={t('recent.title')}>▾</summary>
+        <div className="menu-pop">
+          <RecentList fileInput={fileRef} compact />
+        </div>
+      </details>
       <span className="tb-sep" />
       <button type="button" className="icon-btn" disabled={!session} onClick={() => session?.fit()} title={t('toolbar.fit')}>
         <Scan size={16} />
@@ -235,6 +245,8 @@ export function Toolbar() {
         </div>
       </details>
       <span className="tb-spacer" />
+      <ExportMenu />
+      <SettingsMenu />
       <button type="button" className="icon-btn" onClick={() => toggleDock('left')} title={t('toolbar.leftDock')}>
         <PanelLeft size={16} />
       </button>

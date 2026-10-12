@@ -3,6 +3,7 @@ import type { FilterSpec } from '../shared/filterSpec';
 import { RpcClient } from '../shared/rpc';
 import { DEFAULT_VIEW, fitView, sameView, screenDelta, type BBox2, type ViewState, type Viewport } from '../shared/view';
 import { useUi } from '../state/store';
+import { recordOpen, sha256Hex } from '../storage/recentFiles';
 
 let seq = 0;
 
@@ -36,10 +37,14 @@ export class DocumentSession {
   private historyTimer = 0;
   private navigating = false;
 
-  constructor(name: string, bytes: ArrayBuffer) {
+  /** SHA-256 of the file (computed before opening) */
+  readonly hash: string | undefined;
+
+  constructor(name: string, bytes: ArrayBuffer, hash?: string) {
     this.id = `doc-${++seq}-${Date.now().toString(36)}`;
     this.name = name;
     this.bytes = bytes;
+    this.hash = hash;
     this.worker = new Worker(new URL('../worker/docWorker.ts', import.meta.url), { type: 'module', name: `dxf:${name}` });
     this.rpc = new RpcClient<DocApi, DocEvents>(this.worker);
     this.canvas = document.createElement('canvas');
@@ -76,7 +81,7 @@ export class DocumentSession {
       const st = useUi.getState().settings;
       const summary = await this.rpc.call(
         'open',
-        { bytes: copy, name: this.name, encoding, baseUrl: new URL('./', document.baseURI).href, fontOptions: { preferLocal: st.preferLocalFonts, overrides: st.fontOverrides } },
+        { bytes: copy, name: this.name, encoding, hash: this.hash, baseUrl: new URL('./', document.baseURI).href, fontOptions: { preferLocal: st.preferLocalFonts, overrides: st.fontOverrides } },
         [copy],
       );
       this.summary = summary;
@@ -265,17 +270,56 @@ export class DocumentSession {
 /** Live sessions by tab id (kept outside React state; not serializable). */
 export const sessions = new Map<string, DocumentSession>();
 
-export async function openFiles(files: Iterable<File>): Promise<void> {
-  for (const file of files) {
-    const bytes = await file.arrayBuffer();
-    openBytes(file.name, bytes);
+export interface OpenSource {
+  name: string;
+  bytes: ArrayBuffer;
+  lastModified?: number;
+  /** File System Access handle (Chromium), kept for "recent files" */
+  handle?: FileSystemFileHandle;
+}
+
+/**
+ * Open drawings in tabs. A file whose content is already open just activates
+ * that tab. Opened files are recorded as recent according to the privacy setting.
+ */
+export async function openSources(sources: Iterable<OpenSource>): Promise<void> {
+  for (const src of sources) {
+    const hash = await sha256Hex(src.bytes);
+    const ui = useUi.getState();
+    const existing = ui.tabs.find((t) => t.hash === hash);
+    if (existing) {
+      ui.activate(existing.id);
+      continue;
+    }
+    openBytes(src.name, src.bytes, hash);
+    const mode = ui.settings.recentMode;
+    void recordOpen(mode, { hash, name: src.name, size: src.bytes.byteLength, lastModified: src.lastModified, handle: src.handle, bytes: mode === 'content' ? src.bytes : undefined }).then(() => ui.bumpRecent());
   }
 }
 
-export function openBytes(name: string, bytes: ArrayBuffer): DocumentSession {
-  const session = new DocumentSession(name, bytes);
+export async function openFiles(files: Iterable<File>): Promise<void> {
+  const list: OpenSource[] = [];
+  for (const f of files) list.push({ name: f.name, bytes: await f.arrayBuffer(), lastModified: f.lastModified });
+  await openSources(list);
+}
+
+export async function openHandles(handles: Iterable<FileSystemFileHandle>): Promise<void> {
+  const list: OpenSource[] = [];
+  for (const h of handles) {
+    try {
+      const f = await h.getFile();
+      list.push({ name: f.name, bytes: await f.arrayBuffer(), lastModified: f.lastModified, handle: h });
+    } catch {
+      /* unreadable */
+    }
+  }
+  await openSources(list);
+}
+
+export function openBytes(name: string, bytes: ArrayBuffer, hash?: string): DocumentSession {
+  const session = new DocumentSession(name, bytes, hash);
   sessions.set(session.id, session);
-  useUi.getState().addTab({ id: session.id, name, status: 'loading', phase: 'parse', progress: 0, layers: [] });
+  useUi.getState().addTab({ id: session.id, name, hash, status: 'loading', phase: 'parse', progress: 0, layers: [] });
   void session.open();
   return session;
 }

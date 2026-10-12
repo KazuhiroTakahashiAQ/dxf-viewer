@@ -8,6 +8,8 @@ export interface OpenParams {
   /** absolute URL of the app base (for fonts/manifest.json) */
   baseUrl: string;
   fontOptions?: FontOptions;
+  /** SHA-256 hex computed by the caller (skips hashing in the worker) */
+  hash?: string;
 }
 
 export interface DiagnosticInfo {
@@ -96,6 +98,53 @@ export interface EntityMeasure {
   radius?: number;
   center?: [number, number];
   closed?: boolean;
+}
+
+export interface HeaderVarRow {
+  name: string;
+  value: string;
+  codes: string;
+  description: string;
+  line: number;
+}
+
+export interface TableGroup {
+  table: string;
+  records: { name: string; handle: string; line: number }[];
+}
+
+export interface ObjectNode {
+  key: string;
+  handle: string;
+  type: string;
+  hasChildren: boolean;
+}
+
+export interface RawRow {
+  index: number;
+  line: number;
+  code: number;
+  value: string;
+  desc?: string;
+}
+
+export interface InspectedRecord {
+  handle: string;
+  kind: string;
+  type: string;
+  name?: string;
+  owner?: string;
+  entityId?: number;
+  total: number;
+  tags: RawRow[];
+}
+
+export interface GeneratorGuess {
+  /** candidate applications (may be empty) */
+  guess: string[];
+  reasons: string[];
+  /** facts read from the file */
+  evidence: string[];
 }
 
 export interface LayerStateInfo {
@@ -326,6 +375,20 @@ export type DocApi = {
   namedViews(p: void): NamedView[];
   /** direction of the longest straight segment of an entity (radians, world) */
   entityAngle(p: { id: number }): number | null;
+  headerVars(p: void): HeaderVarRow[];
+  tableGroups(p: void): TableGroup[];
+  classes(p: void): { name: string; cppName: string; app: string; flags: number; line: number }[];
+  objectChildren(p: { handle: string }): ObjectNode[];
+  inspectHandle(p: { handle: string }): InspectedRecord | null;
+  thumbnail(p: void): Uint8Array | null;
+  typeStats(p: void): { type: string; model: number; paper: number; blocks: number }[];
+  generator(p: void): GeneratorGuess;
+  rawRows(p: { offset: number; limit: number }): RawRow[];
+  rawSearch(p: { query: string; regex: boolean; caseSensitive: boolean; code?: number; from: number; dir: 1 | -1 }): { index: number } | { error: string } | null;
+  tagAtLine(p: { line: number }): number;
+  tagOwner(p: { index: number }): { entityId?: number; handle?: string; type: string } | null;
+  /** PNG (blob) or SVG (text) of the active layout */
+  exportImage(p: { format: 'png' | 'svg'; area: 'view' | 'extents'; scale: number }): Promise<{ png?: Blob; svg?: string; width: number; height: number }>;
   /** object snap near a screen point */
   snap(p: { x: number; y: number; tolerance: number; kinds: SnapKind[] }): SnapResult | null;
   /** length / area / radius of an entity under a screen point */

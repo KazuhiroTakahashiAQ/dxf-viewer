@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
-import { Activity, Boxes, Camera, Ruler, FileText, Filter, FolderOpen, Layers, ListChecks, ListTree, Search, SlidersHorizontal, Table2, Type, TextSearch } from 'lucide-react';
+import { Activity, Boxes, Camera, Ruler, ScrollText, FileText, Filter, FolderOpen, Layers, ListChecks, ListTree, Search, SlidersHorizontal, Table2, Type, TextSearch } from 'lucide-react';
 
 import { t } from '../i18n';
 import { UpdatePrompt } from '../pwa/UpdatePrompt';
-import { openFiles, sessions } from '../session/DocumentSession';
+import { openFiles, openHandles, openSources, sessions } from '../session/DocumentSession';
+import { chooseFiles, droppedHandles } from './fileOpen';
+import { RecentList } from './RecentList';
+import { listRecent, loadRecent } from '../storage/recentFiles';
 import { addFontFiles } from '../session/userFonts';
 import { fontKind } from '../storage/userFonts';
 import { decodeFilter } from '../shared/filterSpec';
@@ -19,6 +22,7 @@ import { DocumentPanel } from './panels/DocumentPanel';
 import { FilterPanel } from './panels/FilterPanel';
 import { FontsPanel } from './panels/FontsPanel';
 import { PropertiesPanel } from './panels/PropertiesPanel';
+import { RawPanel } from './panels/RawPanel';
 import { ResultsPanel } from './panels/ResultsPanel';
 import { SearchPanel } from './panels/SearchPanel';
 import { BlocksPanel } from './panels/BlocksPanel';
@@ -48,6 +52,7 @@ const RIGHT: PanelDef[] = [
 const BOTTOM: PanelDef[] = [
   { id: 'results', title: 'panel.results', icon: Table2, component: ResultsPanel },
   { id: 'texts', title: 'panel.texts', icon: TextSearch, component: TextsPanel },
+  { id: 'raw', title: 'panel.raw', icon: ScrollText, component: RawPanel },
   { id: 'diagnostics', title: 'panel.diagnostics', icon: Activity, component: DiagnosticsPanel },
 ];
 
@@ -72,13 +77,14 @@ function Welcome() {
           e.target.value = '';
         }}
       />
-      <button type="button" className="primary-btn" disabled={!supported} onClick={() => fileRef.current?.click()}>
+      <button type="button" className="primary-btn" disabled={!supported} onClick={() => void chooseFiles(fileRef.current)}>
         <FolderOpen size={18} />
         {t('welcome.open')}
       </button>
       <p className="muted">{t('welcome.drop')}</p>
       <p className="muted small">{t('welcome.privacy')}</p>
       {pending && <p className="notice small">{t('welcome.pendingFilter')}</p>}
+      {supported && <RecentList fileInput={fileRef} />}
     </div>
   );
 }
@@ -150,15 +156,23 @@ function useFileDrop(): boolean {
       if (hasFiles(e)) e.preventDefault();
     };
     const onDrop = (e: DragEvent) => {
-      if (!hasFiles(e)) return;
+      if (!hasFiles(e) || !e.dataTransfer) return;
       e.preventDefault();
       depth = 0;
       setOver(false);
-      const all = Array.from(e.dataTransfer?.files ?? []);
-      const files = all.filter((f) => /\.dxf$/i.test(f.name) || f.type.includes('dxf'));
+      const handlesP = droppedHandles(e.dataTransfer);
+      const all = Array.from(e.dataTransfer.files ?? []);
+      const isDxf = (name: string, type = '') => /\.dxf$/i.test(name) || type.includes('dxf');
+      const files = all.filter((f) => isDxf(f.name, f.type));
       const fontFiles = all.filter((f) => fontKind(f.name));
       if (fontFiles.length) void addFontFiles(fontFiles);
-      if (files.length) void openFiles(files);
+      if (!files.length) return;
+      void handlesP.then((hs) => {
+        const fileHandles = hs.filter((h): h is FileSystemFileHandle => !!h && h.kind === 'file' && isDxf(h.name));
+        // handles allow reopening from "recent files" later (Chromium)
+        if (fileHandles.length === files.length) void openHandles(fileHandles);
+        else void openFiles(files);
+      });
     };
     window.addEventListener('dragenter', onEnter);
     window.addEventListener('dragleave', onLeave);
@@ -196,6 +210,125 @@ function useSharedFilterLink(): void {
   }, []);
 }
 
+/** Close open toolbar menus (<details>) when clicking elsewhere or pressing Escape. */
+function useMenuDismiss(): void {
+  useEffect(() => {
+    const close = (except?: EventTarget | null) => {
+      for (const d of document.querySelectorAll<HTMLDetailsElement>('details.tb-menu[open]')) if (!(except instanceof Node && d.contains(except))) d.open = false;
+    };
+    const onDown = (e: PointerEvent) => close(e.target);
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close();
+    };
+    document.addEventListener('pointerdown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, []);
+}
+
+/** PWA file handling (Chromium): files opened with the installed app. */
+function useLaunchQueue(): void {
+  useEffect(() => {
+    const lq = (window as unknown as { launchQueue?: { setConsumer(fn: (p: { files?: FileSystemFileHandle[] }) => void): void } }).launchQueue;
+    lq?.setConsumer((p) => {
+      if (p.files?.length) void openHandles(p.files);
+    });
+  }, []);
+}
+
+const OPEN_TABS_KEY = 'dxfv.openTabs';
+
+/** Remember open tabs and reopen them at startup (only with stored drawings). */
+function useTabRestore(): void {
+  const tabs = useUi((s) => s.tabs);
+  const { recentMode, restoreTabs } = useUi((s) => s.settings);
+  const restored = useRef(false);
+  useEffect(() => {
+    if (restored.current) return;
+    restored.current = true;
+    if (recentMode !== 'content' || !restoreTabs) return;
+    let hashes: string[] = [];
+    try {
+      hashes = JSON.parse(localStorage.getItem(OPEN_TABS_KEY) ?? '[]');
+    } catch {
+      /* ignore */
+    }
+    if (!hashes.length) return;
+    void listRecent().then(async (list) => {
+      for (const h of hashes) {
+        const e = list.find((x) => x.hash === h && x.stored);
+        const data = e && (await loadRecent({ ...e, handle: undefined }));
+        if (data) await openSources([{ name: data.name, bytes: data.bytes }]);
+      }
+    });
+  }, [recentMode, restoreTabs]);
+  useEffect(() => {
+    if (!restored.current) return;
+    try {
+      if (recentMode === 'content' && restoreTabs) localStorage.setItem(OPEN_TABS_KEY, JSON.stringify(tabs.map((t) => t.hash).filter(Boolean)));
+      else localStorage.removeItem(OPEN_TABS_KEY);
+    } catch {
+      /* ignore */
+    }
+  }, [tabs, recentMode, restoreTabs]);
+}
+
+/** `?url=` asks before downloading a drawing from another site. */
+function UrlOpenPrompt() {
+  const [url, setUrl] = useState<string | null>(() => {
+    const u = new URLSearchParams(location.search).get('url');
+    return u && /^https:\/\//i.test(u) ? u : null;
+  });
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  if (!url) return null;
+  const done = () => {
+    const params = new URLSearchParams(location.search);
+    params.delete('url');
+    history.replaceState(null, '', location.pathname + (params.toString() ? `?${params}` : '') + location.hash);
+    setUrl(null);
+  };
+  return (
+    <div className="url-prompt" role="dialog" aria-label={t('url.title')}>
+      <b>{t('url.title')}</b>
+      <p className="mono small url-text">{url}</p>
+      <p className="muted small">{t('url.help')}</p>
+      {error && <p className="warn-text small">{error}</p>}
+      <div className="row-actions">
+        <button
+          type="button"
+          className="primary-btn small"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            setError('');
+            try {
+              const res = await fetch(url, { credentials: 'omit', referrerPolicy: 'no-referrer' });
+              if (!res.ok) throw new Error(`HTTP ${res.status}`);
+              const bytes = await res.arrayBuffer();
+              const name = decodeURIComponent(new URL(url).pathname.split('/').pop() || 'drawing.dxf');
+              await openSources([{ name, bytes }]);
+              done();
+            } catch (e) {
+              setError(t('url.error', { message: (e as Error).message }));
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {t('url.open')}
+        </button>
+        <button type="button" className="tb-btn" onClick={done}>
+          {t('url.cancel')}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /** Re-send render and font settings when they change. */
 function useSettingsSync(): void {
   const settings = useUi((s) => s.settings);
@@ -225,6 +358,9 @@ export function App() {
   useGlobalShortcuts();
   useSettingsSync();
   useSharedFilterLink();
+  useLaunchQueue();
+  useMenuDismiss();
+  useTabRestore();
 
   return (
     <div className={`app ${focusMode ? 'focus-mode' : ''}`}>
@@ -253,6 +389,7 @@ export function App() {
         </div>
         {!focusMode && tab && <Dock side="right" panels={RIGHT} />}
       </div>
+      <UrlOpenPrompt />
       <StatusBar />
       {dropping && <div className="drop-overlay">{t('welcome.drop')}</div>}
       <UpdatePrompt />

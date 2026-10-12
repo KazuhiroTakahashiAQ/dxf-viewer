@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { ChevronDown, ChevronRight, Copy, Crosshair } from 'lucide-react';
+import { ChevronDown, ChevronRight, Copy, Crosshair, ScrollText } from 'lucide-react';
 
 import { t } from '../../i18n';
 import { sessions, type DocumentSession } from '../../session/DocumentSession';
 import type { EntityInfo, PropRow, RawTagRow, SelectionSummary } from '../../shared/docApi';
 import { activeTab, useUi } from '../../state/store';
+import { showRawLine } from './DocumentPanel';
 
 const RAW_PAGE = 500;
 
@@ -15,7 +16,7 @@ async function followHandle(session: DocumentSession, handle: string): Promise<v
     session.setSelection([r.id]);
     void session.zoomToEntities([r.id]);
   } else if (r) {
-    useUi.getState().setDock('bottom', { open: true, active: 'document' });
+    useUi.getState().setDock('right', { open: true, active: 'document' });
     useUi.getState().setInspectHandle(handle);
   }
 }
@@ -153,6 +154,11 @@ function Single({ session, id }: { session: DocumentSession; id: number }) {
         <button type="button" className="icon-btn" title={t('menu.zoomTo')} onClick={() => void session.zoomToEntities([id])}>
           <Crosshair size={14} />
         </button>
+        {info.line !== undefined && (
+          <button type="button" className="icon-btn" title={t('doc.showRaw')} onClick={() => showRawLine(info.line!)}>
+            <ScrollText size={14} />
+          </button>
+        )}
       </div>
       {groups.map(([g, rows]) => (
         <Section key={g} title={t(`props.group.${g}` as never) || g}>

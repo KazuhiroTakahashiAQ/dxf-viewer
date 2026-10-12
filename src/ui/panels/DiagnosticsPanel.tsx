@@ -3,6 +3,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 
 import { t } from '../../i18n';
 import { activeTab, useUi } from '../../state/store';
+import { showRawLine } from './DocumentPanel';
 
 export function DiagnosticsPanel() {
   const tab = useUi(activeTab);
@@ -23,7 +24,13 @@ export function DiagnosticsPanel() {
           {v.getVirtualItems().map((vi) => {
             const d = items[vi.index];
             return (
-              <div key={vi.key} className={`diag-row level-${d.level}`} style={{ position: 'absolute', top: 0, left: 0, right: 0, height: vi.size, transform: `translateY(${vi.start}px)` }}>
+              <div
+                key={vi.key}
+                className={`diag-row level-${d.level} ${d.line ? 'clickable' : ''}`}
+                style={{ position: 'absolute', top: 0, left: 0, right: 0, height: vi.size, transform: `translateY(${vi.start}px)` }}
+                onClick={() => d.line && showRawLine(d.line)}
+                title={d.line ? t('doc.showRaw') : undefined}
+              >
                 <span>{d.level}</span>
                 <span className="mono">{d.code}</span>
                 <span className="mono num">{d.line ?? ''}</span>

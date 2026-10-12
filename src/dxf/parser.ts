@@ -530,6 +530,18 @@ function buildHandles(doc: DxfDocument): void {
   doc.tableRecords.forEach((t, i) => {
     if (t.handle) h.set(t.handle.toUpperCase(), { kind: 'table', index: i });
   });
+  let i = 0;
+  for (const l of doc.layers.values()) if (l.handle && !h.has(l.handle.toUpperCase())) h.set(l.handle.toUpperCase(), { kind: 'layer', index: i++ });
+  else i++;
+  i = 0;
+  for (const l of doc.linetypes.values()) if (l.handle && !h.has(l.handle.toUpperCase())) h.set(l.handle.toUpperCase(), { kind: 'ltype', index: i++ });
+  else i++;
+  i = 0;
+  for (const s of doc.styles.values()) if (s.handle && !h.has(s.handle.toUpperCase())) h.set(s.handle.toUpperCase(), { kind: 'style', index: i++ });
+  else i++;
+  i = 0;
+  for (const b of doc.blocks.values()) if (b.handle && !h.has(b.handle.toUpperCase())) h.set(b.handle.toUpperCase(), { kind: 'block', index: i++ });
+  else i++;
 }
 
 export function parseDxf(bytes: Uint8Array, options: ParseOptions): DxfDocument {

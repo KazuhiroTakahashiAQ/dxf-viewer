@@ -362,7 +362,8 @@ export interface DxfDocument {
   paperSpace: number[];
   objects: DxfObject[];
   layouts: Layout[];
-  handles: Map<string, { kind: 'entity' | 'object' | 'table' | 'block'; index: number }>;
+  /** handle → record; index into entities / objects / tableRecords / layers / linetypes / styles / blocks (Map order) */
+  handles: Map<string, { kind: 'entity' | 'object' | 'table' | 'block' | 'layer' | 'ltype' | 'style'; index: number }>;
   thumbnail?: Uint8Array;
   diagnostics: Diagnostic[];
 }
