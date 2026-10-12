@@ -1,0 +1,43 @@
+{
+  "name": "dxf-viewer",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Client-side DXF viewer for inspecting drawings",
+  "type": "module",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.worker.json && tsc --noEmit -p tsconfig.node.json",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "fonts": "node tools/fonts/build-font-manifest.ts",
+    "predev": "node tools/fonts/build-font-manifest.ts --if-missing",
+    "prebuild": "node tools/fonts/build-font-manifest.ts"
+  },
+  "dependencies": {
+    "@fontsource/arimo": "^5.3.0",
+    "@fontsource/biz-udgothic": "^5.3.0",
+    "@tanstack/react-virtual": "^3.14.14",
+    "idb-keyval": "^6.3.0",
+    "lucide-react": "^1.54.0",
+    "rbush": "^4.0.1",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "zustand": "^5.0.15"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "@types/rbush": "^4.0.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vite-pwa/assets-generator": "^2.0.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.4",
+    "vite-plugin-pwa": "^2.0.0",
+    "vitest": "^4.1.11",
+    "workbox-window": "^7.4.1"
+  }
+}

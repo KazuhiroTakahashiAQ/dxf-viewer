@@ -1,0 +1,15 @@
+node_modules/
+dist/
+dev-dist/
+*.log
+.DS_Store
+coverage/
+# generated at build time from @fontsource packages
+public/fonts/
+# real-world corpus cache (downloaded, not redistributed)
+tests/real/.cache/
+tests/real/local/
+# reference renderings
+tools/reference/out/
+.venv/
+__pycache__/
