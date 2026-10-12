@@ -28,6 +28,10 @@ export interface RenderOptions {
   lwdisplay: boolean;
   /** raster images supplied by the user, keyed by lower-case file base name */
   images?: Map<string, ImageBitmap>;
+  /** X-ray: everything translucent, wipeouts do not mask */
+  xray?: boolean;
+  /** draw OFF / frozen layers faintly instead of hiding them */
+  ghostOff?: boolean;
 }
 
 /** Lower-case base name of a path (Windows or POSIX separators). */
@@ -131,13 +135,19 @@ interface Frame {
   ox: number;
   oy: number;
   frozen: Uint8Array;
+  /** multipliers for globalAlpha (X-ray, ghost pass) */
+  alphaMul: number;
+  fillMul: number;
+  /** ghost pass: draw only the hidden layers */
+  ghost: boolean;
 }
 
 export class Renderer {
   constructor(private scene: Scene) {}
 
   private visible(f: Frame, st: Style): boolean {
-    return f.opts.layerOn[st.layer] === 1 && f.frozen[st.layer] === 0 && f.chainVis[st.chain] === 1;
+    const shown = f.opts.layerOn[st.layer] === 1 && f.frozen[st.layer] === 0 && f.chainVis[st.chain] === 1;
+    return f.ghost ? !shown : shown;
   }
 
   private colorOf(f: Frame, st: Style): string {
@@ -247,24 +257,39 @@ export class Renderer {
       ox,
       oy,
       frozen,
+      alphaMul: opts.xray ? 0.6 : 1,
+      fillMul: opts.xray ? 0.45 : 1,
+      ghost: false,
     };
     const tiles = this.scene.tileList.filter((t) => t.count > 0 && intersects(t.bbox, f.vb));
     f.stats.tiles = tiles.length;
 
-    if (this.scene.strict) {
-      for (const t of tiles) this.withClip(f, t, () => this.drawAll(f, t));
-      this.drawInfinite(f);
-    } else {
-      const pass = (fn: (t: Tile) => void) => {
-        for (const t of tiles) this.withClip(f, t, () => fn(t));
-      };
-      pass((t) => this.drawImages(f, t));
-      if (opts.fills) pass((t) => this.drawFills(f, t));
-      pass((t) => this.drawStrokes(f, t));
-      this.drawInfinite(f);
-      pass((t) => this.drawPoints(f, t));
-      if (opts.texts) pass((t) => this.drawTexts(f, t));
+    const drawScene = () => {
+      if (this.scene.strict) {
+        for (const t of tiles) this.withClip(f, t, () => this.drawAll(f, t));
+        this.drawInfinite(f);
+      } else {
+        const pass = (fn: (t: Tile) => void) => {
+          for (const t of tiles) this.withClip(f, t, () => fn(t));
+        };
+        pass((t) => this.drawImages(f, t));
+        if (opts.fills) pass((t) => this.drawFills(f, t));
+        pass((t) => this.drawStrokes(f, t));
+        this.drawInfinite(f);
+        pass((t) => this.drawPoints(f, t));
+        if (opts.texts) pass((t) => this.drawTexts(f, t));
+      }
+    };
+    if (opts.ghostOff) {
+      // hidden layers first, faint, underneath everything else
+      const mul = f.alphaMul;
+      f.ghost = true;
+      f.alphaMul = mul * 0.15;
+      drawScene();
+      f.ghost = false;
+      f.alphaMul = mul;
     }
+    drawScene();
     ctx.globalAlpha = 1;
     ctx.setLineDash([]);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -309,7 +334,7 @@ export class Renderer {
         ctx.setTransform(m[0], m[1], m[2], m[3], m[4], m[5]);
         set = true;
       }
-      ctx.globalAlpha = batch.style.alpha;
+      ctx.globalAlpha = batch.style.alpha * f.alphaMul * f.fillMul;
       ctx.fillStyle = this.colorOf(f, batch.style);
       for (const p of batch.fills) ctx.fill(p as Path2D, 'evenodd');
     }
@@ -319,7 +344,7 @@ export class Renderer {
     const { ctx } = f;
     const base = affineMultiply(this.tileTransform(f, t), h.m);
     ctx.setTransform(base[0], base[1], base[2], base[3], base[4], base[5]);
-    ctx.globalAlpha = h.style.alpha;
+    ctx.globalAlpha = h.style.alpha * f.alphaMul * f.fillMul;
     const color = h.solidColor !== undefined && !f.opts.monochrome ? css(h.solidColor) : this.colorOf(f, h.style);
     const path = h.path as Path2D;
     if (h.gradient && !f.opts.monochrome) {
@@ -410,10 +435,10 @@ export class Renderer {
       });
     if (dense) {
       // pattern finer than ~2 px: show a light tint instead of a moiré
-      ctx.globalAlpha = h.style.alpha * 0.35;
+      ctx.globalAlpha = h.style.alpha * 0.35 * f.alphaMul * f.fillMul;
       ctx.fillStyle = color;
       ctx.fill(path, h.fillRule);
-      ctx.globalAlpha = h.style.alpha;
+      ctx.globalAlpha = h.style.alpha * f.alphaMul * f.fillMul;
       return;
     }
     ctx.save();
@@ -482,7 +507,7 @@ export class Renderer {
         set = true;
       }
       const color = this.colorOf(f, st);
-      ctx.globalAlpha = st.alpha;
+      ctx.globalAlpha = st.alpha * f.alphaMul;
       if (!f.opts.fills && batch.fills.length) {
         ctx.strokeStyle = color;
         ctx.lineWidth = f.dpr / f.scaleDev;
@@ -519,9 +544,17 @@ export class Renderer {
       for (let i = 2; i < pts.length; i += 2) ctx.lineTo(pts[i], pts[i + 1]);
       ctx.closePath();
     };
-    ctx.globalAlpha = im.style.alpha;
+    ctx.globalAlpha = im.style.alpha * f.alphaMul;
     if (im.wipeout) {
       poly(im.clip ?? im.corners);
+      if (f.opts.xray || f.ghost) {
+        // X-ray: show the wipeout boundary instead of masking
+        ctx.strokeStyle = this.colorOf(f, im.style);
+        ctx.lineWidth = f.dpr / f.scaleDev;
+        ctx.setLineDash([]);
+        ctx.stroke();
+        return;
+      }
       ctx.fillStyle = css(f.opts.background);
       ctx.fill();
       return;
@@ -554,9 +587,9 @@ export class Renderer {
     ctx.lineTo(c[4], c[5]);
     ctx.moveTo(c[2], c[3]);
     ctx.lineTo(c[6], c[7]);
-    ctx.globalAlpha = im.style.alpha * 0.35;
+    ctx.globalAlpha = im.style.alpha * 0.35 * f.alphaMul;
     ctx.stroke();
-    ctx.globalAlpha = im.style.alpha;
+    ctx.globalAlpha = im.style.alpha * f.alphaMul;
     if (im.label) {
       const x = m[0] * c[6] + m[2] * c[7] + m[4];
       const y = m[1] * c[6] + m[3] * c[7] + m[5];
@@ -602,7 +635,7 @@ export class Renderer {
       if (!Number.isFinite(t0) || !Number.isFinite(t1) || t0 > t1) continue;
       const p0 = toDev(it.x + it.dx * t0, it.y + it.dy * t0);
       const p1 = toDev(it.x + it.dx * t1, it.y + it.dy * t1);
-      ctx.globalAlpha = it.style.alpha;
+      ctx.globalAlpha = it.style.alpha * f.alphaMul;
       ctx.strokeStyle = this.colorOf(f, it.style);
       ctx.lineWidth = this.lineWidthPx(f, it.style);
       ctx.beginPath();
@@ -631,7 +664,7 @@ export class Renderer {
       if (!this.visible(f, p.style)) continue;
       const x = m[0] * p.x + m[2] * p.y + m[4];
       const y = m[1] * p.x + m[3] * p.y + m[5];
-      ctx.globalAlpha = p.style.alpha;
+      ctx.globalAlpha = p.style.alpha * f.alphaMul;
       ctx.strokeStyle = ctx.fillStyle = this.colorOf(f, p.style);
       ctx.lineWidth = f.dpr;
       const r = sizeDev / 2;
@@ -678,7 +711,7 @@ export class Renderer {
     const L = item.layout;
     const base = affineMultiply(tm, item.m);
     const color = this.colorOf(f, item.style);
-    ctx.globalAlpha = item.style.alpha;
+    ctx.globalAlpha = item.style.alpha * f.alphaMul;
     if (L.background) {
       ctx.setTransform(base[0], base[1], base[2], base[3], base[4], base[5]);
       const bg = L.background;

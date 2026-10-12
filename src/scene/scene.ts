@@ -387,6 +387,8 @@ export class SceneBuilder implements EmitHost {
   readonly out: TileOut;
   private bboxHost: BBoxHost;
   private bboxHosts: BBoxHost[] = [];
+  /** top-level references the user asked to expand regardless of the budget */
+  forceExpand: Set<number> | null = null;
   private bboxDepth = 0;
   private textCache = new Map<number, PlacedText | null>();
   private blockBBoxCache = new Map<string, BBox | null>();
@@ -730,7 +732,7 @@ export class SceneBuilder implements EmitHost {
     return n;
   }
 
-  private entityCount(e: Entity): number {
+  entityCount(e: Entity): number {
     if (e.type === 'INSERT') {
       const ins = e as InsertEntity;
       return this.blockCount(ins.name) * Math.max(1, ins.rows) * Math.max(1, ins.columns) + ins.attribs.length;
@@ -963,7 +965,7 @@ export class SceneBuilder implements EmitHost {
   private emitTop(e: Entity): void {
     if (e.type === 'INSERT' || DIM_TYPES.has(e.type) || e.type === 'ACAD_TABLE') {
       const cost = this.entityCount(e);
-      if (cost > this.budgetLeft) {
+      if (cost > this.budgetLeft && !this.forceExpand?.has(e.id)) {
         this.scene.budgetExceeded++;
         this.diag('budget', `Block reference expansion exceeds the budget; drawing bounding frames instead`, e.handle);
         this.emitFrame(e);

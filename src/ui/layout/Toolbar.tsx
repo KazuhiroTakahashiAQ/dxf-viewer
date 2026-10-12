@@ -229,6 +229,27 @@ export function Toolbar() {
             <input type="checkbox" checked={settings.monochrome} onChange={(e) => setSetting({ monochrome: e.target.checked })} />
             {t('display.monochrome')}
           </label>
+          <label>
+            <input type="checkbox" checked={settings.xray} onChange={(e) => setSetting({ xray: e.target.checked })} />
+            {t('display.xray')}
+          </label>
+          <label>
+            <input type="checkbox" checked={settings.ghostOff} onChange={(e) => setSetting({ ghostOff: e.target.checked })} />
+            {t('display.ghostOff')}
+          </label>
+          <hr />
+          <label>
+            <input type="checkbox" checked={settings.showBBoxes} onChange={(e) => setSetting({ showBBoxes: e.target.checked })} />
+            {t('display.bboxes')}
+          </label>
+          <label>
+            <input type="checkbox" checked={settings.showInsertionPoints} onChange={(e) => setSetting({ showInsertionPoints: e.target.checked })} />
+            {t('display.insertionPoints')}
+          </label>
+          <label>
+            <input type="checkbox" checked={settings.showControlPoints} onChange={(e) => setSetting({ showControlPoints: e.target.checked })} />
+            {t('display.controlPoints')}
+          </label>
           <hr />
           <label>
             <input type="checkbox" checked={settings.showGrid} onChange={(e) => updateSettings({ showGrid: e.target.checked })} />

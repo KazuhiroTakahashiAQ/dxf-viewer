@@ -178,6 +178,11 @@ export interface RenderSettings {
   texts: boolean;
   minTextPx: number;
   monochrome: boolean;
+  xray: boolean;
+  ghostOff: boolean;
+  showBBoxes: boolean;
+  showInsertionPoints: boolean;
+  showControlPoints: boolean;
 }
 
 export interface BuildInfo {
@@ -185,6 +190,8 @@ export interface BuildInfo {
   progress: number;
   primitives: number;
   budgetExceeded: number;
+  /** rough estimate of the worker's memory use for this document (bytes) */
+  memoryBytes: number;
   coverage: CoverageInfo[];
   diagnostics: DiagnosticInfo[];
 }
@@ -288,6 +295,8 @@ export interface SelectionSummary {
   count: number;
   byType: [string, number][];
   byLayer: [string, number][];
+  /** properties with the same value in every selected entity (first 2000 entities) */
+  common: PropRow[];
 }
 
 export interface BlockInfo {
@@ -391,6 +400,10 @@ export type DocApi = {
   imageRefs(p: void): { fileName: string; count: number; attached: boolean }[];
   /** supply raster images (matched to IMAGE entities by file base name) */
   attachImages(p: { images: { name: string; bitmap: ImageBitmap }[] }): string[];
+  /** estimated number of primitives a reference expands to */
+  referenceCost(p: { id: number }): number;
+  /** draw a reference that exceeded the expansion budget in full (refused above a hard limit) */
+  expandReference(p: { id: number }): { expanded: boolean; cost: number };
   /** PNG (blob) or SVG (text) of the active layout */
   exportImage(p: { format: 'png' | 'svg'; area: 'view' | 'extents'; scale: number }): Promise<{ png?: Blob; svg?: string; width: number; height: number }>;
   /** object snap near a screen point */

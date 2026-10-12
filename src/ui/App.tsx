@@ -217,6 +217,15 @@ function useSharedFilterLink(): void {
   }, []);
 }
 
+/** UI theme: system (default), light or dark. */
+function useTheme(): void {
+  const theme = useUi((s) => s.settings.theme);
+  useEffect(() => {
+    if (theme === 'system') delete document.documentElement.dataset.theme;
+    else document.documentElement.dataset.theme = theme;
+  }, [theme]);
+}
+
 /** Close open toolbar menus (<details>) when clicking elsewhere or pressing Escape. */
 function useMenuDismiss(): void {
   useEffect(() => {
@@ -367,6 +376,7 @@ export function App() {
   useSharedFilterLink();
   useLaunchQueue();
   useMenuDismiss();
+  useTheme();
   useTabRestore();
 
   return (

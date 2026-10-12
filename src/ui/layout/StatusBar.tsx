@@ -7,6 +7,7 @@ import { formatNumber, formatScale, unitName } from '../format';
 export function StatusBar() {
   const tab = useUi(activeTab);
   const cursor = useUi((s) => s.cursor);
+  const lastPoint = useUi((s) => s.lastPoint);
   const scale = useUi((s) => s.scale);
   const focusMode = useUi((s) => s.focusMode);
   const setFocusMode = useUi((s) => s.setFocusMode);
@@ -23,6 +24,11 @@ export function StatusBar() {
         <b>{t('status.y')}</b> {cursor ? formatNumber(cursor.y, precision) : '—'}
       </span>
       {unit && <span className="muted">{unit}</span>}
+      {cursor && lastPoint && (
+        <span className="coord muted" title={t('status.delta')}>
+          Δ {formatNumber(cursor.x - lastPoint[0], precision)}, {formatNumber(cursor.y - lastPoint[1], precision)} · {formatNumber(Math.hypot(cursor.x - lastPoint[0], cursor.y - lastPoint[1]), precision)}
+        </span>
+      )}
       <span className="sb-sep" />
       {tab && <span className="muted">{t('status.scale', { value: formatScale(1 / scale) + (unit ? ` ${unit}` : '') })}</span>}
       <span className="sb-spacer" />

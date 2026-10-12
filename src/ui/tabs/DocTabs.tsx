@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import { FileWarning, Loader2, X } from 'lucide-react';
 
 import { t } from '../../i18n';
+import { formatBytes } from '../format';
 import { closeSession } from '../../session/DocumentSession';
 import { useUi } from '../../state/store';
 
@@ -21,7 +22,7 @@ export function DocTabs() {
           aria-selected={tab.id === activeId}
           tabIndex={0}
           className={`doc-tab ${tab.id === activeId ? 'active' : ''}`}
-          title={tab.name}
+          title={tab.build?.memoryBytes ? `${tab.name} — ${t('tabs.memory', { size: formatBytes(tab.build.memoryBytes) })}` : tab.name}
           draggable
           onDragStart={() => (dragFrom.current = i)}
           onDragOver={(e) => e.preventDefault()}

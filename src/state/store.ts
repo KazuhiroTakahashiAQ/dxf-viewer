@@ -55,6 +55,8 @@ export interface ViewerSettings extends RenderSettings {
   preferLocalFonts: boolean;
   /** keyed by lower-case requested font name */
   fontOverrides: Record<string, FontOverrideInfo>;
+  /** UI color scheme */
+  theme: 'system' | 'light' | 'dark';
   /** what "recent files" records: nothing, names only (default), or the drawings too */
   recentMode: RecentMode;
   /** reopen the previous tabs at startup (requires stored drawings) */
@@ -93,6 +95,9 @@ export interface UiState {
   docks: Record<DockSide, DockState>;
   focusMode: boolean;
   cursor: { x: number; y: number } | null;
+  /** last clicked / measured world point (status bar shows the offset to it) */
+  lastPoint: [number, number] | null;
+  setLastPoint(p: [number, number] | null): void;
   /** CSS px per world unit of the active view */
   scale: number;
   settings: ViewerSettings;
@@ -156,6 +161,12 @@ const DEFAULT_SETTINGS: ViewerSettings = {
   texts: true,
   minTextPx: 1.5,
   monochrome: false,
+  xray: false,
+  ghostOff: false,
+  showBBoxes: false,
+  showInsertionPoints: false,
+  showControlPoints: false,
+  theme: 'system',
   coordPrecision: -1,
   wheelZoomFactor: 1.2,
   trackpadPan: true,
@@ -203,6 +214,8 @@ export const useUi = create<UiState>((set, get) => ({
   docks: { ...DEFAULT_DOCKS, ...(persisted.docks ?? {}) },
   focusMode: false,
   cursor: null,
+  lastPoint: null,
+  setLastPoint: (p) => set({ lastPoint: p }),
   scale: 1,
   settings: { ...DEFAULT_SETTINGS, ...(persisted.settings ?? {}) },
   measureMode: 'distance',
@@ -238,7 +251,7 @@ export const useUi = create<UiState>((set, get) => ({
       if (activeId === id) activeId = tabs[Math.min(idx, tabs.length - 1)]?.id ?? null;
       return { tabs, activeId };
     }),
-  activate: (id) => set({ activeId: id, cursor: null, regionPick: null, measure: null }),
+  activate: (id) => set({ activeId: id, cursor: null, regionPick: null, measure: null, lastPoint: null }),
   moveTab: (from, to) =>
     set((s) => {
       const tabs = [...s.tabs];

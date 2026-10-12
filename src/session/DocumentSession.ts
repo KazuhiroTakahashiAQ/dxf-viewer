@@ -107,8 +107,8 @@ export class DocumentSession {
   }
 
   sendSettings(s: RenderSettings): void {
-    const { background, lineweights, lineweightScale, linetypes, fills, texts, minTextPx, monochrome } = s;
-    this.rpc.notify('setRenderSettings', { background, lineweights, lineweightScale, linetypes, fills, texts, minTextPx, monochrome });
+    const { background, lineweights, lineweightScale, linetypes, fills, texts, minTextPx, monochrome, xray, ghostOff, showBBoxes, showInsertionPoints, showControlPoints } = s;
+    this.rpc.notify('setRenderSettings', { background, lineweights, lineweightScale, linetypes, fills, texts, minTextPx, monochrome, xray, ghostOff, showBBoxes, showInsertionPoints, showControlPoints });
   }
 
   setViewport(vp: Viewport): void {

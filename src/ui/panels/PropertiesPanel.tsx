@@ -244,6 +244,25 @@ function Multi({ session, ids }: { session: DocumentSession; ids: number[] }) {
           </tbody>
         </table>
       </Section>
+      <Section title={t('props.common')}>
+        {sum.common.length ? (
+          <table className="kv">
+            <tbody>
+              {sum.common.map((r) => (
+                <tr key={r.key}>
+                  <th title={r.key}>{r.label}</th>
+                  <td>
+                    <Value row={r} session={session} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p className="muted small">{t('props.commonNone')}</p>
+        )}
+        {sum.count > 2000 && <p className="muted small">{t('props.commonSample')}</p>}
+      </Section>
     </div>
   );
 }

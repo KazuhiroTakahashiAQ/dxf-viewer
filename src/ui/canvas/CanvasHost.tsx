@@ -372,6 +372,7 @@ export function CanvasHost({ tabId }: { tabId: string }) {
       // ignore the second click of a double-click (same spot)
       if (n && Math.hypot(m.points[n - 2] - pt[0], m.points[n - 1] - pt[1]) * s.view.scale < 2) return;
       const points = [...m.points, ...pt];
+      ui.setLastPoint([pt[0], pt[1]]);
       const done = points.length / 2 >= POINTS_NEEDED[mode];
       const next = { ...m, points, done };
       ui.setMeasure(next);
@@ -431,6 +432,7 @@ export function CanvasHost({ tabId }: { tabId: string }) {
         lastPick = null;
         return;
       }
+      useUi.getState().setLastPoint(screenToWorld(s.view, s.viewport, p.x, p.y));
       const ids = await s.rpc.call('pick', { x: p.x, y: p.y, tolerance: e.pointerType === 'touch' ? 12 : 5 });
       const plain = !e.shiftKey && !e.ctrlKey && !e.metaKey;
       // repeated clicks at the same spot cycle through overlapping entities
@@ -593,6 +595,17 @@ function contextItems(session: DocumentSession, ids: number[]): MenuItem[] {
       items.push({ label: t('menu.selectSameBlock'), action: () => void select('block') });
       items.push({ label: t('menu.selectSameColor'), action: () => void select('color') });
     }
+    const budget = useUi.getState().tabs.find((x) => x.id === session.id)?.build?.budgetExceeded ?? 0;
+    if (single !== null && budget > 0)
+      items.push({
+        label: t('menu.expandReference'),
+        action: async () => {
+          const cost = await session.rpc.call('referenceCost', { id: single });
+          if (cost > 3_000_000 && !window.confirm(t('menu.expandConfirm', { count: cost.toLocaleString() }))) return;
+          const r = await session.rpc.call('expandReference', { id: single });
+          if (!r.expanded) window.alert(t('menu.expandRefused', { count: r.cost.toLocaleString() }));
+        },
+      });
     items.push({ separator: true, label: '' });
     items.push({ label: t('menu.hide'), action: () => void session.setVisibility('hide', ids) });
     items.push({ label: t('menu.isolate'), action: () => void session.setVisibility('isolate', ids) });
@@ -607,6 +620,14 @@ function contextItems(session: DocumentSession, ids: number[]): MenuItem[] {
     items.push({ separator: true, label: '' });
   }
   items.push({ label: t('menu.selectAll'), action: async () => session.setSelection(await session.rpc.call('selectAll', undefined)) });
+  items.push({
+    label: t('menu.invertSelection'),
+    action: async () => {
+      const current = new Set(useUi.getState().tabs.find((x) => x.id === session.id)?.selection ?? []);
+      const all = await session.rpc.call('selectAll', undefined);
+      session.setSelection(all.filter((id) => !current.has(id)));
+    },
+  });
   items.push({ label: t('menu.showAll'), action: () => void session.setVisibility('show') });
   items.push({ label: t('menu.zoomExtents'), action: () => session.fit() });
   return items;

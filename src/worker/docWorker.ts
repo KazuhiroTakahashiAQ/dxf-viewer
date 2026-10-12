@@ -14,7 +14,7 @@ import { SceneBuilder, type Scene } from '../scene/scene';
 import { StyleResolver, TOP_CTX, type LayerOverride } from '../scene/style';
 import { LS_FROZEN, LS_OFF, LSR_COLOR, LSR_FROZEN, LSR_LINETYPE, LSR_LINEWEIGHT, LSR_ON, LSR_TRANSPARENCY, readLayerStates } from '../dxf/layerStates';
 import { transparencyToAlpha } from '../dxf/colors';
-import type { BuildInfo, DocApi, DocSummary, EntityMeasure, FontUsage, LayerInfo, LayoutInfo, RenderSettings } from '../shared/docApi';
+import type { BuildInfo, DocApi, DocSummary, EntityMeasure, FontUsage, LayerInfo, LayoutInfo, PropRow, RenderSettings } from '../shared/docApi';
 import { TextIndex } from './textIndex';
 import { entityInfo, rawTags } from './inspect';
 import { Picker } from './picking';
@@ -26,7 +26,9 @@ import { FilterEngine, type CompiledFilter } from './filtering';
 import { regexIssues } from '../shared/filterSpec';
 import { fitView } from '../shared/view';
 import { emit, serve } from '../shared/rpc';
-import { DEFAULT_VIEW, worldToScreen, type BBox2, type ViewState, type Viewport } from '../shared/view';
+import { DEFAULT_VIEW, visibleWorldBBox, worldToScreen, type BBox2, type ViewState, type Viewport } from '../shared/view';
+import { isDefaultExtrusion, ocsToWcs } from '../geom/ocs';
+import { applyPoint } from '../geom/matrix';
 
 declare const self: DedicatedWorkerGlobalScope;
 
@@ -71,6 +73,11 @@ let settings: RenderSettings = {
   texts: true,
   minTextPx: 1.5,
   monochrome: false,
+  xray: false,
+  ghostOff: false,
+  showBBoxes: false,
+  showInsertionPoints: false,
+  showControlPoints: false,
 };
 let layerOn = new Uint8Array(0);
 let layerFrozen = new Uint8Array(0);
@@ -87,6 +94,9 @@ let activeFilter: CompiledFilter | null = null;
 /** layer property replacements from an applied layer state */
 let layerOverrides = new Map<string, LayerOverride>();
 let fileHash = '';
+/** references expanded in full on request (ignoring the budget) */
+let forceExpand = new Set<number>();
+const EXPAND_HARD_LIMIT = 30_000_000;
 /** user-supplied raster images for IMAGE entities (lower-case base name) */
 const imageBitmaps = new Map<string, ImageBitmap>();
 
@@ -226,12 +236,21 @@ function initialViewOf(vport: Record<string, unknown>): DocSummary['initialView'
   };
 }
 
+/** Rough memory estimate: decoded text, tag arrays, entity objects and scene primitives. */
+function memoryEstimate(): number {
+  if (!doc) return 0;
+  let primitives = 0;
+  for (const ls of layouts.values()) primitives += ls.scene.primitives;
+  return doc.source.size * 2 + doc.tags.count * 16 + doc.entities.length * 320 + primitives * 80;
+}
+
 function buildInfo(): BuildInfo {
   return {
     done: builder?.done ?? false,
     progress: builder?.progress ?? 0,
     primitives: scene?.primitives ?? 0,
     budgetExceeded: scene?.budgetExceeded ?? 0,
+    memoryBytes: memoryEstimate(),
     coverage: scene ? [...scene.coverage.values()].sort((a, b) => b.count - a.count) : [],
     diagnostics: (builder?.diagnostics ?? []).map((d) => ({ level: 'warning' as const, ...d })),
   };
@@ -330,6 +349,88 @@ function renderPaper(c: OffscreenCanvasRenderingContext2D, ls: LayoutState, opts
   return { tiles: stats.tiles + r.tiles, batches: stats.batches + r.batches, texts: stats.texts + r.texts, ms: r.ms };
 }
 
+/**
+ * Display aids drawn over the frame: bounding boxes, insertion points and
+ * control points / vertices of the visible top-level entities (capped).
+ */
+function drawMarkers(c: OffscreenCanvasRenderingContext2D, ls: LayoutState): void {
+  if (!doc) return;
+  const dpr = viewport.dpr;
+  const vb = visibleWorldBBox(view, viewport);
+  const ids = pickerOf(ls).candidates((vb.minX + vb.maxX) / 2, (vb.minY + vb.maxY) / 2, Math.max(vb.maxX - vb.minX, vb.maxY - vb.minY) / 2);
+  const toDev = (x: number, y: number): [number, number] => {
+    const p = worldToScreen(view, viewport, x, y);
+    return [p[0] * dpr, p[1] * dpr];
+  };
+  c.save();
+  c.setTransform(1, 0, 0, 1, 0, 0);
+  c.globalAlpha = 1;
+  c.lineWidth = dpr;
+  let n = 0;
+  for (const id of ids) {
+    if (++n > 20_000) break;
+    if (!entityVisible(id)) continue;
+    const e = doc.entities[id];
+    const x = e as typeof e & Record<string, unknown>;
+    if (settings.showBBoxes) {
+      const b = ls.builder.boundsOf(id);
+      if (b) {
+        const pts = [toDev(b.minX, b.minY), toDev(b.maxX, b.minY), toDev(b.maxX, b.maxY), toDev(b.minX, b.maxY)];
+        c.setLineDash([3 * dpr, 3 * dpr]);
+        c.strokeStyle = 'rgba(120, 160, 255, 0.7)';
+        c.beginPath();
+        pts.forEach((p, i) => (i ? c.lineTo(p[0], p[1]) : c.moveTo(p[0], p[1])));
+        c.closePath();
+        c.stroke();
+        c.setLineDash([]);
+      }
+    }
+    const ocs = isDefaultExtrusion(e.extrusion as never) ? null : ocsToWcs(e.extrusion as never);
+    const wcs = (p: number[], inOcs: boolean): [number, number] => {
+      if (inOcs && ocs) {
+        const q = applyPoint(ocs, p[0], p[1], p[2] ?? 0);
+        return [q[0], q[1]];
+      }
+      return [p[0], p[1]];
+    };
+    const square = (p: [number, number], color: string, size = 3) => {
+      const [sx, sy] = toDev(p[0], p[1]);
+      c.strokeStyle = color;
+      c.strokeRect(sx - size * dpr, sy - size * dpr, 2 * size * dpr, 2 * size * dpr);
+    };
+    if (settings.showInsertionPoints) {
+      const q = Array.isArray(x.insert) ? (x.insert as number[]) : Array.isArray(x.position) ? (x.position as number[]) : null;
+      // MTEXT insertion points are WCS; TEXT / INSERT / POINT use the OCS
+      if (q) square(wcs(q, e.type !== 'MTEXT'), '#4dd0e1', 4);
+    }
+    if (settings.showControlPoints) {
+      let pts: [number, number][] = [];
+      if (e.type === 'SPLINE') pts = ((x.ctrl as number[][]) ?? []).map((p) => [p[0], p[1]]);
+      else if (e.type === 'LWPOLYLINE') {
+        const flat = (x.points as number[]) ?? [];
+        for (let i = 0; i + 1 < flat.length; i += 2) pts.push(wcs([flat[i], flat[i + 1], Number(x.elevation) || 0], true));
+      } else if (e.type === 'POLYLINE') pts = ((x.vertices as { position?: number[] }[]) ?? []).map((v) => v.position ?? [0, 0]).map((p) => wcs(p, ((Number(x.flags) || 0) & (8 | 16 | 64)) === 0));
+      else if (e.type === 'LINE') pts = [[...(x.start as number[])] as [number, number], [...(x.end as number[])] as [number, number]];
+      if (pts.length) {
+        if (e.type === 'SPLINE' && pts.length > 1) {
+          c.setLineDash([2 * dpr, 3 * dpr]);
+          c.strokeStyle = 'rgba(255, 213, 79, 0.6)';
+          c.beginPath();
+          pts.forEach((p, i) => {
+            const [sx, sy] = toDev(p[0], p[1]);
+            if (i) c.lineTo(sx, sy);
+            else c.moveTo(sx, sy);
+          });
+          c.stroke();
+          c.setLineDash([]);
+        }
+        for (const p of pts) square(p, '#ffd54f', 2.5);
+      }
+    }
+  }
+  c.restore();
+}
+
 // module-level view state accessors (defaults for renderPaper)
 function currentView(): ViewState {
   return view;
@@ -385,6 +486,7 @@ async function exportLayout(p: { format: 'png' | 'svg'; area: 'view' | 'extents'
   const svgScene = (src: LayoutState) => {
     const b = new SceneBuilder(doc!, src.items, measurer, () => new SvgPath() as unknown as Path2D, undefined, styles!);
     b.filter = src.builder.filter;
+    b.forceExpand = src.builder.forceExpand;
     b.prepare();
     finishBuild(b);
     return new Renderer(b.scene);
@@ -412,6 +514,7 @@ function renderNow(): void {
   const t0 = performance.now();
   const opts = renderOptions(doc);
   const stats = ls.kind === 'model' ? ls.renderer.render(ctx, view, viewport, opts) : renderPaper(ctx, ls, opts);
+  if (settings.showBBoxes || settings.showInsertionPoints || settings.showControlPoints) drawMarkers(ctx, ls);
   drawHighlight();
   emit(self, 'frame', { viewId, ms: performance.now() - t0, tiles: stats.tiles, batches: stats.batches, texts: stats.texts });
 }
@@ -517,6 +620,7 @@ function startLayout(name: string): LayoutState | null {
   }
   const b = new SceneBuilder(doc, items, measurer, () => new Path2D(), undefined, styles);
   b.filter = sceneFilter;
+  b.forceExpand = forceExpand;
   const ls: LayoutState = { name, kind: li.kind, items, builder: b, scene: b.scene, renderer: new Renderer(b.scene), gen: generation, sheet: li.sheet };
   layouts.set(name, ls);
   b.prepare();
@@ -720,6 +824,7 @@ const api: DocApi = {
     activeFilter = null;
     layouts.clear();
     layerOverrides = new Map();
+    forceExpand = new Set();
     styles = new StyleResolver(d, layerOverrides);
     layerOn = new Uint8Array(0);
     layerFrozen = new Uint8Array(0);
@@ -1111,6 +1216,21 @@ const api: DocApi = {
     return doc ? tagOwner(doc, p.index) : null;
   },
 
+  referenceCost(p) {
+    const ls = layouts.get(active);
+    return ls && doc ? ls.builder.entityCount(doc.entities[p.id]) : 0;
+  },
+
+  expandReference(p) {
+    const ls = layouts.get(active);
+    const cost = ls && doc ? ls.builder.entityCount(doc.entities[p.id]) : 0;
+    // beyond this the worker would run out of memory; keep the frame
+    if (cost > EXPAND_HARD_LIMIT) return { expanded: false, cost };
+    forceExpand.add(p.id);
+    rebuild();
+    return { expanded: true, cost };
+  },
+
   imageRefs() {
     if (!doc) return [];
     const out = new Map<string, { fileName: string; count: number; attached: boolean }>();
@@ -1249,7 +1369,22 @@ const api: DocApi = {
       byLayer.set(e.layer, (byLayer.get(e.layer) ?? 0) + 1);
     }
     const sort = (m: Map<string, number>) => [...m.entries()].sort((a, b) => b[1] - a[1]);
-    return { count: p.ids.length, byType: sort(byType), byLayer: sort(byLayer) };
+    // common values: rows whose key and value are identical in every entity
+    let common: PropRow[] | null = null;
+    if (doc && styles && p.ids.length > 1) {
+      for (const id of p.ids.slice(0, 2000)) {
+        const info = entityInfo(doc, id, styles, measurer);
+        if (!info) continue;
+        const rows = info.rows.filter((r) => r.group !== 'Computed' && r.key !== 'handle');
+        if (!common) common = rows;
+        else {
+          const byKey = new Map(rows.map((r) => [r.key, r.value]));
+          common = common.filter((r) => byKey.has(r.key) && byKey.get(r.key) === r.value);
+        }
+        if (!common.length) break;
+      }
+    }
+    return { count: p.ids.length, byType: sort(byType), byLayer: sort(byLayer), common: common ?? [] };
   },
 
   setVisibility(p) {

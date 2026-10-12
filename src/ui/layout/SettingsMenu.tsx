@@ -54,6 +54,16 @@ export function SettingsMenu() {
           {t('settings.fonts')}
         </button>
         <hr />
+        <b>{t('settings.appearance')}</b>
+        <label>
+          {t('settings.theme')}
+          <select value={settings.theme} onChange={(e) => update({ theme: e.target.value as 'system' | 'light' | 'dark' })}>
+            <option value="system">{t('settings.theme.system')}</option>
+            <option value="light">{t('settings.theme.light')}</option>
+            <option value="dark">{t('settings.theme.dark')}</option>
+          </select>
+        </label>
+        <hr />
         <b>{t('settings.input')}</b>
         <label>
           <input type="checkbox" checked={settings.trackpadPan} onChange={(e) => update({ trackpadPan: e.target.checked })} />

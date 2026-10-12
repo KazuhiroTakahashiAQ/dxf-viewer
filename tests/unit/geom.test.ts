@@ -228,3 +228,31 @@ describe('scene extents', () => {
     expect(b.scene.extents).toEqual({ minX: 1000, minY: 408, maxX: 1200, maxY: 500 });
   });
 });
+
+describe('expansion budget', () => {
+  it('a reference over the budget becomes a frame unless expanded on request', async () => {
+    const { parseDxf } = await import('../../src/dxf/parser');
+    const { SceneBuilder, DEFAULT_SCENE_OPTIONS } = await import('../../src/scene/scene');
+    const { StyleResolver } = await import('../../src/scene/style');
+    const { SvgPath } = await import('../../src/render/svgContext');
+    const { dxf, enc } = await import('./helpers');
+    const lines: [number, string | number][] = [];
+    for (let i = 0; i < 10; i++) lines.push([0, 'LINE'], [8, '0'], [10, i], [20, 0], [30, 0], [11, i], [21, 1], [31, 0]);
+    const doc = parseDxf(
+      enc(dxf([[0, 'SECTION'], [2, 'BLOCKS'], [0, 'BLOCK'], [8, '0'], [2, 'B'], [70, 0], [10, 0], [20, 0], [30, 0], ...lines, [0, 'ENDBLK'], [8, '0'], [0, 'ENDSEC'], [0, 'SECTION'], [2, 'ENTITIES'], [0, 'INSERT'], [8, '0'], [2, 'B'], [10, 0], [20, 0], [30, 0], [0, 'ENDSEC'], [0, 'EOF']])),
+      { name: 't.dxf' },
+    );
+    const m = { width: (t: string) => t.length, metrics: () => ({ capHeight: 0.7, ascent: 0.9, descent: 0.2 }) };
+    const build = (force: boolean) => {
+      const b = new SceneBuilder(doc, doc.modelSpace, m, () => new SvgPath() as unknown as Path2D, { ...DEFAULT_SCENE_OPTIONS, budget: 5 }, new StyleResolver(doc));
+      if (force) b.forceExpand = new Set(doc.modelSpace);
+      b.prepare();
+      while (!b.done) b.step(Infinity, () => 0);
+      return b.scene;
+    };
+    expect(build(false).budgetExceeded).toBe(1);
+    const s = build(true);
+    expect(s.budgetExceeded).toBe(0);
+    expect(s.primitives).toBeGreaterThanOrEqual(10);
+  });
+});

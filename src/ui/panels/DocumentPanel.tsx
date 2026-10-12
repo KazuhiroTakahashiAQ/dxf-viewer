@@ -301,6 +301,7 @@ export function DocumentPanel() {
     [t('doc.extents'), ext ? `(${ext.minX.toFixed(3)}, ${ext.minY.toFixed(3)}) – (${ext.maxX.toFixed(3)}, ${ext.maxY.toFixed(3)})` : '—'],
     [t('doc.units'), `${s.insUnits}${unitName(s.insUnits) ? ` (${unitName(s.insUnits)})` : ''}`],
     [t('doc.parseTime'), `${s.parseMs.toFixed(0)} ms`],
+    [t('doc.memory'), tab.build?.memoryBytes ? `≈ ${formatBytes(tab.build.memoryBytes)}` : '—'],
   ];
   const coverage = tab.build?.coverage ?? [];
   return (
