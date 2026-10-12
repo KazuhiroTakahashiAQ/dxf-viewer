@@ -8,6 +8,7 @@ import type { DocApi, LayerStateInfo } from '../../shared/docApi';
 import { savedLayerStates, setSavedLayerStates, type SavedLayerState } from '../../storage/perFile';
 import { activeTab, useUi } from '../../state/store';
 import { rgbCss } from '../format';
+import { iconTip, tip } from '../Tooltip';
 
 export function LayersPanel() {
   const tab = useUi(activeTab);
@@ -82,18 +83,18 @@ export function LayersPanel() {
     <div className="panel layers-panel">
       <div className="panel-toolbar">
         <input className="search" type="search" placeholder={t('layers.filter')} value={filter} onChange={(e) => setFilter(e.target.value)} />
-        <button type="button" className="icon-btn" title={t('layers.allOn')} onClick={() => apply({ all: { on: true, frozen: false } })}>
+        <button type="button" className="icon-btn" {...iconTip(t('layers.allOn'))} onClick={() => apply({ all: { on: true, frozen: false } })}>
           <Eye size={15} />
         </button>
-        <button type="button" className="icon-btn" title={t('layers.allOff')} onClick={() => apply({ all: { on: false } })}>
+        <button type="button" className="icon-btn" {...iconTip(t('layers.allOff'))} onClick={() => apply({ all: { on: false } })}>
           <EyeOff size={15} />
         </button>
-        <button type="button" className="icon-btn" title={t('layers.reset')} onClick={() => apply({ reset: true })}>
+        <button type="button" className="icon-btn" {...iconTip(t('layers.reset'))} onClick={() => apply({ reset: true })}>
           <RotateCcw size={15} />
         </button>
       </div>
       <div className="panel-sub layer-states">
-        <select value={current.endsWith(' *') ? '' : current} onChange={(e) => void applyState(e.target.value)} title={t('layers.states')} aria-label={t('layers.states')}>
+        <select value={current.endsWith(' *') ? '' : current} onChange={(e) => void applyState(e.target.value)} {...iconTip(t('layers.states'), t('panelDesc.layers'))}>
           <option value="">{current.endsWith(' *') ? t('layers.stateModified', { name: current.slice(2, -2) }) : t('layers.stateNone')}</option>
           {fileStates.length > 0 && (
             <optgroup label={t('layers.statesFile')}>
@@ -114,14 +115,14 @@ export function LayersPanel() {
             </optgroup>
           )}
         </select>
-        <button type="button" className="icon-btn" title={t('layers.saveState')} disabled={!hash} onClick={saveState}>
+        <button type="button" className="icon-btn" {...iconTip(t('layers.saveState'), t('layers.saveStateDesc'))} disabled={!hash} onClick={saveState}>
           <BookmarkPlus size={15} />
         </button>
         {current.startsWith('s:') && (
           <button
             type="button"
             className="icon-btn"
-            title={t('layers.deleteState')}
+            {...iconTip(t('layers.deleteState'))}
             onClick={() => {
               if (!hash) return;
               const next = saved.filter((x) => `s:${x.name}` !== current);
@@ -134,7 +135,7 @@ export function LayersPanel() {
           </button>
         )}
         {overridden && (
-          <span className="muted small" title={t('layers.propsOverridden')}>
+          <span className="muted small" {...tip(t('layers.propsOverridden'))}>
             <Palette size={13} />
           </span>
         )}
@@ -148,25 +149,33 @@ export function LayersPanel() {
             const l = layers[vi.index];
             return (
               <div key={l.index} className={`layer-row ${l.on && !l.frozen ? '' : 'dim'}`} style={{ position: 'absolute', top: 0, left: 0, right: 0, height: vi.size, transform: `translateY(${vi.start}px)` }}>
-                <button type="button" className="icon-btn" title={t('layers.on')} aria-pressed={l.on} onClick={() => apply({ changes: [{ index: l.index, on: !l.on }] })}>
+                <button type="button" className="icon-btn" {...iconTip(t('layers.on'), t('layers.onDesc'))} aria-pressed={l.on} onClick={() => apply({ changes: [{ index: l.index, on: !l.on }] })}>
                   {l.on ? <Eye size={14} /> : <EyeOff size={14} />}
                 </button>
-                <button type="button" className="icon-btn" title={t('layers.freeze')} aria-pressed={l.frozen} onClick={() => apply({ changes: [{ index: l.index, frozen: !l.frozen }] })}>
+                <button type="button" className="icon-btn" {...iconTip(t('layers.freeze'), t('layers.freezeDesc'))} aria-pressed={l.frozen} onClick={() => apply({ changes: [{ index: l.index, frozen: !l.frozen }] })}>
                   {l.frozen ? <Snowflake size={14} /> : <Sun size={14} />}
                 </button>
-                <span className="swatch" style={{ background: rgbCss(l.fg ? fg : l.rgb) }} title={l.trueColor !== undefined ? rgbCss(l.trueColor) : `ACI ${l.aci}`} />
+                <span className="swatch" style={{ background: rgbCss(l.fg ? fg : l.rgb) }} {...tip(l.trueColor !== undefined ? rgbCss(l.trueColor) : `ACI ${l.aci}`)} />
                 <span className="layer-name" title={l.name}>
                   {l.name}
                 </span>
-                {l.locked && <Lock size={12} className="muted" aria-label={t('layers.locked')} />}
-                {l.undefinedInFile && <TriangleAlert size={12} className="warn" aria-label={t('layers.undefined')} />}
-                <span className="layer-count" title={t('layers.count', { count: l.count })}>
+                {l.locked && (
+                  <span className="layer-flag" {...iconTip(t('layers.locked'))}>
+                    <Lock size={12} className="muted" />
+                  </span>
+                )}
+                {l.undefinedInFile && (
+                  <span className="layer-flag" {...iconTip(t('layers.undefined'))}>
+                    <TriangleAlert size={12} className="warn" />
+                  </span>
+                )}
+                <span className="layer-count" {...tip(t('layers.count', { count: l.count }))}>
                   {l.count}
                 </span>
                 <button
                   type="button"
                   className="icon-btn hover-only"
-                  title={t('layers.isolate')}
+                  {...iconTip(t('layers.isolate'), t('layers.isolateDesc'))}
                   onClick={() => apply({ changes: (tab.layers ?? []).map((x) => ({ index: x.index, on: x.index === l.index, frozen: x.index === l.index ? false : x.frozen })) })}
                 >
                   <Focus size={13} />

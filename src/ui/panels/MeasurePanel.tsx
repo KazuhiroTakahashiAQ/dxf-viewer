@@ -1,6 +1,7 @@
 import { Copy, Trash2 } from 'lucide-react';
 
 import { t } from '../../i18n';
+import { iconTip, tip } from '../Tooltip';
 import { sessions } from '../../session/DocumentSession';
 import type { SnapKind } from '../../shared/docApi';
 import { activeTab, useUi } from '../../state/store';
@@ -64,8 +65,9 @@ export function MeasurePanel() {
                 setMode(x);
                 setTool('measure');
               }}
+              {...tip(t(`measure.mode.${x}`), t(`measure.help.${x}`))}
             >
-              {t(`measure.mode.${x}` as never)}
+              {t(`measure.mode.${x}`)}
             </button>
           ))}
         </div>
@@ -75,7 +77,7 @@ export function MeasurePanel() {
         <div className="section-head">
           <b>{t('measure.result')}</b>
           {cur && (
-            <button type="button" className="icon-btn" title={t('measure.copy')} onClick={() => void navigator.clipboard?.writeText(measureText(cur.mode, cur.points, f, cur.entity))}>
+            <button type="button" className="icon-btn" {...iconTip(t('measure.copy'))} onClick={() => void navigator.clipboard?.writeText(measureText(cur.mode, cur.points, f, cur.entity))}>
               <Copy size={13} />
             </button>
           )}
@@ -119,7 +121,7 @@ export function MeasurePanel() {
         <div className="panel-section">
           <div className="section-head">
             <b>{t('measure.history')}</b>
-            <button type="button" className="icon-btn" title={t('measure.clearHistory')} onClick={clearHistory}>
+            <button type="button" className="icon-btn" {...iconTip(t('measure.clearHistory'))} onClick={clearHistory}>
               <Trash2 size={13} />
             </button>
           </div>
@@ -129,7 +131,7 @@ export function MeasurePanel() {
               <span className="mono small" title={h.file}>
                 {h.text}
               </span>
-              <button type="button" className="icon-btn" title={t('measure.copy')} onClick={() => void navigator.clipboard?.writeText(h.text)}>
+              <button type="button" className="icon-btn" {...iconTip(t('measure.copy'))} onClick={() => void navigator.clipboard?.writeText(h.text)}>
                 <Copy size={12} />
               </button>
             </div>

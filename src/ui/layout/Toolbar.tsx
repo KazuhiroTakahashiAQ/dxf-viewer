@@ -2,6 +2,7 @@ import { useRef } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
+  CircleHelp,
   FlipHorizontal2,
   FlipVertical2,
   FolderOpen,
@@ -27,6 +28,7 @@ import { SettingsMenu } from './SettingsMenu';
 import { normalizeAngle, rotateView, rotationForDirection, zoomAt } from '../../shared/view';
 import { activeTab, useUi, type ViewerSettings } from '../../state/store';
 import { rgbCss } from '../format';
+import { iconTip, tip } from '../Tooltip';
 
 const BACKGROUNDS = [0x16181d, 0x000000, 0x212830, 0xffffff, 0xf3f1ea];
 
@@ -77,30 +79,30 @@ export function Toolbar() {
           e.target.value = '';
         }}
       />
-      <button type="button" className="tb-btn" onClick={() => void chooseFiles(fileRef.current)} title={t('welcome.open')}>
+      <button type="button" className="tb-btn" onClick={() => void chooseFiles(fileRef.current)} {...tip(t('welcome.open'), t('tip.open'))}>
         <FolderOpen size={16} />
         <span>{t('toolbar.open')}</span>
       </button>
       <details className="tb-menu recent-menu">
-        <summary title={t('recent.title')}>▾</summary>
+        <summary {...iconTip(t('recent.title'), t('tip.recent'))}>▾</summary>
         <div className="menu-pop">
           <RecentList fileInput={fileRef} compact />
         </div>
       </details>
       <span className="tb-sep" />
-      <button type="button" className="icon-btn" disabled={!session} onClick={() => session?.fit()} title={t('toolbar.fit')}>
+      <button type="button" className="icon-btn" disabled={!session} onClick={() => session?.fit()} {...iconTip(t('toolbar.fit'), t('tip.fit'), 'F / Home')}>
         <Scan size={16} />
       </button>
-      <button type="button" className="icon-btn" disabled={!session} onClick={() => zoom(1.5)} title={t('toolbar.zoomIn')}>
+      <button type="button" className="icon-btn" disabled={!session} onClick={() => zoom(1.5)} {...iconTip(t('toolbar.zoomIn'), undefined, '+')}>
         <Plus size={16} />
       </button>
-      <button type="button" className="icon-btn" disabled={!session} onClick={() => zoom(1 / 1.5)} title={t('toolbar.zoomOut')}>
+      <button type="button" className="icon-btn" disabled={!session} onClick={() => zoom(1 / 1.5)} {...iconTip(t('toolbar.zoomOut'), undefined, '−')}>
         <Minus size={16} />
       </button>
-      <button type="button" className="icon-btn" disabled={!tab?.viewNav?.back} onClick={() => void session?.historyGo(-1)} title={t('toolbar.viewBack')}>
+      <button type="button" className="icon-btn" disabled={!tab?.viewNav?.back} onClick={() => void session?.historyGo(-1)} {...iconTip(t('toolbar.viewBack'), t('tip.viewHistory'), 'Alt+←')}>
         <ArrowLeft size={16} />
       </button>
-      <button type="button" className="icon-btn" disabled={!tab?.viewNav?.forward} onClick={() => void session?.historyGo(1)} title={t('toolbar.viewForward')}>
+      <button type="button" className="icon-btn" disabled={!tab?.viewNav?.forward} onClick={() => void session?.historyGo(1)} {...iconTip(t('toolbar.viewForward'), t('tip.viewHistory'), 'Alt+→')}>
         <ArrowRight size={16} />
       </button>
       <span className="tb-sep" />
@@ -114,19 +116,19 @@ export function Toolbar() {
           setTool(on ? 'measure' : 'select');
           if (on) useUi.getState().setDock('right', { open: true, active: 'measure' });
         }}
-        title={t('toolbar.measure')}
+        {...iconTip(t('toolbar.measure'), t('tip.measure'), 'M')}
       >
         <Ruler size={16} />
       </button>
       <span className="tb-sep" />
-      <button type="button" className="icon-btn" disabled={!session} onClick={() => rotate(Math.PI / 2)} title={t('toolbar.rotateCcw')}>
+      <button type="button" className="icon-btn" disabled={!session} onClick={() => rotate(Math.PI / 2)} {...iconTip(t('toolbar.rotateCcw'), t('tip.rotate'))}>
         <RotateCcw size={16} />
       </button>
-      <button type="button" className="icon-btn" disabled={!session} onClick={() => rotate(-Math.PI / 2)} title={t('toolbar.rotateCw')}>
+      <button type="button" className="icon-btn" disabled={!session} onClick={() => rotate(-Math.PI / 2)} {...iconTip(t('toolbar.rotateCw'), t('tip.rotate'))}>
         <RotateCw size={16} />
       </button>
       <details className="tb-menu">
-        <summary className={rotDeg !== 0 || orient.mirrorX || orient.mirrorY ? 'tb-active' : ''}>
+        <summary className={rotDeg !== 0 || orient.mirrorX || orient.mirrorY ? 'tb-active' : ''} {...tip(t('toolbar.view'), t('tip.view'))}>
           {t('toolbar.view')}
           {rotDeg !== 0 && <span className="muted small"> {rotDeg}°</span>}
           {(orient.mirrorX || orient.mirrorY) && <span className="muted small"> ⇋</span>}
@@ -170,7 +172,7 @@ export function Toolbar() {
         </div>
       </details>
       <span className="tb-sep" />
-      <label className="tb-field" title={t('toolbar.encoding')}>
+      <label className="tb-field" {...tip(t('toolbar.encoding'), t('tip.encoding'))}>
         <span className="tb-label">{t('toolbar.encoding')}</span>
         <select
           disabled={!tab || tab.status === 'loading' || tab.summary?.binary}
@@ -190,7 +192,7 @@ export function Toolbar() {
         </select>
       </label>
       <span className="tb-sep" />
-      <div className="tb-group" title={t('toolbar.background')}>
+      <div className="tb-group" {...tip(t('toolbar.background'), t('tip.background'))}>
         {BACKGROUNDS.map((bg) => (
           <button
             key={bg}
@@ -203,7 +205,7 @@ export function Toolbar() {
         ))}
       </div>
       <details className="tb-menu">
-        <summary>{t('toolbar.display')}</summary>
+        <summary {...tip(t('toolbar.display'), t('tip.display'))}>{t('toolbar.display')}</summary>
         <div className="menu-pop">
           <label>
             {t('display.lineweights')}
@@ -268,17 +270,20 @@ export function Toolbar() {
       <span className="tb-spacer" />
       <ExportMenu />
       <SettingsMenu />
-      <button type="button" className="icon-btn" onClick={() => toggleDock('left')} title={t('toolbar.leftDock')}>
+      <button type="button" className="icon-btn" onClick={() => toggleDock('left')} {...iconTip(t('toolbar.leftDock'), t('tip.leftDock'), 'Alt+1')}>
         <PanelLeft size={16} />
       </button>
-      <button type="button" className="icon-btn" onClick={() => toggleDock('bottom')} title={t('toolbar.bottomDock')}>
+      <button type="button" className="icon-btn" onClick={() => toggleDock('bottom')} {...iconTip(t('toolbar.bottomDock'), t('tip.bottomDock'), 'Alt+2')}>
         <PanelBottom size={16} />
       </button>
-      <button type="button" className="icon-btn" onClick={() => toggleDock('right')} title={t('toolbar.rightDock')}>
+      <button type="button" className="icon-btn" onClick={() => toggleDock('right')} {...iconTip(t('toolbar.rightDock'), t('tip.rightDock'), 'Alt+3')}>
         <PanelRight size={16} />
       </button>
-      <button type="button" className="icon-btn" onClick={() => setFocusMode(true)} title={t('toolbar.focus')}>
+      <button type="button" className="icon-btn" onClick={() => setFocusMode(true)} {...iconTip(t('toolbar.focus'), t('tip.focus'), 'Ctrl+Shift+F')}>
         <Maximize size={16} />
+      </button>
+      <button type="button" className="icon-btn" onClick={() => useUi.getState().setHelpOpen(true)} {...iconTip(t('toolbar.help'), t('tip.help'), '? / F1')}>
+        <CircleHelp size={16} />
       </button>
     </div>
   );

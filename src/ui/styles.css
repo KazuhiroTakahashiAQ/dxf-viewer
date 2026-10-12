@@ -595,11 +595,18 @@ table.grid th {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   height: 100%;
   gap: 8px;
   text-align: center;
   padding: 24px;
+  overflow: auto;
+}
+/* center vertically while the content fits, scroll from the top otherwise */
+.welcome > :first-child {
+  margin-top: auto;
+}
+.welcome > :last-child {
+  margin-bottom: auto;
 }
 .welcome h1 {
   margin: 0 0 4px;
@@ -1288,11 +1295,6 @@ label.check {
   cursor: crosshair;
 }
 .canvas-hint {
-  position: absolute;
-  top: 8px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 5;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1631,4 +1633,260 @@ label.check {
 }
 .progress-row progress {
   flex: 1;
+}
+
+/* tooltips (data-tip, see Tooltip.tsx) */
+.tooltip {
+  position: fixed;
+  z-index: 200;
+  max-width: min(340px, calc(100vw - 16px));
+  padding: 6px 9px;
+  background: var(--panel-2);
+  color: var(--fg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+  font-size: 12px;
+  line-height: 1.45;
+  pointer-events: none;
+  text-align: left;
+}
+.tooltip-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+.tooltip-desc {
+  margin-top: 2px;
+  color: var(--muted);
+}
+.keys {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 3px;
+}
+kbd {
+  font-family: var(--font-ui);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 0 5px;
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--panel);
+  color: var(--fg);
+  white-space: nowrap;
+}
+.layer-flag {
+  display: inline-flex;
+}
+
+/* help dialog */
+.help-modal {
+  width: min(860px, 100%);
+}
+.help-modal h3 {
+  margin: 16px 0 6px;
+  font-size: 14px;
+}
+.help-ops th {
+  width: 40%;
+  font-weight: 500;
+}
+.help-docks {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 6px 12px;
+}
+.help-dock {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.help-dock-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 4px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 2px;
+}
+.help-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 5px 6px;
+  border: 0;
+  border-radius: 5px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.help-item > svg {
+  flex: none;
+  margin-top: 2px;
+  color: var(--accent);
+}
+.help-item > span {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.help-item:hover:not(:disabled):not(.static) {
+  background: var(--hover);
+}
+.help-item:disabled,
+.help-item.static {
+  cursor: default;
+}
+.help-tips {
+  margin: 0;
+  padding-left: 18px;
+  line-height: 1.6;
+}
+
+/* welcome: features and samples */
+.welcome-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 16px 32px;
+  width: min(920px, 100%);
+  margin-top: 20px;
+  text-align: left;
+}
+.welcome-grid h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+.welcome-grid section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.feature-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 8px 14px;
+  width: 100%;
+}
+.feature {
+  display: flex;
+  gap: 8px;
+}
+.feature > svg {
+  flex: none;
+  color: var(--accent);
+  margin-top: 1px;
+}
+.feature > span,
+.sample {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.sample-list {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.sample {
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+.sample:last-child {
+  border-bottom: 0;
+}
+.sample:hover:not(:disabled) {
+  background: var(--hover);
+}
+
+/* state of the drawing (isolated, hidden, filtered, rotated …) */
+.canvas-top {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  max-width: calc(100% - 16px);
+  pointer-events: none;
+}
+.canvas-top > * {
+  pointer-events: auto;
+}
+.canvas-state {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+}
+.state-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 4px 2px 8px;
+  border: 1px solid var(--warn);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.state-chip > svg {
+  color: var(--warn);
+}
+.state-chip .tb-btn.small-btn {
+  border-radius: 999px;
+}
+.state-orient,
+.state-block {
+  border-color: var(--accent);
+}
+.state-orient > svg,
+.state-block > svg {
+  color: var(--accent);
+}
+
+/* first-use hint card */
+.canvas-hints {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 6;
+  width: min(330px, calc(100% - 16px));
+  padding: 8px 10px;
+  background: color-mix(in srgb, var(--panel) 95%, transparent);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+  font-size: 12px;
+}
+.canvas-hints p {
+  margin: 4px 0;
+}
+.canvas-hints-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.canvas-hints .row-actions {
+  justify-content: flex-end;
+}
+.canvas-hints .primary-btn.small {
+  margin-top: 0;
 }

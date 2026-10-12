@@ -5,6 +5,7 @@ import { t } from '../../i18n';
 import { sessions } from '../../session/DocumentSession';
 import { activeTab, useUi } from '../../state/store';
 import { downloadBlob, downloadText, fileStem, toCsv } from '../download';
+import { iconTip } from '../Tooltip';
 
 /** PNG / SVG of the drawing, CSV tables and JSON of the selection or the document. */
 export function ExportMenu() {
@@ -35,7 +36,7 @@ export function ExportMenu() {
 
   return (
     <details className="tb-menu">
-      <summary title={t('export.title')} aria-label={t('export.title')} className={!ready ? 'disabled' : ''}>
+      <summary {...iconTip(t('export.title'), t('tip.export'))} className={!ready ? 'disabled' : ''}>
         <Download size={16} />
       </summary>
       <div className="menu-pop">

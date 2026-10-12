@@ -5,7 +5,7 @@ import { nameKey, type DxfDocument, type Entity, type InsertEntity, type MTextEn
 import { decodeEscapes, plainText } from '../dxf/text/escapes';
 import { mtextPlain } from '../dxf/text/mtext';
 import { identity } from '../geom/matrix';
-import { FlattenHost } from '../scene/flatten';
+import { FLATTEN_BUDGET, FlattenBudgetError, FlattenHost } from '../scene/flatten';
 import type { StyleResolver } from '../scene/style';
 import { TOP_CTX } from '../scene/style';
 import type { TextMeasurer } from '../scene/textLayout';
@@ -117,8 +117,9 @@ export function entityInfo(doc: DxfDocument, id: number, styles: StyleResolver, 
       add('Computed', 'bboxMax', 'Bounds max', [maxX, maxY]);
       add('Computed', 'size', 'Size (W × H)', `${fmt(maxX - minX)} × ${fmt(maxY - minY)}`);
     }
-  } catch {
-    // metrics are best effort
+  } catch (err) {
+    // metrics are best effort; huge block expansions are not flattened
+    if (err instanceof FlattenBudgetError) add('Computed', 'notComputed', 'Not computed', `more than ${FLATTEN_BUDGET.toLocaleString('en-US')} entities inside`);
   }
 
   // --- block reference ---

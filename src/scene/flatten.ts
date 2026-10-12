@@ -52,6 +52,19 @@ class PathAdapter implements PathLike {
   }
 }
 
+/** Thrown when flattening one entity needs more than FLATTEN_BUDGET entity visits. */
+export class FlattenBudgetError extends Error {
+  constructor() {
+    super('flatten budget exceeded');
+  }
+}
+
+/**
+ * Entity visits allowed per flattened entity: nested MINSERT arrays can expand
+ * to billions of entities, which would exhaust the worker's memory.
+ */
+export const FLATTEN_BUDGET = 200_000;
+
 export interface FlattenContext {
   doc: DxfDocument;
   measurer: TextMeasurer;
@@ -67,6 +80,7 @@ export class FlattenHost implements EmitHost {
   readonly fill = true;
   infiniteLines: { x: number; y: number; dx: number; dy: number; ray: boolean }[] = [];
   private stack: string[] = [];
+  private visits = 0;
 
   constructor(private c: FlattenContext) {}
 
@@ -84,6 +98,7 @@ export class FlattenHost implements EmitHost {
     this.out.reset();
     this.infiniteLines = [];
     this.stack = [];
+    this.visits = 0;
   }
 
   use(e: Entity, ctx: InheritCtx): Style {
@@ -155,6 +170,7 @@ export class FlattenHost implements EmitHost {
 
   /** Flatten one entity (recursively for block references). */
   visit(e: Entity, m: Mat34, ctx: InheritCtx = TOP_CTX, depth = 0, inBlock = false): void {
+    if (++this.visits > FLATTEN_BUDGET) throw new FlattenBudgetError();
     if (e.invisible) return;
     const styleOf = (n: string) => this.c.doc.styles.get(nameKey(n));
     switch (e.type) {

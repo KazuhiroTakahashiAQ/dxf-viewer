@@ -1,9 +1,81 @@
-import { describe, expect, it } from 'vitest';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { afterEach, describe, expect, it } from 'vitest';
 
-import { t } from '../../src/i18n';
+import { allCodeDescriptions, HEADER_DESCRIPTIONS } from '../../src/dxf/codes';
+import { parseDxf } from '../../src/dxf/parser';
+import { CATALOG } from '../../src/filter/evaluate';
+import { en } from '../../src/i18n/en';
+import { resolveLocale, setLocale, t, tx } from '../../src/i18n';
+import { ja } from '../../src/i18n/ja';
+import { JA_TERMS } from '../../src/i18n/terms.ja';
+import { StyleResolver } from '../../src/scene/style';
+import type { TextMeasurer } from '../../src/scene/textLayout';
+import { entityInfo } from '../../src/worker/inspect';
 
-describe('i18n', () => {
+const placeholders = (s: string) => [...s.matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
+
+afterEach(() => setLocale('en'));
+
+describe('UI messages', () => {
   it('returns the English string', () => {
     expect(t('app.title')).toBe('DXF Viewer');
+  });
+
+  it('Japanese has exactly the English keys with the same placeholders', () => {
+    expect(Object.keys(ja).sort()).toEqual(Object.keys(en).sort());
+    for (const k of Object.keys(en) as (keyof typeof en)[]) expect([k, placeholders(ja[k])]).toEqual([k, placeholders(en[k])]);
+  });
+
+  it('switches language at run time', () => {
+    expect(t('panel.layers')).toBe('Layers');
+    setLocale('ja');
+    expect(t('panel.layers')).toBe('レイヤー');
+    expect(t('state.isolated', { count: 3 })).toBe('分離表示中: 3 個の要素だけを表示');
+  });
+
+  it('follows the browser language list when set to auto', () => {
+    expect(resolveLocale('auto', ['ja-JP', 'en-US'])).toBe('ja');
+    expect(resolveLocale('auto', ['en-GB', 'ja'])).toBe('en');
+    expect(resolveLocale('auto', ['fr-FR', 'ja'])).toBe('ja');
+    expect(resolveLocale('auto', ['fr-FR'])).toBe('en');
+    expect(resolveLocale('en', ['ja-JP'])).toBe('en');
+  });
+});
+
+describe('fixed texts from the document worker (tx)', () => {
+  it('leaves English untouched in the English UI', () => {
+    expect(tx('Linear units precision')).toBe('Linear units precision');
+  });
+
+  it('translates header variable descriptions, group-code meanings and the filter catalog completely', () => {
+    const missing = [...Object.values(HEADER_DESCRIPTIONS), ...allCodeDescriptions(), ...CATALOG.flatMap((c) => [c.label, c.group])].filter((s) => !(s in JA_TERMS));
+    expect(missing).toEqual([]);
+  });
+
+  it('translates every property label shown for the sample drawings', () => {
+    const measurer: TextMeasurer = { width: (s) => s.length * 60, metrics: () => ({ capHeight: 0.7, ascent: 0.9, descent: 0.2 }) };
+    const dir = 'public/samples';
+    const missing = new Set<string>();
+    for (const name of readdirSync(dir).filter((n) => n.endsWith('.dxf'))) {
+      const doc = parseDxf(new Uint8Array(readFileSync(join(dir, name))), { name });
+      const styles = new StyleResolver(doc);
+      for (let id = 0; id < doc.entities.length; id++) {
+        for (const r of entityInfo(doc, id, styles, measurer)?.rows ?? []) if (r.group !== 'Attributes' && !(r.label in JA_TERMS)) missing.add(r.label);
+      }
+    }
+    expect([...missing]).toEqual([]);
+  });
+
+  it('translates messages with variable parts but keeps names from the drawing', () => {
+    setLocale('ja');
+    expect(tx('Block "Model" is not defined')).toBe('ブロック「Model」が定義されていません');
+    expect(tx('Block: Model')).toBe('ブロック: Model');
+    expect(tx('Manually selected (detected: shift_jis – No $DWGCODEPAGE; byte patterns match Shift_JIS)')).toBe(
+      '手動で選択（自動判定: shift_jis – $DWGCODEPAGE がなく、バイト列が Shift_JIS と一致）',
+    );
+    expect(tx('$ACADVER AC1032 (R2007 or later) stores text as UTF-8')).toBe('$ACADVER AC1032（R2007 以降）は文字を UTF-8 で保存する');
+    // unknown text (e.g. drawing content) is returned unchanged
+    expect(tx('KITCHEN 1F')).toBe('KITCHEN 1F');
   });
 });

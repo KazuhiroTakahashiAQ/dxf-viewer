@@ -6,6 +6,7 @@ import { t } from '../../i18n';
 import { sessions } from '../../session/DocumentSession';
 import type { RawRow } from '../../shared/docApi';
 import { activeTab, useUi } from '../../state/store';
+import { iconTip } from '../Tooltip';
 
 const PAGE = 1000;
 
@@ -91,16 +92,16 @@ export function RawPanel() {
             if (e.key === 'Enter') void search(e.shiftKey ? -1 : 1);
           }}
         />
-        <button type="button" className={`icon-btn toggle ${cs ? 'on' : ''}`} aria-pressed={cs} title={t('texts.caseSensitive')} onClick={() => setCs(!cs)}>
+        <button type="button" className={`icon-btn toggle ${cs ? 'on' : ''}`} aria-pressed={cs} {...iconTip(t('texts.caseSensitive'))} onClick={() => setCs(!cs)}>
           <CaseSensitive size={15} />
         </button>
-        <button type="button" className={`icon-btn toggle ${regex ? 'on' : ''}`} aria-pressed={regex} title={t('texts.regex')} onClick={() => setRegex(!regex)}>
+        <button type="button" className={`icon-btn toggle ${regex ? 'on' : ''}`} aria-pressed={regex} {...iconTip(t('texts.regex'))} onClick={() => setRegex(!regex)}>
           <Regex size={15} />
         </button>
-        <button type="button" className="icon-btn" title={t('raw.prev')} onClick={() => void search(-1)}>
+        <button type="button" className="icon-btn" {...iconTip(t('raw.prev'), undefined, 'Shift+Enter')} onClick={() => void search(-1)}>
           <ChevronUp size={15} />
         </button>
-        <button type="button" className="icon-btn" title={t('raw.next')} onClick={() => void search(1)}>
+        <button type="button" className="icon-btn" {...iconTip(t('raw.next'), undefined, 'Enter')} onClick={() => void search(1)}>
           <ChevronDown size={15} />
         </button>
         {msg && <span className="warn-text small nowrap">{msg}</span>}
@@ -112,7 +113,7 @@ export function RawPanel() {
               <button
                 type="button"
                 className="icon-btn"
-                title={t('raw.selectOwner')}
+                {...iconTip(t('raw.selectOwner'))}
                 onClick={() => {
                   session.setSelection([owner.entityId!]);
                   void session.zoomToEntities([owner.entityId!]);

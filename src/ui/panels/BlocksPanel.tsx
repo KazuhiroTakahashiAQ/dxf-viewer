@@ -6,6 +6,7 @@ import { t } from '../../i18n';
 import { sessions, type DocumentSession } from '../../session/DocumentSession';
 import type { BlockInfo } from '../../shared/docApi';
 import { activeTab, useUi } from '../../state/store';
+import { iconTip } from '../Tooltip';
 
 function Preview({ session, name, background }: { session: DocumentSession; name: string; background: number }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -76,16 +77,16 @@ export function BlocksPanel() {
                   {b.attdefs.length > 0 && <div className="muted small ellipsis">{t('blocks.attdefs', { tags: b.attdefs.join(', ') })}</div>}
                 </div>
                 <div className="block-actions">
-                  <button type="button" className="icon-btn" title={t('blocks.selectRefs')} onClick={() => void select(b.name, false)}>
+                  <button type="button" className="icon-btn" {...iconTip(t('blocks.selectRefs'), t('blocks.selectRefsDesc'))} onClick={() => void select(b.name, false)}>
                     <MousePointerClick size={14} />
                   </button>
-                  <button type="button" className="icon-btn" title={t('blocks.selectNested')} onClick={() => void select(b.name, true)}>
+                  <button type="button" className="icon-btn" {...iconTip(t('blocks.selectNested'), t('blocks.selectNestedDesc'))} onClick={() => void select(b.name, true)}>
                     <Network size={14} />
                   </button>
                   <button
                     type="button"
                     className="icon-btn"
-                    title={t('blocks.isolate')}
+                    {...iconTip(t('blocks.isolate'), t('blocks.isolateDesc'))}
                     onClick={async () => {
                       const ids = await session.rpc.call('blockRefs', { name: b.name, nested: true });
                       void session.setVisibility('isolate', ids);
@@ -93,7 +94,7 @@ export function BlocksPanel() {
                   >
                     <Focus size={14} />
                   </button>
-                  <button type="button" className="icon-btn" title={t('blocks.view')} onClick={() => void session.setLayout('§' + b.name)}>
+                  <button type="button" className="icon-btn" {...iconTip(t('blocks.view'), t('blocks.viewDesc'))} onClick={() => void session.setLayout('§' + b.name)}>
                     <Eye size={14} />
                   </button>
                 </div>

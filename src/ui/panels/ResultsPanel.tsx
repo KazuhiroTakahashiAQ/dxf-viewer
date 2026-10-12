@@ -7,6 +7,7 @@ import { sessions } from '../../session/DocumentSession';
 import type { ResultRow } from '../../shared/docApi';
 import { activeTab, useUi } from '../../state/store';
 import { downloadText, toCsv } from '../download';
+import { iconTip } from '../Tooltip';
 
 const PAGE = 500;
 
@@ -45,13 +46,13 @@ export function ResultsPanel() {
       <div className="panel-toolbar">
         <span className="muted nowrap">{t('filter.result', { count: total.toLocaleString() })}</span>
         <span className="tb-spacer" />
-        <button type="button" className="icon-btn" title={t('results.selectAll')} onClick={async () => session.setSelection((await all()).map((r) => r.id))}>
+        <button type="button" className="icon-btn" {...iconTip(t('results.selectAll'))} onClick={async () => session.setSelection((await all()).map((r) => r.id))}>
           <MousePointerClick size={14} />
         </button>
         <button
           type="button"
           className="icon-btn"
-          title={t('texts.exportCsv')}
+          {...iconTip(t('texts.exportCsv'))}
           onClick={async () => downloadText('filter-results.csv', toCsv(['handle', 'type', 'layer', 'label'], (await all()).map((r) => [r.handle, r.type, r.layer, r.label])), 'text/csv;charset=utf-8')}
         >
           <Download size={14} />

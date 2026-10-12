@@ -4,6 +4,7 @@ import type { BuildInfo, DocSummary, EntityMeasure, FilterResult, FontOverrideIn
 import type { MeasureMode } from '../ui/measure';
 import type { RecentMode } from '../storage/recentFiles';
 import type { FilterSpec } from '../shared/filterSpec';
+import type { LocalePref } from '../i18n';
 
 export type DockSide = 'left' | 'right' | 'bottom';
 
@@ -57,6 +58,8 @@ export interface ViewerSettings extends RenderSettings {
   fontOverrides: Record<string, FontOverrideInfo>;
   /** UI color scheme */
   theme: 'system' | 'light' | 'dark';
+  /** UI language ('auto' follows the browser) */
+  locale: LocalePref;
   /** what "recent files" records: nothing, names only (default), or the drawings too */
   recentMode: RecentMode;
   /** reopen the previous tabs at startup (requires stored drawings) */
@@ -117,6 +120,9 @@ export interface UiState {
   /** offline font download dialog */
   fontDialog: boolean;
   setFontDialog(open: boolean): void;
+  /** help dialog */
+  helpOpen: boolean;
+  setHelpOpen(open: boolean): void;
   /** request for the Raw panel to scroll to a line */
   rawJump: { line: number; seq: number } | null;
   setRawJump(j: { line: number; seq: number } | null): void;
@@ -167,6 +173,7 @@ const DEFAULT_SETTINGS: ViewerSettings = {
   showInsertionPoints: false,
   showControlPoints: false,
   theme: 'system',
+  locale: 'auto',
   coordPrecision: -1,
   wheelZoomFactor: 1.2,
   trackpadPan: true,
@@ -231,6 +238,8 @@ export const useUi = create<UiState>((set, get) => ({
   setPendingFilter: (f) => set({ pendingFilter: f }),
   fontDialog: false,
   setFontDialog: (open) => set({ fontDialog: open }),
+  helpOpen: false,
+  setHelpOpen: (open) => set({ helpOpen: open }),
   rawJump: null,
   setRawJump: (j) => set({ rawJump: j }),
   inspectHandle: null,

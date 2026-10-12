@@ -7,6 +7,7 @@ import type { NamedView } from '../../shared/docApi';
 import { normalizeAngle } from '../../shared/view';
 import { savedViews, setSavedViews, type SavedView } from '../../storage/perFile';
 import { activeTab, useUi } from '../../state/store';
+import { iconTip } from '../Tooltip';
 
 const fmt = (v: number) => String(Number(v.toPrecision(6)));
 
@@ -89,7 +90,7 @@ export function ViewsPanel() {
               {v.paperSpace ? ` · ${t('views.paper')}` : ''}
             </span>
             {v.nonPlan && (
-              <span title={t('views.nonPlan')}>
+              <span {...iconTip(t('views.nonPlan'))}>
                 <TriangleAlert size={12} className="warn" />
               </span>
             )}
@@ -117,7 +118,7 @@ export function ViewsPanel() {
             <button
               type="button"
               className="icon-btn"
-              title={t('filter.remove')}
+              {...iconTip(t('filter.remove'))}
               onClick={() => {
                 if (!hash) return;
                 const next = saved.filter((x) => x.name !== v.name);

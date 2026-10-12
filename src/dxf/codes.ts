@@ -102,6 +102,11 @@ const BY_TYPE: Record<string, Record<number, string>> = {
   MLINE: { 2: 'Style name', 40: 'Scale', 70: 'Justification', 71: 'Flags', 72: 'Number of vertices', 73: 'Number of elements', 11: 'Vertex X', 12: 'Segment direction X', 13: 'Miter direction X', 74: 'Number of element parameters', 41: 'Element parameter', 75: 'Number of fill parameters', 42: 'Fill parameter' },
 };
 
+/** Every description text (used to check that translations are complete). */
+export function allCodeDescriptions(): string[] {
+  return [...new Set([...GENERIC.map((g) => g[2]), ...Object.values(BY_TYPE).flatMap((m) => Object.values(m))])];
+}
+
 export function describeCode(type: string, code: number): string {
   const t = BY_TYPE[type]?.[code];
   if (t) return t;

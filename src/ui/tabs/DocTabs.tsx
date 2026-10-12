@@ -5,6 +5,7 @@ import { t } from '../../i18n';
 import { formatBytes } from '../format';
 import { closeSession } from '../../session/DocumentSession';
 import { useUi } from '../../state/store';
+import { iconTip, tip } from '../Tooltip';
 
 export function DocTabs() {
   const tabs = useUi((s) => s.tabs);
@@ -22,7 +23,7 @@ export function DocTabs() {
           aria-selected={tab.id === activeId}
           tabIndex={0}
           className={`doc-tab ${tab.id === activeId ? 'active' : ''}`}
-          title={tab.build?.memoryBytes ? `${tab.name} — ${t('tabs.memory', { size: formatBytes(tab.build.memoryBytes) })}` : tab.name}
+          {...tip(tab.name, [tab.build?.memoryBytes ? t('tabs.memory', { size: formatBytes(tab.build.memoryBytes) }) : '', t('tip.tab')].filter(Boolean).join(' · '))}
           draggable
           onDragStart={() => (dragFrom.current = i)}
           onDragOver={(e) => e.preventDefault()}
@@ -45,8 +46,7 @@ export function DocTabs() {
           <button
             type="button"
             className="icon-btn tab-close"
-            title={t('tabs.close')}
-            aria-label={t('tabs.close')}
+            {...iconTip(t('tabs.close'))}
             onClick={(e) => {
               e.stopPropagation();
               closeSession(tab.id);

@@ -255,4 +255,19 @@ describe('expansion budget', () => {
     expect(s.budgetExceeded).toBe(0);
     expect(s.primitives).toBeGreaterThanOrEqual(10);
   });
+  it('properties of a reference that expands to billions of entities are computed without flattening it all', async () => {
+    const { readFileSync } = await import('node:fs');
+    const { parseDxf } = await import('../../src/dxf/parser');
+    const { StyleResolver } = await import('../../src/scene/style');
+    const { entityInfo } = await import('../../src/worker/inspect');
+    // GRID3 nests 100 × 100 MINSERT arrays three levels deep (10^12 lines); this used to exhaust the worker's memory
+    const doc = parseDxf(new Uint8Array(readFileSync('public/samples/minsert_budget.dxf')), { name: 'minsert_budget.dxf' });
+    const id = doc.modelSpace.find((i) => (doc.entities[i] as { name?: string }).name === 'GRID3')!;
+    const m = { width: (t: string) => t.length, metrics: () => ({ capHeight: 0.7, ascent: 0.9, descent: 0.2 }) };
+    const t0 = performance.now();
+    const info = entityInfo(doc, id, new StyleResolver(doc), m);
+    expect(performance.now() - t0).toBeLessThan(5000);
+    expect(info?.rows.some((r) => r.key === 'notComputed')).toBe(true);
+    expect(info?.rows.some((r) => r.key === 'length')).toBe(false);
+  });
 });

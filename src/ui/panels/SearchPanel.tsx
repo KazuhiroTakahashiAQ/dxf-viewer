@@ -5,6 +5,14 @@ import { t } from '../../i18n';
 import { sessions } from '../../session/DocumentSession';
 import type { SearchHit } from '../../shared/docApi';
 import { activeTab, useUi } from '../../state/store';
+import { iconTip } from '../Tooltip';
+
+/** Localized name of the matched field ("text", "layer", "attribute TAG" …). */
+function fieldLabel(field: string): string {
+  if (field.startsWith('attribute ')) return t('search.field.attribute', { tag: field.slice(10) });
+  if (field === 'text' || field === 'handle' || field === 'layer' || field === 'block') return t(`search.field.${field}`);
+  return field;
+}
 
 interface TabHits {
   tabId: string;
@@ -62,10 +70,10 @@ export function SearchPanel() {
     <div className="panel">
       <div className="panel-toolbar">
         <input className="search" type="search" placeholder={t('search.placeholder')} value={q} onChange={(e) => setQ(e.target.value)} autoFocus />
-        <button type="button" className={`icon-btn toggle ${cs ? 'on' : ''}`} aria-pressed={cs} title={t('texts.caseSensitive')} onClick={() => setCs(!cs)}>
+        <button type="button" className={`icon-btn toggle ${cs ? 'on' : ''}`} aria-pressed={cs} {...iconTip(t('texts.caseSensitive'))} onClick={() => setCs(!cs)}>
           <CaseSensitive size={15} />
         </button>
-        <button type="button" className={`icon-btn toggle ${regex ? 'on' : ''}`} aria-pressed={regex} title={t('texts.regex')} onClick={() => setRegex(!regex)}>
+        <button type="button" className={`icon-btn toggle ${regex ? 'on' : ''}`} aria-pressed={regex} {...iconTip(t('texts.regex'))} onClick={() => setRegex(!regex)}>
           <Regex size={15} />
         </button>
       </div>
@@ -92,7 +100,7 @@ export function SearchPanel() {
                 <span className="hit-text" title={h.text}>
                   {h.text}
                 </span>
-                <span className="muted small">{h.field}</span>
+                <span className="muted small">{fieldLabel(h.field)}</span>
               </div>
             ))}
             {r.total > r.hits.length && <p className="muted small search-more">{t('search.more', { count: r.total - r.hits.length })}</p>}

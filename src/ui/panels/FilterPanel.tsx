@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { BookmarkPlus, ChevronDown, ChevronRight, Link2, Pentagon, Play, Plus, Scan, Square, Trash2, X } from 'lucide-react';
 
-import { t } from '../../i18n';
+import { t, tx, type MessageKey } from '../../i18n';
 import { sessions, type DocumentSession } from '../../session/DocumentSession';
 import type { FilterCatalog } from '../../shared/docApi';
 import {
@@ -21,6 +21,7 @@ import {
 } from '../../shared/filterSpec';
 import { screenToWorld } from '../../shared/view';
 import { activeTab, useUi } from '../../state/store';
+import { iconTip, tip } from '../Tooltip';
 
 const fmt = (v: number) => String(Number(v.toPrecision(6)));
 
@@ -57,10 +58,10 @@ function savePresets(p: { name: string; spec: FilterSpec }[]): void {
 function propInfo(key: string, catalog: FilterCatalog | null): CatalogProp {
   const c = catalog?.props.find((p) => p.key === key);
   if (c) return c;
-  if (key.startsWith('gc[')) return { key, label: `Group code ${key.slice(3, -1)}`, type: 'string', group: 'Raw' };
-  if (key.startsWith('xdata.')) return { key, label: `XDATA ${key.slice(6)}`, type: /\[\d+\]$/.test(key) ? 'string' : 'boolean', group: 'Data' };
-  if (key.startsWith('attr.')) return { key, label: `Attribute ${key.slice(5)}`, type: 'string', group: 'Blocks' };
-  if (key.startsWith('field.')) return { key, label: `Field ${key.slice(6)}`, type: 'string', group: 'Fields' };
+  if (key.startsWith('gc[')) return { key, label: t('filter.gc', { code: key.slice(3, -1) }), type: 'string', group: 'Raw' };
+  if (key.startsWith('xdata.')) return { key, label: t('filter.xdataProp', { app: key.slice(6) }), type: /\[\d+\]$/.test(key) ? 'string' : 'boolean', group: 'Data' };
+  if (key.startsWith('attr.')) return { key, label: t('filter.attrProp', { tag: key.slice(5) }), type: 'string', group: 'Blocks' };
+  if (key.startsWith('field.')) return { key, label: t('filter.fieldProp', { name: key.slice(6) }), type: 'string', group: 'Fields' };
   return { key, label: key, type: 'string', group: '' };
 }
 
@@ -73,7 +74,7 @@ function Facet({ name, values, selected, onChange }: { name: FacetKey; values: [
     <div className="facet">
       <button type="button" className="section-toggle" onClick={() => setOpen(!open)} aria-expanded={open}>
         {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-        {t(`filter.facet.${name}` as never)}
+        {t(`filter.facet.${name}` as MessageKey)}
         <span className="muted small">{selected.length ? t('filter.nSelected', { count: selected.length }) : values.length}</span>
         {selected.length > 0 && (
           <span
@@ -150,10 +151,10 @@ function CondRow({
     <div className="cond-row">
       <select value={cond.prop} onChange={(e) => onChange({ ...cond, prop: e.target.value, op: OPS_BY_TYPE[propInfo(e.target.value, catalog).type].includes(cond.op) ? cond.op : propInfo(e.target.value, catalog).type === 'number' ? 'gt' : 'contains' })}>
         {groups.map(([g, props]) => (
-          <optgroup key={g} label={g}>
+          <optgroup key={g} label={tx(g)}>
             {props.map((p) => (
               <option key={p.key} value={p.key}>
-                {p.label}
+                {tx(p.label)}
               </option>
             ))}
           </optgroup>
@@ -194,7 +195,7 @@ function CondRow({
             ))}
           </optgroup>
         )}
-        {!catalog?.props.some((p) => p.key === cond.prop) && <option value={cond.prop}>{info.label}</option>}
+        {!catalog?.props.some((p) => p.key === cond.prop) && <option value={cond.prop}>{tx(info.label)}</option>}
       </select>
       <select value={cond.op} onChange={(e) => onChange({ ...cond, op: e.target.value as FilterOp })}>
         {ops.map((o) => (
@@ -213,7 +214,7 @@ function CondRow({
             onFocus={() => void session.rpc.call('filterValues', { prop: cond.prop, level, limit: 200 }).then(setSuggest)}
             onChange={(e) => onChange({ ...cond, value: e.target.value })}
             aria-invalid={risky}
-            title={risky ? t('filter.riskyRegex') : undefined}
+            {...(risky ? tip(t('filter.riskyRegex')) : {})}
           />
           <datalist id={listId}>
             {suggest.map(([v, n]) => (
@@ -224,12 +225,12 @@ function CondRow({
         </>
       )}
       {info.type === 'string' && (
-        <label className="case-toggle" title={t('texts.caseSensitive')}>
+        <label className="case-toggle" {...tip(t('texts.caseSensitive'))}>
           <input type="checkbox" checked={!!cond.caseSensitive} onChange={(e) => onChange({ ...cond, caseSensitive: e.target.checked })} />
           Aa
         </label>
       )}
-      <button type="button" className="icon-btn" title={t('filter.remove')} onClick={onRemove}>
+      <button type="button" className="icon-btn" {...iconTip(t('filter.remove'))} onClick={onRemove}>
         <Trash2 size={13} />
       </button>
     </div>
@@ -282,7 +283,7 @@ function GroupEditor({
           </button>
         )}
         {onRemove && (
-          <button type="button" className="icon-btn" title={t('filter.remove')} onClick={onRemove}>
+          <button type="button" className="icon-btn" {...iconTip(t('filter.remove'))} onClick={onRemove}>
             <Trash2 size={13} />
           </button>
         )}
@@ -377,15 +378,15 @@ export function FilterPanel() {
       <div className="panel-section filter-mode">
         <div className="seg" role="radiogroup" aria-label={t('filter.mode')}>
           {(['show', 'highlight', 'select'] as const).map((m) => (
-            <button key={m} type="button" role="radio" aria-checked={spec.mode === m} className={spec.mode === m ? 'on' : ''} onClick={() => update({ mode: m })}>
-              {t(`filter.mode.${m}` as never)}
+            <button key={m} type="button" role="radio" aria-checked={spec.mode === m} className={spec.mode === m ? 'on' : ''} onClick={() => update({ mode: m })} {...tip(t(`filter.mode.${m}`), t(`filter.mode.${m}.help`))}>
+              {t(`filter.mode.${m}`)}
             </button>
           ))}
         </div>
         <div className="seg" role="radiogroup" aria-label={t('filter.level')}>
           {(['top', 'leaf'] as const).map((l) => (
-            <button key={l} type="button" role="radio" aria-checked={spec.level === l} className={spec.level === l ? 'on' : ''} onClick={() => update({ level: l })} title={t(`filter.level.${l}.help` as never)}>
-              {t(`filter.level.${l}` as never)}
+            <button key={l} type="button" role="radio" aria-checked={spec.level === l} className={spec.level === l ? 'on' : ''} onClick={() => update({ level: l })} {...tip(t(`filter.level.${l}`), t(`filter.level.${l}.help`))}>
+              {t(`filter.level.${l}`)}
             </button>
           ))}
         </div>
@@ -409,15 +410,15 @@ export function FilterPanel() {
           <b>{t('filter.region')}</b>
         </div>
         <div className="spatial-row">
-          <button type="button" className="tb-btn small-btn" onClick={() => update({ spatial: viewRegion(session, spec.spatial?.mode) })}>
+          <button type="button" className="tb-btn small-btn" onClick={() => update({ spatial: viewRegion(session, spec.spatial?.mode) })} {...tip(t('filter.region.view'), t('filter.region.view.help'))}>
             <Scan size={12} />
             {t('filter.region.view')}
           </button>
-          <button type="button" className={`tb-btn small-btn ${regionPick === 'rect' ? 'on' : ''}`} onClick={() => setRegionPick(regionPick === 'rect' ? null : 'rect')}>
+          <button type="button" className={`tb-btn small-btn ${regionPick === 'rect' ? 'on' : ''}`} onClick={() => setRegionPick(regionPick === 'rect' ? null : 'rect')} {...tip(t('filter.region.rect'), t('filter.region.rect.help'))}>
             <Square size={12} />
             {t('filter.region.rect')}
           </button>
-          <button type="button" className={`tb-btn small-btn ${regionPick === 'polygon' ? 'on' : ''}`} onClick={() => setRegionPick(regionPick === 'polygon' ? null : 'polygon')}>
+          <button type="button" className={`tb-btn small-btn ${regionPick === 'polygon' ? 'on' : ''}`} onClick={() => setRegionPick(regionPick === 'polygon' ? null : 'polygon')} {...tip(t('filter.region.polygon'), t('filter.region.polygon.help'))}>
             <Pentagon size={12} />
             {t('filter.region.polygon')}
           </button>
@@ -433,7 +434,7 @@ export function FilterPanel() {
               <option value="crossing">{t('filter.spatial.crossing')}</option>
               <option value="inside">{t('filter.spatial.inside')}</option>
             </select>
-            <button type="button" className="icon-btn" title={t('filter.remove')} onClick={() => update({ spatial: undefined })}>
+            <button type="button" className="icon-btn" {...iconTip(t('filter.remove'))} onClick={() => update({ spatial: undefined })}>
               <Trash2 size={13} />
             </button>
           </div>
@@ -455,13 +456,13 @@ export function FilterPanel() {
         >
           {t('filter.clear')}
         </button>
-        <button type="button" className="icon-btn" title={t('filter.share')} onClick={() => void share()}>
+        <button type="button" className="icon-btn" {...iconTip(t('filter.share'), t('filter.share.help'))} onClick={() => void share()}>
           <Link2 size={15} />
         </button>
         <button
           type="button"
           className="icon-btn"
-          title={t('filter.savePreset')}
+          {...iconTip(t('filter.savePreset'))}
           onClick={() => {
             const name = prompt(t('filter.presetName'));
             if (!name) return;
@@ -504,7 +505,7 @@ export function FilterPanel() {
               <button
                 type="button"
                 className="icon-btn"
-                title={t('filter.remove')}
+                {...iconTip(t('filter.remove'))}
                 onClick={() => {
                   const next = presets.filter((x) => x.name !== p.name);
                   setPresets(next);

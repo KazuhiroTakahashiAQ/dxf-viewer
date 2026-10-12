@@ -12,6 +12,7 @@ import { drawGuides } from './guides';
 import { drawMeasure, drawSnap } from './overlayDraw';
 import { unitName } from '../format';
 import { ContextMenu, type MenuItem } from './ContextMenu';
+import { CanvasHints, CanvasStateBar } from './CanvasState';
 
 interface PointerInfo {
   x: number;
@@ -555,14 +556,18 @@ export function CanvasHost({ tabId }: { tabId: string }) {
   return (
     <div className="canvas-host" ref={hostRef}>
       <canvas className={`overlay-canvas ${regionPick ? 'picking-region' : ''}`} ref={overlayRef} />
-      {regionPick && (
-        <div className="canvas-hint">
-          {t(regionPick === 'rect' ? 'filter.region.rectHint' : 'filter.region.polygonHint')}
-          <button type="button" className="tb-btn small-btn" onClick={() => useUi.getState().setRegionPick(null)}>
-            {t('filter.region.cancel')}
-          </button>
-        </div>
-      )}
+      <div className="canvas-top">
+        {regionPick && (
+          <div className="canvas-hint">
+            {t(regionPick === 'rect' ? 'filter.region.rectHint' : 'filter.region.polygonHint')}
+            <button type="button" className="tb-btn small-btn" onClick={() => useUi.getState().setRegionPick(null)}>
+              {t('filter.region.cancel')}
+            </button>
+          </div>
+        )}
+        <CanvasStateBar tabId={tabId} />
+      </div>
+      <CanvasHints />
       {hover && (
         <div
           className="hover-tip"

@@ -9,6 +9,7 @@ import { activeTab, useUi } from '../../state/store';
 import { listUserFonts, removeUserFont, type StoredFontInfo } from '../../storage/userFonts';
 import { addFontFiles, reloadUserFontsEverywhere } from '../../session/userFonts';
 import { formatBytes } from '../format';
+import { iconTip, tip } from '../Tooltip';
 
 const STROKE_FONTS: [string, string][] = [
   ['futural', 'Hershey Simplex (txt/simplex/romans)'],
@@ -140,11 +141,11 @@ export function FontsPanel() {
                   </optgroup>
                 )}
               </select>
-              <label title={t('fonts.widthScale')}>
+              <label {...tip(t('fonts.widthScale'))}>
                 W×
                 <input type="number" step="0.05" min="0.1" max="5" value={ov?.widthScale ?? 1} onChange={(e) => setOverride(f.requested, { widthScale: Number(e.target.value) || 1 })} />
               </label>
-              <label title={t('fonts.heightScale')}>
+              <label {...tip(t('fonts.heightScale'))}>
                 H×
                 <input type="number" step="0.05" min="0.1" max="5" value={ov?.heightScale ?? 1} onChange={(e) => setOverride(f.requested, { heightScale: Number(e.target.value) || 1 })} />
               </label>
@@ -181,7 +182,7 @@ export function FontsPanel() {
             <button
               type="button"
               className="icon-btn"
-              title={t('fonts.remove')}
+              {...iconTip(t('fonts.remove'))}
               onClick={async () => {
                 await removeUserFont(u.name);
                 setErrors(await reloadUserFontsEverywhere());

@@ -6,6 +6,7 @@ import { listRecent, removeRecent, type RecentEntry } from '../storage/recentFil
 import { useUi } from '../state/store';
 import { chooseFiles, reopenRecent } from './fileOpen';
 import { formatBytes } from './format';
+import { iconTip, tip } from './Tooltip';
 
 /** Recently opened drawings (names only unless storing drawings is enabled). */
 export function RecentList({ fileInput, compact = false }: { fileInput: RefObject<HTMLInputElement | null>; compact?: boolean }) {
@@ -27,7 +28,7 @@ export function RecentList({ fileInput, compact = false }: { fileInput: RefObjec
           <button
             type="button"
             className="recent-open"
-            title={e.stored ? t('recent.stored') : e.handle ? t('recent.handle') : t('recent.metaOnly')}
+            {...tip(e.name, e.stored ? t('recent.stored') : e.handle ? t('recent.handle') : t('recent.metaOnly'))}
             onClick={async () => {
               setMsg('');
               const ok = await reopenRecent(e);
@@ -46,7 +47,7 @@ export function RecentList({ fileInput, compact = false }: { fileInput: RefObjec
           <button
             type="button"
             className="icon-btn"
-            title={t('recent.remove')}
+            {...iconTip(t('recent.remove'))}
             onClick={async () => {
               await removeRecent(e.hash);
               bump();

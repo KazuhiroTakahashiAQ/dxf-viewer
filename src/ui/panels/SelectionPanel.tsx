@@ -7,6 +7,7 @@ import { sessions } from '../../session/DocumentSession';
 import type { HoverInfo } from '../../shared/docApi';
 import { activeTab, useUi } from '../../state/store';
 import { downloadText, toCsv } from '../download';
+import { iconTip } from '../Tooltip';
 
 export function SelectionPanel() {
   const tab = useUi(activeTab);
@@ -29,22 +30,22 @@ export function SelectionPanel() {
       <div className="panel-toolbar">
         <span className="muted nowrap">{t('props.selected', { count: sel.length })}</span>
         <span className="tb-spacer" />
-        <button type="button" className="icon-btn" disabled={!sel.length} title={t('menu.isolate')} onClick={() => void session.setVisibility('isolate', sel)}>
+        <button type="button" className="icon-btn" disabled={!sel.length} {...iconTip(t('menu.isolate'), t('blocks.isolateDesc'))} onClick={() => void session.setVisibility('isolate', sel)}>
           <Focus size={14} />
         </button>
-        <button type="button" className="icon-btn" disabled={!sel.length} title={t('menu.hide')} onClick={() => void session.setVisibility('hide', sel)}>
+        <button type="button" className="icon-btn" disabled={!sel.length} {...iconTip(t('menu.hide'), t('help.tip.hidden'))} onClick={() => void session.setVisibility('hide', sel)}>
           <EyeOff size={14} />
         </button>
         <button
           type="button"
           className="icon-btn"
           disabled={!rows.length}
-          title={t('texts.exportCsv')}
+          {...iconTip(t('texts.exportCsv'))}
           onClick={() => downloadText('selection.csv', toCsv(['handle', 'type', 'layer'], rows.map((r) => [r.handle, r.type, r.layer])), 'text/csv;charset=utf-8')}
         >
           <Download size={14} />
         </button>
-        <button type="button" className="icon-btn" disabled={!sel.length} title={t('sel.clear')} onClick={() => session.setSelection([])}>
+        <button type="button" className="icon-btn" disabled={!sel.length} {...iconTip(t('sel.clear'), undefined, 'Esc')} onClick={() => session.setSelection([])}>
           <X size={14} />
         </button>
       </div>
@@ -62,7 +63,7 @@ export function SelectionPanel() {
                 <button
                   type="button"
                   className="icon-btn hover-only"
-                  title={t('sel.remove')}
+                  {...iconTip(t('sel.remove'))}
                   onClick={(e) => {
                     e.stopPropagation();
                     session.setSelection(sel.filter((id) => id !== r.id));

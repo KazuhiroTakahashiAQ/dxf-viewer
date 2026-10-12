@@ -3,10 +3,13 @@ import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, type LucideIcon } fr
 
 import { t, type MessageKey } from '../../i18n';
 import { useUi, type DockSide } from '../../state/store';
+import { iconTip, tip } from '../Tooltip';
 
 export interface PanelDef {
   id: string;
   title: MessageKey;
+  /** what the panel is for (tooltip, help) */
+  desc: MessageKey;
   icon: LucideIcon;
   component: ComponentType;
 }
@@ -56,11 +59,11 @@ export function Dock({ side, panels }: { side: DockSide; panels: PanelDef[] }) {
       <div className={`dock dock-${side} dock-collapsed`}>
         <div className="dock-strip">
           {panels.map((p) => (
-            <button key={p.id} type="button" className="icon-btn" title={t(p.title)} aria-label={t(p.title)} onClick={() => toggleDock(side, p.id)}>
+            <button key={p.id} type="button" className="icon-btn" {...iconTip(t(p.title), t(p.desc))} onClick={() => toggleDock(side, p.id)}>
               <p.icon size={16} />
             </button>
           ))}
-          <button type="button" className="icon-btn dock-expand" title={t('dock.expand')} aria-label={t('dock.expand')} onClick={() => setDock(side, { open: true })}>
+          <button type="button" className="icon-btn dock-expand" {...iconTip(t('dock.expand'))} onClick={() => setDock(side, { open: true })}>
             <ExpandIcon size={14} />
           </button>
         </div>
@@ -82,14 +85,14 @@ export function Dock({ side, panels }: { side: DockSide; panels: PanelDef[] }) {
               aria-selected={p.id === active.id}
               className={`dock-tab ${p.id === active.id ? 'active' : ''}`}
               onClick={() => setDock(side, { active: p.id })}
-              title={t(p.title)}
+              {...tip(t(p.title), t(p.desc))}
             >
               <p.icon size={14} />
               <span>{t(p.title)}</span>
             </button>
           ))}
         </div>
-        <button type="button" className="icon-btn" title={t('dock.collapse')} aria-label={t('dock.collapse')} onClick={() => setDock(side, { open: false })}>
+        <button type="button" className="icon-btn" {...iconTip(t('dock.collapse'))} onClick={() => setDock(side, { open: false })}>
           <CollapseIcon size={14} />
         </button>
       </div>

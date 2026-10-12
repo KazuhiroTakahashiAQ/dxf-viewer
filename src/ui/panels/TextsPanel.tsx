@@ -2,11 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { CaseSensitive, Download, Regex } from 'lucide-react';
 
-import { t } from '../../i18n';
+import { t, tx } from '../../i18n';
 import { sessions } from '../../session/DocumentSession';
 import type { TextQuery, TextRow } from '../../shared/docApi';
 import { activeTab, useUi } from '../../state/store';
 import { downloadText, toCsv } from '../download';
+import { iconTip, tip } from '../Tooltip';
 
 const PAGE = 400;
 
@@ -80,24 +81,24 @@ export function TextsPanel() {
     <div className="panel texts-panel">
       <div className="panel-toolbar">
         <input className="search" type="search" placeholder={t('texts.search')} value={text} onChange={(e) => setText(e.target.value)} aria-invalid={!!error} />
-        <button type="button" className={`icon-btn toggle ${caseSensitive ? 'on' : ''}`} aria-pressed={caseSensitive} title={t('texts.caseSensitive')} onClick={() => setCaseSensitive(!caseSensitive)}>
+        <button type="button" className={`icon-btn toggle ${caseSensitive ? 'on' : ''}`} aria-pressed={caseSensitive} {...iconTip(t('texts.caseSensitive'))} onClick={() => setCaseSensitive(!caseSensitive)}>
           <CaseSensitive size={15} />
         </button>
-        <button type="button" className={`icon-btn toggle ${regex ? 'on' : ''}`} aria-pressed={regex} title={t('texts.regex')} onClick={() => setRegex(!regex)}>
+        <button type="button" className={`icon-btn toggle ${regex ? 'on' : ''}`} aria-pressed={regex} {...iconTip(t('texts.regex'))} onClick={() => setRegex(!regex)}>
           <Regex size={15} />
         </button>
-        <select value={field} onChange={(e) => setField(e.target.value as 'plain' | 'raw')} title={t('texts.field')}>
+        <select value={field} onChange={(e) => setField(e.target.value as 'plain' | 'raw')} {...iconTip(t('texts.field'))}>
           <option value="plain">{t('texts.field.plain')}</option>
           <option value="raw">{t('texts.field.raw')}</option>
         </select>
-        <select value={container} onChange={(e) => setContainer(e.target.value)} title={t('texts.container')}>
+        <select value={container} onChange={(e) => setContainer(e.target.value)} {...iconTip(t('texts.container'))}>
           <option value="all">{t('texts.container.all')}</option>
           <option value="Model">{t('texts.container.model')}</option>
           <option value="Paper">{t('texts.container.paper')}</option>
           <option value="blocks">{t('texts.container.blocks')}</option>
         </select>
         <span className="muted nowrap">{error ? <span className="warn-text">{error}</span> : t('texts.count', { count: total.toLocaleString() })}</span>
-        <button type="button" className="icon-btn" title={t('texts.exportCsv')} onClick={() => void exportCsv()} disabled={!total}>
+        <button type="button" className="icon-btn" {...iconTip(t('texts.exportCsv'))} onClick={() => void exportCsv()} disabled={!total}>
           <Download size={15} />
         </button>
       </div>
@@ -135,7 +136,7 @@ export function TextsPanel() {
                       {r.tag ? <b className="muted">{r.tag}: </b> : null}
                       {(field === 'raw' ? r.raw : r.plain).replace(/\n/g, ' ⏎ ')}
                     </span>
-                    <span title={r.container}>{r.container}</span>
+                    <span {...tip(tx(r.container))}>{tx(r.container)}</span>
                     <span className="mono">{r.handle}</span>
                   </>
                 ) : (

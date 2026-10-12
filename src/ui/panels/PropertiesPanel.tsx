@@ -2,11 +2,18 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ChevronDown, ChevronRight, Copy, Crosshair, ScrollText } from 'lucide-react';
 
-import { t } from '../../i18n';
+import { t, tx, type MessageKey } from '../../i18n';
 import { sessions, type DocumentSession } from '../../session/DocumentSession';
 import type { EntityInfo, PropRow, RawTagRow, SelectionSummary } from '../../shared/docApi';
 import { activeTab, useUi } from '../../state/store';
 import { showRawLine } from './DocumentPanel';
+import { iconTip, tip } from '../Tooltip';
+
+/** property values that are fixed words rather than drawing data */
+const WORD_VALUES = new Set(['space', 'effectiveColor', 'missing', 'notComputed']);
+
+/** Localized label of a property row (attribute tags are drawing data and stay as they are). */
+const rowLabel = (r: PropRow) => (r.group === 'Attributes' ? r.label : tx(r.label));
 
 const RAW_PAGE = 500;
 
@@ -27,7 +34,7 @@ function Value({ row, session }: { row: PropRow; session: DocumentSession }) {
     return (
       <span className="handles">
         {row.value.split(/,\s*/).map((h) => (
-          <button key={h} type="button" className="link-inline mono" onClick={() => void followHandle(session, h)}>
+          <button key={h} type="button" className="link-inline mono" onClick={() => void followHandle(session, h)} {...tip(t('props.handleLink'))}>
             {h}
           </button>
         ))}
@@ -45,12 +52,12 @@ function Value({ row, session }: { row: PropRow; session: DocumentSession }) {
     return (
       <span className="color-value">
         {row.color && <span className="swatch" style={{ background: row.color }} />}
-        {String(row.value)}
+        {WORD_VALUES.has(row.key) && typeof row.value === 'string' ? tx(row.value) : String(row.value)}
       </span>
     );
   }
   if (row.kind === 'text') return <span className="text-value">{String(row.value)}</span>;
-  return <span>{String(row.value)}</span>;
+  return <span>{WORD_VALUES.has(row.key) && typeof row.value === 'string' ? tx(row.value) : String(row.value)}</span>;
 }
 
 function RawTags({ session, id, total }: { session: DocumentSession; id: number; total: number }) {
@@ -74,7 +81,7 @@ function RawTags({ session, id, total }: { session: DocumentSession; id: number;
     <div className="raw-tags">
       <div className="raw-head">
         <span className="muted">{t('props.rawCount', { count: total })}</span>
-        <button type="button" className="icon-btn" title={t('props.copyDxf')} onClick={() => void copy()}>
+        <button type="button" className="icon-btn" {...iconTip(t('props.copyDxf'))} onClick={() => void copy()}>
           <Copy size={13} />
         </button>
       </div>
@@ -97,8 +104,8 @@ function RawTags({ session, id, total }: { session: DocumentSession; id: number;
                     <span className="mono" title={r.value}>
                       {r.value}
                     </span>
-                    <span className="muted" title={r.desc}>
-                      {r.desc}
+                    <span className="muted" title={tx(r.desc)}>
+                      {tx(r.desc)}
                     </span>
                   </>
                 ) : (
@@ -111,6 +118,12 @@ function RawTags({ session, id, total }: { session: DocumentSession; id: number;
       </div>
     </div>
   );
+}
+
+function groupTitle(g: string): string {
+  const key = `props.group.${g}` as MessageKey;
+  const text = t(key);
+  return text === key ? g : text;
 }
 
 function Section({ title, children, defaultOpen = true }: { title: string; children: React.ReactNode; defaultOpen?: boolean }) {
@@ -151,22 +164,22 @@ function Single({ session, id }: { session: DocumentSession; id: number }) {
         <b>{info.type}</b>
         <span className="mono muted">{info.handle}</span>
         {info.line !== undefined && <span className="muted small">{t('props.atLine', { line: info.line })}</span>}
-        <button type="button" className="icon-btn" title={t('menu.zoomTo')} onClick={() => void session.zoomToEntities([id])}>
+        <button type="button" className="icon-btn" {...iconTip(t('menu.zoomTo'))} onClick={() => void session.zoomToEntities([id])}>
           <Crosshair size={14} />
         </button>
         {info.line !== undefined && (
-          <button type="button" className="icon-btn" title={t('doc.showRaw')} onClick={() => showRawLine(info.line!)}>
+          <button type="button" className="icon-btn" {...iconTip(t('doc.showRaw'))} onClick={() => showRawLine(info.line!)}>
             <ScrollText size={14} />
           </button>
         )}
       </div>
       {groups.map(([g, rows]) => (
-        <Section key={g} title={t(`props.group.${g}` as never) || g}>
+        <Section key={g} title={groupTitle(g)}>
           <table className="kv">
             <tbody>
               {rows.map((r) => (
                 <tr key={r.key}>
-                  <th title={r.key}>{r.label}</th>
+                  <th title={r.key}>{rowLabel(r)}</th>
                   <td>
                     <Value row={r} session={session} />
                   </td>
@@ -216,7 +229,7 @@ function Multi({ session, ids }: { session: DocumentSession; ids: number[] }) {
     <div className="props">
       <div className="props-title">
         <b>{t('props.selected', { count: sum.count })}</b>
-        <button type="button" className="icon-btn" title={t('menu.zoomTo')} onClick={() => void session.zoomToEntities(ids)}>
+        <button type="button" className="icon-btn" {...iconTip(t('menu.zoomTo'))} onClick={() => void session.zoomToEntities(ids)}>
           <Crosshair size={14} />
         </button>
       </div>
@@ -250,7 +263,7 @@ function Multi({ session, ids }: { session: DocumentSession; ids: number[] }) {
             <tbody>
               {sum.common.map((r) => (
                 <tr key={r.key}>
-                  <th title={r.key}>{r.label}</th>
+                  <th title={r.key}>{rowLabel(r)}</th>
                   <td>
                     <Value row={r} session={session} />
                   </td>

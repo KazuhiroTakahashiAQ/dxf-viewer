@@ -11,6 +11,7 @@ tests/real/.cache/
 tests/real/local/
 # reference renderings
 tools/reference/out/
+tools/e2e/out/
 .venv/
 __pycache__/
 *.tsbuildinfo

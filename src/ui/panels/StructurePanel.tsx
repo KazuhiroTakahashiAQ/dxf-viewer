@@ -6,6 +6,15 @@ import { sessions, type DocumentSession } from '../../session/DocumentSession';
 import type { TreeNode } from '../../shared/docApi';
 import { activeTab, useUi } from '../../state/store';
 
+/** Fixed node names come from the worker in English; block / layout / entity names stay as they are. */
+function nodeLabel(node: TreeNode): string {
+  if (node.key === 'blocks') return t('tree.blocks');
+  const space = /^space:([^/]*)$/.exec(node.key);
+  if (space) return space[1] === 'Model' ? t('tree.model') : t('tree.layout', { name: space[1] });
+  if (node.key.startsWith('block:') && node.label.startsWith('Block: ')) return t('layouts.block', { name: node.label.slice(7) });
+  return node.label;
+}
+
 const PAGE = 200;
 
 function Node({ session, node, depth }: { session: DocumentSession; node: TreeNode; depth: number }) {
@@ -37,7 +46,7 @@ function Node({ session, node, depth }: { session: DocumentSession; node: TreeNo
         )}
         <span
           className="tree-label"
-          title={node.label}
+          title={nodeLabel(node)}
           onClick={() => {
             if (node.id !== undefined) {
               session.setSelection([node.id]);
@@ -45,7 +54,7 @@ function Node({ session, node, depth }: { session: DocumentSession; node: TreeNo
             } else setOpen(!open);
           }}
         >
-          {node.label}
+          {nodeLabel(node)}
         </span>
         {node.count !== undefined && <span className="muted small">{node.count.toLocaleString()}</span>}
       </div>

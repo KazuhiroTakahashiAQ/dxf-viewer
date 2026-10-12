@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
-import { Activity, Boxes, Camera, Ruler, ScrollText, FileText, Filter, FolderOpen, Layers, ListChecks, ListTree, Search, SlidersHorizontal, Table2, Type, TextSearch } from 'lucide-react';
+import { CircleHelp, Download, Filter, FolderOpen, Layers, MousePointerClick, Ruler, ScrollText } from 'lucide-react';
 
-import { t } from '../i18n';
+import { resolveLocale, setLocale, t, type MessageKey } from '../i18n';
 import { UpdatePrompt } from '../pwa/UpdatePrompt';
 import { openFiles, openHandles, openSources, sessions } from '../session/DocumentSession';
 import { chooseFiles, droppedHandles } from './fileOpen';
 import { RecentList } from './RecentList';
 import { FontDownloadDialog } from './FontDownloadDialog';
+import { HelpDialog } from './HelpDialog';
+import { TooltipLayer } from './Tooltip';
 import { listRecent, loadRecent } from '../storage/recentFiles';
 import { addFontFiles } from '../session/userFonts';
 import { fontKind } from '../storage/userFonts';
@@ -15,46 +17,34 @@ import { zoomAt } from '../shared/view';
 import { activeTab, useUi } from '../state/store';
 import { CanvasHost } from './canvas/CanvasHost';
 import { LayoutTabs } from './canvas/LayoutTabs';
-import { Dock, type PanelDef } from './layout/Dock';
+import { Dock } from './layout/Dock';
 import { StatusBar } from './layout/StatusBar';
 import { Toolbar } from './layout/Toolbar';
-import { DiagnosticsPanel } from './panels/DiagnosticsPanel';
-import { DocumentPanel } from './panels/DocumentPanel';
-import { FilterPanel } from './panels/FilterPanel';
-import { FontsPanel } from './panels/FontsPanel';
-import { PropertiesPanel } from './panels/PropertiesPanel';
-import { RawPanel } from './panels/RawPanel';
-import { ResultsPanel } from './panels/ResultsPanel';
-import { SearchPanel } from './panels/SearchPanel';
-import { BlocksPanel } from './panels/BlocksPanel';
-import { StructurePanel } from './panels/StructurePanel';
-import { SelectionPanel } from './panels/SelectionPanel';
-import { TextsPanel } from './panels/TextsPanel';
-import { ViewsPanel } from './panels/ViewsPanel';
-import { LayersPanel } from './panels/LayersPanel';
-import { MeasurePanel } from './panels/MeasurePanel';
+import { PANELS } from './panels/registry';
 import { DocTabs } from './tabs/DocTabs';
 
-const LEFT: PanelDef[] = [
-  { id: 'layers', title: 'panel.layers', icon: Layers, component: LayersPanel },
-  { id: 'blocks', title: 'panel.blocks', icon: Boxes, component: BlocksPanel },
-  { id: 'filter', title: 'panel.filter', icon: Filter, component: FilterPanel },
-  { id: 'search', title: 'panel.search', icon: Search, component: SearchPanel },
-  { id: 'views', title: 'panel.views', icon: Camera, component: ViewsPanel },
-  { id: 'structure', title: 'panel.structure', icon: ListTree, component: StructurePanel },
-];
-const RIGHT: PanelDef[] = [
-  { id: 'properties', title: 'panel.properties', icon: SlidersHorizontal, component: PropertiesPanel },
-  { id: 'selection', title: 'panel.selection', icon: ListChecks, component: SelectionPanel },
-  { id: 'measure', title: 'panel.measure', icon: Ruler, component: MeasurePanel },
-  { id: 'document', title: 'panel.document', icon: FileText, component: DocumentPanel },
-  { id: 'fonts', title: 'panel.fonts', icon: Type, component: FontsPanel },
-];
-const BOTTOM: PanelDef[] = [
-  { id: 'results', title: 'panel.results', icon: Table2, component: ResultsPanel },
-  { id: 'texts', title: 'panel.texts', icon: TextSearch, component: TextsPanel },
-  { id: 'raw', title: 'panel.raw', icon: ScrollText, component: RawPanel },
-  { id: 'diagnostics', title: 'panel.diagnostics', icon: Activity, component: DiagnosticsPanel },
+/** Sample drawings in public/samples (generated with ezdxf) */
+const SAMPLES = [
+  'basic_entities',
+  'japanese_sjis_r2000',
+  'jwcad_like_r12',
+  'autocad_like_shx',
+  'revit_archicad_like',
+  'unicode_escapes_r2000',
+  'binary',
+  'large_offset',
+  'minsert_budget',
+  'layouts',
+  'views_layerstates',
+] as const;
+
+const FEATURES: [typeof Layers, MessageKey, MessageKey][] = [
+  [MousePointerClick, 'feat.inspect', 'feat.inspect.desc'],
+  [Layers, 'feat.layers', 'feat.layers.desc'],
+  [Filter, 'feat.filter', 'feat.filter.desc'],
+  [Ruler, 'feat.measure', 'feat.measure.desc'],
+  [ScrollText, 'feat.document', 'feat.document.desc'],
+  [Download, 'feat.export', 'feat.export.desc'],
 ];
 
 const supported = typeof OffscreenCanvas !== 'undefined' && 'transferControlToOffscreen' in HTMLCanvasElement.prototype;
@@ -62,6 +52,21 @@ const supported = typeof OffscreenCanvas !== 'undefined' && 'transferControlToOf
 function Welcome() {
   const fileRef = useRef<HTMLInputElement>(null);
   const pending = useUi((s) => s.pendingFilter);
+  const [loading, setLoading] = useState<string | null>(null);
+  const [sampleError, setSampleError] = useState('');
+  const openSample = async (name: string) => {
+    setLoading(name);
+    setSampleError('');
+    try {
+      const res = await fetch(`samples/${name}.dxf`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      await openSources([{ name: `${name}.dxf`, bytes: await res.arrayBuffer() }]);
+    } catch (e) {
+      setSampleError(t('welcome.sampleError', { message: (e as Error).message }));
+    } finally {
+      setLoading(null);
+    }
+  };
   return (
     <div className="welcome">
       <h1>{t('app.title')}</h1>
@@ -86,6 +91,40 @@ function Welcome() {
       <p className="muted small">{t('welcome.privacy')}</p>
       {pending && <p className="notice small">{t('welcome.pendingFilter')}</p>}
       {supported && <RecentList fileInput={fileRef} />}
+      <div className="welcome-grid">
+        <section>
+          <h3>{t('welcome.features')}</h3>
+          <div className="feature-list">
+            {FEATURES.map(([Icon, title, desc]) => (
+              <div key={title} className="feature">
+                <Icon size={18} />
+                <span>
+                  <b>{t(title)}</b>
+                  <span className="muted small">{t(desc)}</span>
+                </span>
+              </div>
+            ))}
+          </div>
+          <button type="button" className="tb-btn" onClick={() => useUi.getState().setHelpOpen(true)}>
+            <CircleHelp size={15} />
+            {t('welcome.help')}
+          </button>
+        </section>
+        {supported && (
+          <section>
+            <h3>{t('welcome.samples')}</h3>
+            <div className="sample-list">
+              {SAMPLES.map((name) => (
+                <button key={name} type="button" className="sample" disabled={!!loading} onClick={() => void openSample(name)}>
+                  <span className="mono small">{name}.dxf</span>
+                  <span className="muted small">{t(`sample.${name}`)}</span>
+                </button>
+              ))}
+            </div>
+            {sampleError && <p className="warn-text small">{sampleError}</p>}
+          </section>
+        )}
+      </div>
     </div>
   );
 }
@@ -122,6 +161,12 @@ function useGlobalShortcuts(): void {
         return;
       }
       if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key === '?' || e.key === 'F1') {
+        ui.setHelpOpen(!ui.helpOpen);
+        e.preventDefault();
+        return;
+      }
+      if (ui.helpOpen) return;
       if (e.key === 'Escape' && ui.focusMode) ui.setFocusMode(false);
       if (!session) return;
       const { width, height } = session.viewport;
@@ -215,6 +260,17 @@ function useSharedFilterLink(): void {
     window.addEventListener('hashchange', read);
     return () => window.removeEventListener('hashchange', read);
   }, []);
+}
+
+/** UI language: the browser's language unless chosen in Settings. Re-renders the whole tree on change. */
+function useLocale(): void {
+  const pref = useUi((s) => s.settings.locale);
+  const locale = resolveLocale(pref);
+  // set before the children render so every t() call of this render uses it
+  setLocale(locale);
+  useEffect(() => {
+    document.documentElement.lang = locale;
+  }, [locale]);
 }
 
 /** UI theme: system (default), light or dark. */
@@ -371,6 +427,7 @@ export function App() {
   const tab = useUi(activeTab);
   const focusMode = useUi((s) => s.focusMode);
   const dropping = useFileDrop();
+  useLocale();
   useGlobalShortcuts();
   useSettingsSync();
   useSharedFilterLink();
@@ -384,7 +441,7 @@ export function App() {
       {!focusMode && <Toolbar />}
       {!focusMode && <DocTabs />}
       <div className="workspace">
-        {!focusMode && tab && <Dock side="left" panels={LEFT} />}
+        {!focusMode && tab && <Dock side="left" panels={PANELS.left} />}
         <div className="center">
           <div className="canvas-area">
             {tab ? (
@@ -402,12 +459,14 @@ export function App() {
               <Welcome />
             )}
           </div>
-          {!focusMode && tab && <Dock side="bottom" panels={BOTTOM} />}
+          {!focusMode && tab && <Dock side="bottom" panels={PANELS.bottom} />}
         </div>
-        {!focusMode && tab && <Dock side="right" panels={RIGHT} />}
+        {!focusMode && tab && <Dock side="right" panels={PANELS.right} />}
       </div>
       <UrlOpenPrompt />
       <FontDownloadDialog />
+      <HelpDialog />
+      <TooltipLayer />
       <StatusBar />
       {dropping && <div className="drop-overlay">{t('welcome.drop')}</div>}
       <UpdatePrompt />

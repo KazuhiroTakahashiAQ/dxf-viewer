@@ -103,7 +103,7 @@ export function FontDownloadDialog() {
         <div className="modal-head">
           <b>{t('fontsDl.title')}</b>
           <span className="tb-spacer" />
-          <button type="button" className="icon-btn" title={t('pwa.dismiss')} disabled={!!progress} onClick={() => setOpen(false)}>
+          <button type="button" className="icon-btn" aria-label={t('pwa.dismiss')} disabled={!!progress} onClick={() => setOpen(false)}>
             <X size={15} />
           </button>
         </div>

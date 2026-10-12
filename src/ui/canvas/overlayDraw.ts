@@ -2,6 +2,7 @@ import type { SnapResult } from '../../shared/docApi';
 import { worldToScreen, type ViewState, type Viewport } from '../../shared/view';
 import type { MeasureState } from '../../state/store';
 import { includedAngle, measureValues } from '../measure';
+import { t, type MessageKey } from '../../i18n';
 
 const MEASURE = '#ffd54f';
 const SNAP = '#00e676';
@@ -79,15 +80,10 @@ function liveText(m: MeasureState, pts: number[]): string {
   return '';
 }
 
-const SNAP_LABEL: Record<string, string> = {
-  endpoint: 'Endpoint',
-  midpoint: 'Midpoint',
-  center: 'Center',
-  quadrant: 'Quadrant',
-  intersection: 'Intersection',
-  insertion: 'Insertion',
-  node: 'Node',
-  nearest: 'Nearest',
+const snapLabel = (kind: string): string => {
+  const key = `snap.${kind}` as MessageKey;
+  const text = t(key);
+  return text === key ? kind : text;
 };
 
 /** AutoCAD-like snap glyphs. */
@@ -147,6 +143,6 @@ export function drawSnap(ctx: CanvasRenderingContext2D, s: SnapResult, view: Vie
   ctx.stroke();
   ctx.font = '11px system-ui, -apple-system, "Segoe UI", sans-serif';
   ctx.fillStyle = SNAP;
-  ctx.fillText(SNAP_LABEL[s.kind] ?? s.kind, x + r + 4, y + r + 10);
+  ctx.fillText(snapLabel(s.kind), x + r + 4, y + r + 10);
   ctx.restore();
 }

@@ -1,5 +1,7 @@
 /** Pure measurement math on world points (flat [x0, y0, x1, y1, …]). */
 
+import { t } from '../i18n';
+
 export type MeasureMode = 'distance' | 'path' | 'area' | 'angle' | 'entity' | 'point';
 
 export interface MeasureValues {
@@ -82,9 +84,9 @@ export function measureText(mode: MeasureMode, pts: number[], f: MeasureFormat, 
     case 'distance':
       return v.length === undefined ? '' : `${f.len(v.length)}  (ΔX ${f.coord(v.dx!)}, ΔY ${f.coord(v.dy!)}, ${v.direction!.toFixed(2)}°)`;
     case 'path':
-      return `${f.len(v.length ?? 0)}  (${v.segments} seg.)`;
+      return `${f.len(v.length ?? 0)}  (${t('measure.text.segments', { count: v.segments ?? 0 })})`;
     case 'area':
-      return `${f.area(v.area ?? 0)}  (perimeter ${f.len(v.length ?? 0)})`;
+      return `${f.area(v.area ?? 0)}  (${t('measure.text.perimeter', { value: f.len(v.length ?? 0) })})`;
     case 'angle':
       return v.angle === undefined ? '' : `${v.angle.toFixed(4)}°`;
     case 'point':

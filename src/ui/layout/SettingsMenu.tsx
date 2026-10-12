@@ -1,9 +1,10 @@
 import { Settings } from 'lucide-react';
 
-import { t } from '../../i18n';
+import { t, type LocalePref } from '../../i18n';
 import { clearRecent, dropStoredContent, type RecentMode } from '../../storage/recentFiles';
 import { clearPerFileData } from '../../storage/perFile';
 import { useUi } from '../../state/store';
+import { iconTip } from '../Tooltip';
 
 /** Privacy and input settings. */
 export function SettingsMenu() {
@@ -20,10 +21,23 @@ export function SettingsMenu() {
   };
   return (
     <details className="tb-menu">
-      <summary title={t('settings.title')} aria-label={t('settings.title')}>
+      <summary {...iconTip(t('settings.title'), t('tip.settings'))}>
         <Settings size={16} />
       </summary>
       <div className="menu-pop settings-pop">
+        <label>
+          {t('settings.language')}
+          <select value={settings.locale} onChange={(e) => update({ locale: e.target.value as LocalePref })}>
+            <option value="auto">{t('settings.language.auto')}</option>
+            <option value="en" lang="en">
+              English
+            </option>
+            <option value="ja" lang="ja">
+              日本語
+            </option>
+          </select>
+        </label>
+        <hr />
         <b>{t('settings.recent')}</b>
         {(['off', 'meta', 'content'] as const).map((m) => (
           <label key={m}>

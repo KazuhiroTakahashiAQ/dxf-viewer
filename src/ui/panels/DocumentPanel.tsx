@@ -1,11 +1,19 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { ChevronDown, ChevronRight, Crosshair, ScrollText } from 'lucide-react';
 
-import { t } from '../../i18n';
+import { t, tx, type MessageKey } from '../../i18n';
 import { sessions, type DocumentSession } from '../../session/DocumentSession';
 import type { GeneratorGuess, HeaderVarRow, InspectedRecord, ObjectNode, TableGroup } from '../../shared/docApi';
 import { activeTab, useUi } from '../../state/store';
 import { formatBytes, unitName } from '../format';
+import { iconTip, tip } from '../Tooltip';
+
+/** Localized message for a fixed key built from a value; unknown values are shown as is. */
+function keyed(prefix: string, value: string): string {
+  const key = `${prefix}${value}` as MessageKey;
+  const text = t(key);
+  return text === key ? value : text;
+}
 
 const OPEN_KEY = 'dxfv.docSections.v1';
 
@@ -56,6 +64,7 @@ function HandleLink({ handle, session }: { handle: string; session: DocumentSess
     <button
       type="button"
       className="link-inline mono"
+      {...tip(t('props.handleLink'))}
       onClick={async () => {
         const r = await session.rpc.call('findHandle', { handle });
         if (r?.kind === 'entity') {
@@ -86,7 +95,7 @@ function Inspector({ session, handle }: { session: DocumentSession; handle: stri
       <div className="inspector-head">
         <b>{rec.type}</b> <span className="mono">{rec.handle}</span>
         {rec.name && <span> · {rec.name}</span>}
-        <span className="muted small"> · {rec.kind}</span>
+        <span className="muted small"> · {keyed('doc.kind.', rec.kind)}</span>
         {rec.owner && (
           <span className="small">
             {' '}
@@ -95,12 +104,12 @@ function Inspector({ session, handle }: { session: DocumentSession; handle: stri
         )}
         <span className="tb-spacer" />
         {rec.entityId !== undefined && (
-          <button type="button" className="icon-btn" title={t('doc.inspect.select')} onClick={() => session.setSelection([rec.entityId!])}>
+          <button type="button" className="icon-btn" {...iconTip(t('doc.inspect.select'))} onClick={() => session.setSelection([rec.entityId!])}>
             <Crosshair size={13} />
           </button>
         )}
         {rec.tags[0] && (
-          <button type="button" className="icon-btn" title={t('doc.showRaw')} onClick={() => showRawLine(rec.tags[0].line)}>
+          <button type="button" className="icon-btn" {...iconTip(t('doc.showRaw'))} onClick={() => showRawLine(rec.tags[0].line)}>
             <ScrollText size={13} />
           </button>
         )}
@@ -120,7 +129,7 @@ function Inspector({ session, handle }: { session: DocumentSession; handle: stri
               <td className="num mono muted">{r.line}</td>
               <td className="num mono">{r.code}</td>
               <td className="mono">{(r.code >= 320 && r.code <= 369) || r.code === 1005 ? <HandleLink handle={r.value.trim()} session={session} /> : r.value}</td>
-              <td className="muted small">{r.desc}</td>
+              <td className="muted small">{tx(r.desc ?? '')}</td>
             </tr>
           ))}
         </tbody>
@@ -278,7 +287,7 @@ export function DocumentPanel() {
 
   const headerShown = useMemo(() => {
     const q = hq.trim().toLowerCase();
-    return q ? header.filter((r) => r.name.toLowerCase().includes(q) || r.value.toLowerCase().includes(q) || r.description.toLowerCase().includes(q)) : header;
+    return q ? header.filter((r) => r.name.toLowerCase().includes(q) || r.value.toLowerCase().includes(q) || r.description.toLowerCase().includes(q) || tx(r.description).toLowerCase().includes(q)) : header;
   }, [header, hq]);
 
   if (!tab || !s || !session) return <div className="panel-empty">—</div>;
@@ -290,7 +299,7 @@ export function DocumentPanel() {
     [t('doc.version'), `${s.version ?? '?'}${s.release ? ` (${s.release})` : ''}`],
     [t('doc.format'), s.binary ? t('doc.binary') : t('doc.ascii')],
     [t('doc.encoding'), `${s.encoding}${s.codepage ? ` / ${s.codepage}` : ''}`],
-    [t('doc.encodingReason'), s.encodingReason],
+    [t('doc.encodingReason'), tx(s.encodingReason)],
     [t('doc.replacements'), String(s.replacements)],
     [t('doc.lines'), `${s.lineCount.toLocaleString()} / ${s.tagCount.toLocaleString()}`],
     [t('doc.entities'), s.entityCount.toLocaleString()],
@@ -323,13 +332,13 @@ export function DocumentPanel() {
           <>
             <p className="small">
               <b>{gen.guess.length ? gen.guess.join(' / ') : t('doc.generator.unknown')}</b>
-              {gen.reasons.length > 0 && <span className="muted"> — {gen.reasons.join('; ')}</span>}
+              {gen.reasons.length > 0 && <span className="muted"> — {gen.reasons.map(tx).join('; ')}</span>}
             </p>
             <p className="muted small">{t('doc.generator.note')}</p>
             <ul className="evidence small">
               {gen.evidence.map((e) => (
                 <li key={e} className="mono">
-                  {e}
+                  {tx(e)}
                 </li>
               ))}
             </ul>
@@ -356,7 +365,7 @@ export function DocumentPanel() {
               <tr key={r.name} title={`codes ${r.codes} · line ${r.line}`}>
                 <td className="mono">{r.name}</td>
                 <td className="mono">{r.value}</td>
-                <td className="muted small">{r.description}</td>
+                <td className="muted small">{tx(r.description)}</td>
               </tr>
             ))}
           </tbody>
@@ -376,7 +385,7 @@ export function DocumentPanel() {
                       {r.name}
                     </span>
                     {r.handle ? <HandleLink handle={r.handle} session={session} /> : <span className="muted small">{t('doc.noHandle')}</span>}
-                    <button type="button" className="icon-btn tiny" title={t('doc.showRaw')} onClick={() => showRawLine(r.line)}>
+                    <button type="button" className="icon-btn tiny" {...iconTip(t('doc.showRaw'))} onClick={() => showRawLine(r.line)}>
                       <ScrollText size={11} />
                     </button>
                   </div>
@@ -441,7 +450,7 @@ export function DocumentPanel() {
                 <td>{c.type}</td>
                 <td className="num">{c.count}</td>
                 <td className="num">{c.rendered}</td>
-                <td>{c.method}</td>
+                <td>{keyed('coverage.', c.method)}</td>
               </tr>
             ))}
           </tbody>
