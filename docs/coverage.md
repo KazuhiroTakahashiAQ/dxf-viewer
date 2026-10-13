@@ -51,12 +51,12 @@
 1. **仕様・手計算に基づくユニットテスト**（ezdxf に依存しない）: OCS、バルジ、楕円、スプライン、MTEXT 書式（`tests/unit/mtext.test.ts`）、文字コード判定、計測値（`tests/unit/measure.test.ts`）、絞り込み条件（総当たりの実装との比較、ランダムな条件木 200 件）、領域条件、ビューの回転・反転、SVG/CSV 出力のエスケープ。
 2. **ezdxf で生成したサンプル**（`public/samples/`）: 件数・レイヤー・文字列が生成時のマニフェストと一致すること。
 3. **独立実装との比較**: `sh tools/reference/render.sh <files>` で ezdxf と LibreCAD の出力、このビューアのスクリーンショットを並べた比較画像を作り、目視で確認する。
-4. **実ファイルコーパス**（`tests/real/corpus.json`）: Web で公開されている実際の CAD 出力 80 件。`node tools/corpus/fetch.ts` で取得し（SHA-256 を検証、ファイル本体はコミットしない）、`npm test` で不変条件を確認する。
+4. **実ファイルコーパス**（`tests/real/corpus.json`）: Web で公開されている実際の CAD 出力 103 件（DXF 80 件、DWG 23 件）。`node tools/corpus/fetch.ts` で取得し（SHA-256 を検証、ファイル本体はコミットしない）、`npm test` で不変条件を確認する。DWG はビューアと同じく LibreDWG で DXF に変換してから確認する。
    - 例外が出ない（不正なファイル 3 件を含む）
    - 文字化け（U+FFFD）が 0 件
    - タグ数 × 2 が行数と一致（タグの取りこぼしがない）
    - モデル空間・ペーパー空間・ブロック定義のシーン構築が完了し、範囲が有限
-   - 要約（版・文字コード・件数・未描画の型・生成元の推定）のスナップショットが変わらない
+   - 要約（版・文字コード・件数・未描画の型・生成元の推定、DWG では変換元の版・変換時のエラー・非表示のレイヤー数）のスナップショットが変わらない
 
 ## 実ファイルコーパスの内訳
 
@@ -67,8 +67,9 @@
 | [trimesh models/2D](https://github.com/mikedh/trimesh/tree/main/models/2D) | 15 | MIT | 機械系 CAD の出力（R12〜R2013 の各版、LibreCAD 出力を含む） |
 | [ezjww jwc_samples](https://github.com/monozukuri-ai/ezjww/tree/main/jwc_samples) | 12 | MIT | Jw_cad 10.02.1 のネイティブ出力（Shift_JIS） |
 | [須坂市 都市計画基本図](https://www.city.suzaka.nagano.jp/soshiki/6010/1/935.html) | 2 | CC BY（CCBY須坂市） | Autodesk 系（Civil 3D / Architectural Desktop のオブジェクトイネーブラ付き、Shift_JIS） |
+| [LibreDWG test-data](https://github.com/LibreDWG/libredwg/tree/master/test/test-data) | 23 | GPL-3.0-or-later | DWG（R2.10〜R2018。同じ図面を R13〜R2018 の各版で保存したものと、動的ブロック・引出線・拘束などの個別ファイル） |
 
-見つからなかったもの（再配布や利用条件が明確な公開ファイルを確認できなかった）: **Revit、Archicad、TFAS、Rebro**。DraftSight、FreeCAD、Illustrator の出力は GitHub 上で見つかりましたが、ライセンス表記の無いリポジトリだったため対象外にしました。手元に実ファイルがある場合は `tests/real/local/` に置くと、同じ不変条件テストがローカルで実行されます（このディレクトリは Git で無視されます）。
+見つからなかったもの（再配布や利用条件が明確な公開ファイルを確認できなかった）: **Revit、Archicad、TFAS、Rebro、日本語の文字を含む DWG**。DraftSight、FreeCAD、Illustrator の出力は GitHub 上で見つかりましたが、ライセンス表記の無いリポジトリだったため対象外にしました。手元に実ファイルがある場合は `tests/real/local/` に置くと、同じ不変条件テストがローカルで実行されます（このディレクトリは Git で無視されます）。
 
 ## 参照実装との差異（判定結果）
 
@@ -92,6 +93,20 @@
 - 画像・ワイプアウトのクリップ境界の向き（左上原点・y 下向き）
 - 文字コード判定: コードページ指定が無く、単独の上位バイトしか無いファイルを Shift_JIS と誤判定していた
 - モデル空間が空でペーパー空間に内容がある図面は、最初のシートを開く
+
+## DWG（LibreDWG による変換）の確認結果
+
+LibreDWG のテストデータには、同じ DWG を AutoCAD で DXF に保存したファイルが付いているため、変換結果をそれと比べました（`@mlightcad/libredwg-web` 0.7.17、LibreDWG 0.13.3）。
+
+- コーパスの R13〜R2018 の 18 件は、LibreDWG がエラーを報告せずに変換できる。
+- AutoCAD の DXF が付いている 23 件（R13〜R2018）のうち 18 件は、モデル空間・ペーパー空間の要素数（型ごと）とブロック定義の中身が一致する。匿名ブロック（`*D` / `*T`）の番号は 1 つずれることがあるが、参照する側も同じ番号なので整合している。
+- 一致しなかったもの: プロキシ要素（ACAD_PROXY_ENTITY）が出力されない（3 件）、R13 / R14 の WIPEOUT と一部の INSERT が出力されない（2 件）、動的ブロックの匿名ブロックの一部が出力されない（Dynblocks: ブロック定義 136 → 76。モデル空間の要素数は一致）。
+- 変換モジュールの不具合への対処:
+  - DXF に書き出すとき R13 以降のレイヤーをすべて非表示（グループコード 62 が負）にする。AutoCAD の DXF では表示になっている 144 レイヤーがすべて非表示になった。LibreDWG の上流では修正済み。DWG を読んだ結果のフラグ自体は正しいため、それでレイヤーの表示 / 非表示を補正し、診断に件数を出す。
+  - 1 つのモジュールで複数のファイルを続けて変換すると WebAssembly のメモリー違反で止まることがある。ファイルごとに Worker とモジュールを作り直す。
+- LibreDWG の制約（ビューアでは補えないもの）:
+  - 表（ACAD_TABLE）は中身の無いレコードとして出力されるため、表は表示されない（表の描画用ブロック `*T` 自体は出力される）。
+  - R12 以前の DWG は対応が不完全で、POLYLINE の頂点が出力されない・要素が 1 つも出力されない（R11 の ACEB10）などがある。R13 より古い DWG と、要素が 0 件の変換結果には警告を表示する。
 
 ## 性能（500,000 エンティティ・62 MB）
 

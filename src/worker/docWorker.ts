@@ -29,6 +29,10 @@ import { emit, serve } from '../shared/rpc';
 import { DEFAULT_VIEW, visibleWorldBBox, worldToScreen, type BBox2, type ViewState, type Viewport } from '../shared/view';
 import { isDefaultExtrusion, ocsToWcs } from '../geom/ocs';
 import { applyPoint } from '../geom/matrix';
+import { dwgSignature } from '../dwg/detect';
+import type { DwgConversion } from '../dwg/convert';
+import { noteDwgOrigin } from '../dwg/origin';
+import type { DwgWorkerReply } from './dwgWorker';
 
 declare const self: DedicatedWorkerGlobalScope;
 
@@ -761,7 +765,7 @@ function summarize(d: DxfDocument, s: Scene, parseMs: number): DocSummary {
   const vport = d.tableRecords.find((r) => r.table === 'VPORT' && /^\*active$/i.test(r.name));
   return {
     name: d.source.name,
-    size: d.source.size,
+    size: d.source.dwg?.size ?? d.source.size,
     hash: fileHash,
     binary: d.source.binary,
     version: d.source.version,
@@ -786,7 +790,56 @@ function summarize(d: DxfDocument, s: Scene, parseMs: number): DocSummary {
     initialView: vport ? initialViewOf(vport) : undefined,
     parseMs,
     diagnostics: d.diagnostics.slice(0, 2000),
+    dwg: d.source.dwg && {
+      version: d.source.dwg.version,
+      release: d.source.dwg.release,
+      converter: d.source.dwg.converter,
+      dxfSize: d.source.size,
+      errors: d.source.dwg.errors,
+      convertMs: d.source.dwg.ms,
+    },
   };
+}
+
+/** DWG → DXF in a one-shot worker (LibreDWG's memory is released when it terminates). */
+function convertInWorker(bytes: ArrayBuffer): Promise<DwgConversion> {
+  return new Promise((resolve, reject) => {
+    const w = new Worker(new URL('./dwgWorker.ts', import.meta.url), { type: 'module', name: 'dwg' });
+    w.onmessage = (e: MessageEvent<DwgWorkerReply>) => {
+      w.terminate();
+      if (e.data.ok) resolve(e.data);
+      else reject(new Error(e.data.error));
+    };
+    w.onerror = (e) => {
+      // handled here: do not let it surface as an error of this worker too
+      e.preventDefault();
+      w.terminate();
+      reject(new Error(`DWG converter failed: ${e.message || 'the converter could not be started'}`));
+    };
+    w.postMessage({ bytes }, [bytes]);
+  });
+}
+
+/**
+ * The conversion of this worker's file (a document worker serves one file),
+ * shared by later opens: re-decoding with another encoding, even while the
+ * first conversion is still running, starts no second converter.
+ */
+let dwgConversion: Promise<DwgConversion> | null = null;
+
+async function convertDwgOnce(bytes: ArrayBuffer, gen: number): Promise<DwgConversion> {
+  if (!dwgConversion) {
+    emit(self, 'progress', { phase: 'convert', fraction: 0 });
+    const pending = convertInWorker(bytes);
+    dwgConversion = pending;
+    // a failed conversion may be retried by the next open
+    pending.catch(() => {
+      if (dwgConversion === pending) dwgConversion = null;
+    });
+  }
+  const conv = await dwgConversion;
+  if (gen !== generation) throw new Error('superseded');
+  return conv;
 }
 
 const api: DocApi = {
@@ -798,13 +851,17 @@ const api: DocApi = {
       const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', p.bytes));
       fileHash = Array.from(digest, (b) => b.toString(16).padStart(2, '0')).join('');
     }
+    const size = p.bytes.byteLength;
+    const sig = dwgSignature(new Uint8Array(p.bytes));
+    const conv = sig ? await convertDwgOnce(p.bytes, gen) : null;
     const t0 = performance.now();
-    const d = parseDxf(new Uint8Array(p.bytes), {
+    const d = parseDxf(conv ? conv.dxf : new Uint8Array(p.bytes), {
       name: p.name,
       encoding: p.encoding,
       onProgress: (phase, fraction) => emit(self, 'progress', { phase, fraction: fraction * 0.5 }),
     });
     const parseMs = performance.now() - t0;
+    if (sig && conv) noteDwgOrigin(d, sig, conv, size);
     emit(self, 'progress', { phase: 'fonts', fraction: 0.5 });
     if (!fonts) {
       fonts = new FontRegistry(self.fonts, p.baseUrl);

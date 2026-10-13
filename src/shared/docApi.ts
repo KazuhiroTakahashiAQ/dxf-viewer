@@ -58,6 +58,8 @@ export interface DocSummary {
   initialView?: { cx: number; cy: number; height: number; aspect: number; twist: number };
   parseMs: number;
   diagnostics: DiagnosticInfo[];
+  /** set for DWG files: they are converted to DXF, which the other fields describe (size and hash are the DWG's) */
+  dwg?: { version: string; release?: string; converter: string; dxfSize: number; errors: string[]; convertMs: number };
 }
 
 export interface LayerInfo {

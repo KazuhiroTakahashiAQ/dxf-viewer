@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "description": "Client-side DXF viewer for inspecting drawings",
   "type": "module",
-  "license": "MIT",
+  "license": "GPL-3.0-or-later",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
@@ -30,6 +30,7 @@
     "@fontsource/noto-sans-jp": "^5.3.0",
     "@fontsource/noto-serif-jp": "^5.3.0",
     "@fontsource/tinos": "^5.3.0",
+    "@mlightcad/libredwg-web": "0.7.17",
     "@mlightcad/shx-parser": "^1.4.5",
     "@tanstack/react-virtual": "^3.14.14",
     "hersheytext": "^2.0.0",

@@ -1,6 +1,7 @@
 /**
  * Invariant tests on real-world DXF files (tests/real/corpus.json, downloaded by
  * `node tools/corpus/fetch.ts`) and on any files placed in tests/real/local/.
+ * DWG files are converted to DXF with LibreDWG first, as the viewer does.
  * Files that are not present are skipped, so CI without the corpus still passes.
  */
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
@@ -8,6 +9,9 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
+import { convertDwg } from '../../src/dwg/convert';
+import { dwgSignature } from '../../src/dwg/detect';
+import { noteDwgOrigin } from '../../src/dwg/origin';
 import { parseDxf } from '../../src/dxf/parser';
 import type { DxfDocument } from '../../src/dxf/model';
 import { SvgPath } from '../../src/render/svgContext';
@@ -20,7 +24,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const cache = join(here, '.cache');
 const local = join(here, 'local');
 const manifest = JSON.parse(readFileSync(join(here, 'corpus.json'), 'utf8')) as {
-  files: { id: string; generator: string; expect?: { malformed?: boolean; generator?: string } }[];
+  files: { id: string; url: string; zipEntry?: string; generator: string; expect?: { malformed?: boolean; generator?: string } }[];
 };
 const measurer: TextMeasurer = { width: (t) => t.length * 60, metrics: () => ({ capHeight: 0.7, ascent: 0.9, descent: 0.2 }) };
 
@@ -32,8 +36,13 @@ interface Case {
 }
 
 const cases: Case[] = [
-  ...manifest.files.map((f) => ({ id: f.id, path: join(cache, `${f.id}.dxf`), malformed: !!f.expect?.malformed, generator: f.expect?.generator })),
-  ...(existsSync(local) ? readdirSync(local).filter((n) => /\.dxf$/i.test(n)) : []).map((n) => ({ id: `local/${n}`, path: join(local, n), malformed: false })),
+  ...manifest.files.map((f) => ({
+    id: f.id,
+    path: join(cache, `${f.id}.${/\.dwg$/i.test(f.zipEntry ?? f.url) ? 'dwg' : 'dxf'}`),
+    malformed: !!f.expect?.malformed,
+    generator: f.expect?.generator,
+  })),
+  ...(existsSync(local) ? readdirSync(local).filter((n) => /\.(dxf|dwg)$/i.test(n)) : []).map((n) => ({ id: `local/${n}`, path: join(local, n), malformed: false })),
 ];
 
 function build(doc: DxfDocument, items: number[]) {
@@ -50,9 +59,12 @@ describe('real-world corpus', () => {
   it.skipIf(present.length > 0)('corpus not downloaded (run node tools/corpus/fetch.ts)', () => {});
 
   for (const c of cases) {
-    it.skipIf(!existsSync(c.path))(c.id, () => {
+    it.skipIf(!existsSync(c.path))(c.id, async () => {
       const bytes = new Uint8Array(readFileSync(c.path));
-      const doc = parseDxf(bytes, { name: c.id });
+      const sig = dwgSignature(bytes);
+      const conv = sig ? await convertDwg(bytes) : null;
+      const doc = parseDxf(conv ? conv.dxf : bytes, { name: c.id });
+      if (sig && conv) noteDwgOrigin(doc, sig, conv, bytes.length);
       if (c.malformed) {
         // must not throw; problems are reported as diagnostics
         expect(doc).toBeTruthy();
@@ -72,6 +84,7 @@ describe('real-world corpus', () => {
       for (const blk of doc.blocks.values()) if (!/^\*(model|paper)_space/i.test(blk.name) && blk.entities.length < 5000) build(doc, blk.entities);
       const missing = [...b.scene.coverage.values()].filter((r) => r.method === 'none' && r.count > 0).map((r) => r.type);
       const summary = {
+        ...(doc.source.dwg ? { dwg: doc.source.dwg.version, dwgErrors: doc.source.dwg.errors, layersOff: [...doc.layers.values()].filter((l) => l.color < 0).length } : {}),
         version: doc.source.version ?? null,
         binary: doc.source.binary,
         encoding: doc.source.encoding.encoding,

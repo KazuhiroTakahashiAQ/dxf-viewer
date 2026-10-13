@@ -294,12 +294,20 @@ export function DocumentPanel() {
   if (!tab || !s || !session) return <div className="panel-empty">—</div>;
   const ext = s.extents;
   /** [label, value, term explained on hover or a plain explanation] */
-  const rows: [string, string, (TermId | { desc: string })?][] = [
+  type Row = [string, string, (TermId | { desc: string })?];
+  const dwgRows: Row[] = s.dwg
+    ? [
+        [t('doc.conversion'), t('doc.conversionValue', { converter: s.dwg.converter, ms: s.dwg.convertMs.toFixed(0), size: formatBytes(s.dwg.dxfSize) }), 'dwg'],
+        ...(s.dwg.errors.length ? [[t('doc.conversionErrors'), s.dwg.errors.join(', '), { desc: t('doc.conversionErrorsDesc') }] as Row] : []),
+      ]
+    : [];
+  const rows: Row[] = [
     [t('doc.file'), s.name],
     [t('doc.size'), formatBytes(s.size)],
     ['SHA-256', s.hash ? `${s.hash.slice(0, 16)}…` : '—', { desc: t('doc.hashDesc') }],
     [t('doc.version'), `${s.version ?? '?'}${s.release ? ` (${s.release})` : ''}`, 'dxfVersion'],
-    [t('doc.format'), s.binary ? t('doc.binary') : t('doc.ascii'), 'binaryDxf'],
+    [t('doc.format'), s.dwg ? t('doc.dwg') : s.binary ? t('doc.binary') : t('doc.ascii'), s.dwg ? 'dwg' : 'binaryDxf'],
+    ...dwgRows,
     [t('doc.encoding'), `${s.encoding}${s.codepage ? ` / ${s.codepage}` : ''}`, 'encoding'],
     [t('doc.encodingReason'), tx(s.encodingReason)],
     [t('doc.replacements'), String(s.replacements), { desc: t('doc.replacementsDesc') }],

@@ -1,5 +1,5 @@
 /**
- * Download the real-world DXF corpus listed in tests/real/corpus.json into
+ * Download the real-world DXF / DWG corpus listed in tests/real/corpus.json into
  * tests/real/.cache (git-ignored; the files are not redistributed).
  *
  *   node tools/corpus/fetch.ts            # download missing files, verify SHA-256
@@ -58,8 +58,11 @@ function unzip(buf: Buffer): Map<string, Buffer> {
   return out;
 }
 
+/** cache file name; DWG entries keep their extension (tests convert them first) */
+const cacheName = (e: Pick<Entry, 'id' | 'url' | 'zipEntry'>) => `${e.id}.${/\.dwg$/i.test(e.zipEntry ?? e.url) ? 'dwg' : 'dxf'}`;
+
 async function fetchEntry(e: Entry): Promise<string> {
-  const target = join(cacheDir, `${e.id}.dxf`);
+  const target = join(cacheDir, cacheName(e));
   if (existsSync(target) && e.sha256 && sha(readFileSync(target)) === e.sha256) return 'cached';
   const res = await fetch(e.url);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);

@@ -995,6 +995,488 @@ exports[`real-world corpus > jwcad-r081rt 1`] = `
 }
 `;
 
+exports[`real-world corpus > libredwg-2000-TS1 1`] = `
+{
+  "binary": false,
+  "blocks": 11,
+  "dwg": "AC1015",
+  "dwgErrors": [],
+  "encoding": "windows-1252",
+  "entities": 97,
+  "generator": [
+    "AcDim ARX App For Dimension / AutoCAD MAP DBX App for Annotation Entity",
+  ],
+  "layers": 3,
+  "layersOff": 0,
+  "model": 33,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1015",
+}
+`;
+
+exports[`real-world corpus > libredwg-2018-Constraints 1`] = `
+{
+  "binary": false,
+  "blocks": 3,
+  "dwg": "AC1032",
+  "dwgErrors": [],
+  "encoding": "utf-8",
+  "entities": 2,
+  "generator": [
+    "AutoCAD or an ODA-based CAD",
+  ],
+  "layers": 1,
+  "layersOff": 0,
+  "model": 2,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1032",
+}
+`;
+
+exports[`real-world corpus > libredwg-2018-Dynblocks 1`] = `
+{
+  "binary": false,
+  "blocks": 76,
+  "dwg": "AC1032",
+  "dwgErrors": [],
+  "encoding": "utf-8",
+  "entities": 47174,
+  "generator": [
+    "AcDim ARX App For Dimension",
+  ],
+  "layers": 69,
+  "layersOff": 0,
+  "model": 117,
+  "notRendered": [],
+  "paper": 2,
+  "version": "AC1032",
+}
+`;
+
+exports[`real-world corpus > libredwg-2018-Helix 1`] = `
+{
+  "binary": false,
+  "blocks": 3,
+  "dwg": "AC1032",
+  "dwgErrors": [],
+  "encoding": "utf-8",
+  "entities": 1,
+  "generator": [
+    "AutoCAD or an ODA-based CAD",
+  ],
+  "layers": 1,
+  "layersOff": 0,
+  "model": 1,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1032",
+}
+`;
+
+exports[`real-world corpus > libredwg-2018-Leader 1`] = `
+{
+  "binary": false,
+  "blocks": 4,
+  "dwg": "AC1032",
+  "dwgErrors": [],
+  "encoding": "utf-8",
+  "entities": 13,
+  "generator": [
+    "AutoCAD or an ODA-based CAD",
+  ],
+  "layers": 1,
+  "layersOff": 0,
+  "model": 10,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1032",
+}
+`;
+
+exports[`real-world corpus > libredwg-2018-LiveSection1 1`] = `
+{
+  "binary": false,
+  "blocks": 4,
+  "dwg": "AC1032",
+  "dwgErrors": [],
+  "encoding": "utf-8",
+  "entities": 15,
+  "generator": [
+    "AutoCAD or an ODA-based CAD",
+  ],
+  "layers": 2,
+  "layersOff": 0,
+  "model": 5,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1032",
+}
+`;
+
+exports[`real-world corpus > libredwg-2018-Multiline 1`] = `
+{
+  "binary": false,
+  "blocks": 3,
+  "dwg": "AC1032",
+  "dwgErrors": [],
+  "encoding": "utf-8",
+  "entities": 1,
+  "generator": [
+    "AutoCAD or an ODA-based CAD",
+  ],
+  "layers": 1,
+  "layersOff": 0,
+  "model": 1,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1032",
+}
+`;
+
+exports[`real-world corpus > libredwg-2018-Text 1`] = `
+{
+  "binary": false,
+  "blocks": 3,
+  "dwg": "AC1032",
+  "dwgErrors": [],
+  "encoding": "utf-8",
+  "entities": 1,
+  "generator": [
+    "AutoCAD or an ODA-based CAD",
+  ],
+  "layers": 1,
+  "layersOff": 0,
+  "model": 1,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1032",
+}
+`;
+
+exports[`real-world corpus > libredwg-example_2000 1`] = `
+{
+  "binary": false,
+  "blocks": 16,
+  "dwg": "AC1015",
+  "dwgErrors": [],
+  "encoding": "windows-1252",
+  "entities": 213,
+  "generator": [
+    "Object Enabler for WipeOut entity / WipeOut Dbx Application / AcDim ARX App For Dimension",
+  ],
+  "layers": 5,
+  "layersOff": 0,
+  "model": 68,
+  "notRendered": [
+    "LIGHT",
+  ],
+  "paper": 1,
+  "version": "AC1015",
+}
+`;
+
+exports[`real-world corpus > libredwg-example_2004 1`] = `
+{
+  "binary": false,
+  "blocks": 16,
+  "dwg": "AC1018",
+  "dwgErrors": [],
+  "encoding": "windows-1252",
+  "entities": 213,
+  "generator": [
+    "Object Enabler for WipeOut entity / WipeOut Dbx Application / AcDim ARX App For Dimension",
+  ],
+  "layers": 5,
+  "layersOff": 0,
+  "model": 68,
+  "notRendered": [
+    "REGION",
+    "LIGHT",
+  ],
+  "paper": 1,
+  "version": "AC1018",
+}
+`;
+
+exports[`real-world corpus > libredwg-example_2007 1`] = `
+{
+  "binary": false,
+  "blocks": 16,
+  "dwg": "AC1021",
+  "dwgErrors": [],
+  "encoding": "utf-8",
+  "entities": 213,
+  "generator": [
+    "Object Enabler for WipeOut entity / WipeOut Dbx Application / AcDim ARX App For Dimension",
+  ],
+  "layers": 5,
+  "layersOff": 0,
+  "model": 68,
+  "notRendered": [
+    "REGION",
+    "LIGHT",
+  ],
+  "paper": 1,
+  "version": "AC1021",
+}
+`;
+
+exports[`real-world corpus > libredwg-example_2010 1`] = `
+{
+  "binary": false,
+  "blocks": 16,
+  "dwg": "AC1024",
+  "dwgErrors": [],
+  "encoding": "utf-8",
+  "entities": 213,
+  "generator": [
+    "Object Enabler for WipeOut entity / WipeOut Dbx Application / AcDim ARX App For Dimension",
+  ],
+  "layers": 5,
+  "layersOff": 0,
+  "model": 68,
+  "notRendered": [
+    "REGION",
+    "ACAD_TABLE",
+    "LIGHT",
+  ],
+  "paper": 1,
+  "version": "AC1024",
+}
+`;
+
+exports[`real-world corpus > libredwg-example_2013 1`] = `
+{
+  "binary": false,
+  "blocks": 16,
+  "dwg": "AC1027",
+  "dwgErrors": [],
+  "encoding": "utf-8",
+  "entities": 213,
+  "generator": [
+    "Object Enabler for WipeOut entity / WipeOut Dbx Application / AcDim ARX App For Dimension",
+  ],
+  "layers": 5,
+  "layersOff": 0,
+  "model": 68,
+  "notRendered": [
+    "3DSOLID",
+    "ACAD_TABLE",
+    "LIGHT",
+  ],
+  "paper": 1,
+  "version": "AC1027",
+}
+`;
+
+exports[`real-world corpus > libredwg-example_2018 1`] = `
+{
+  "binary": false,
+  "blocks": 16,
+  "dwg": "AC1032",
+  "dwgErrors": [],
+  "encoding": "utf-8",
+  "entities": 213,
+  "generator": [
+    "Object Enabler for WipeOut entity / WipeOut Dbx Application / AcDim ARX App For Dimension",
+  ],
+  "layers": 5,
+  "layersOff": 0,
+  "model": 68,
+  "notRendered": [
+    "REGION",
+    "ATTDEF",
+    "3DSOLID",
+    "ACAD_TABLE",
+    "LIGHT",
+  ],
+  "paper": 1,
+  "version": "AC1032",
+}
+`;
+
+exports[`real-world corpus > libredwg-example_r13 1`] = `
+{
+  "binary": false,
+  "blocks": 18,
+  "dwg": "AC1012",
+  "dwgErrors": [],
+  "encoding": "windows-1252",
+  "entities": 1509,
+  "generator": [
+    "AcDim ARX App For Dimension",
+  ],
+  "layers": 5,
+  "layersOff": 0,
+  "model": 63,
+  "notRendered": [],
+  "paper": 1,
+  "version": "AC1012",
+}
+`;
+
+exports[`real-world corpus > libredwg-example_r14 1`] = `
+{
+  "binary": false,
+  "blocks": 16,
+  "dwg": "AC1014",
+  "dwgErrors": [],
+  "encoding": "utf-8",
+  "entities": 207,
+  "generator": [
+    "Object Enabler for WipeOut entity / WipeOut Dbx Application / AcDim ARX App For Dimension",
+  ],
+  "layers": 5,
+  "layersOff": 0,
+  "model": 62,
+  "notRendered": [],
+  "paper": 1,
+  "version": "AC1014",
+}
+`;
+
+exports[`real-world corpus > libredwg-r9-entities 1`] = `
+{
+  "binary": false,
+  "blocks": 3,
+  "dwg": "AC1004",
+  "dwgErrors": [],
+  "encoding": "utf-8",
+  "entities": 28,
+  "generator": [],
+  "layers": 2,
+  "layersOff": 1,
+  "model": 16,
+  "notRendered": [
+    "POLYLINE",
+    "3DLINE",
+  ],
+  "paper": 0,
+  "version": "AC1004",
+}
+`;
+
+exports[`real-world corpus > libredwg-r10-entities 1`] = `
+{
+  "binary": false,
+  "blocks": 3,
+  "dwg": "AC1006",
+  "dwgErrors": [],
+  "encoding": "utf-8",
+  "entities": 28,
+  "generator": [],
+  "layers": 2,
+  "layersOff": 1,
+  "model": 16,
+  "notRendered": [
+    "POLYLINE",
+    "3DLINE",
+  ],
+  "paper": 0,
+  "version": "AC1006",
+}
+`;
+
+exports[`real-world corpus > libredwg-r11-ACEB10 1`] = `
+{
+  "binary": false,
+  "blocks": 1,
+  "dwg": "AC1009",
+  "dwgErrors": [],
+  "encoding": "utf-8",
+  "entities": 0,
+  "generator": [],
+  "layers": 13,
+  "layersOff": 2,
+  "model": 0,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1009",
+}
+`;
+
+exports[`real-world corpus > libredwg-r11-entities-2d 1`] = `
+{
+  "binary": false,
+  "blocks": 4,
+  "dwg": "AC1009",
+  "dwgErrors": [],
+  "encoding": "utf-8",
+  "entities": 24,
+  "generator": [],
+  "layers": 2,
+  "layersOff": 0,
+  "model": 13,
+  "notRendered": [
+    "POLYLINE",
+  ],
+  "paper": 0,
+  "version": "AC1009",
+}
+`;
+
+exports[`real-world corpus > libredwg-r14-v 1`] = `
+{
+  "binary": false,
+  "blocks": 2,
+  "dwg": "AC1014",
+  "dwgErrors": [],
+  "encoding": "utf-8",
+  "entities": 17,
+  "generator": [],
+  "layers": 5,
+  "layersOff": 0,
+  "model": 17,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1014",
+}
+`;
+
+exports[`real-world corpus > libredwg-r210-entities 1`] = `
+{
+  "binary": false,
+  "blocks": 2,
+  "dwg": "AC2.10",
+  "dwgErrors": [],
+  "encoding": "utf-8",
+  "entities": 18,
+  "generator": [],
+  "layers": 1,
+  "layersOff": 0,
+  "model": 15,
+  "notRendered": [
+    "REPEAT",
+    "ENDREP",
+    "POLYLINE",
+  ],
+  "paper": 0,
+  "version": "AC2.10",
+}
+`;
+
+exports[`real-world corpus > libredwg-sample_2018 1`] = `
+{
+  "binary": false,
+  "blocks": 3,
+  "dwg": "AC1032",
+  "dwgErrors": [],
+  "encoding": "utf-8",
+  "entities": 6,
+  "generator": [
+    "AutoCAD or an ODA-based CAD",
+  ],
+  "layers": 2,
+  "layersOff": 0,
+  "model": 6,
+  "notRendered": [],
+  "paper": 0,
+  "version": "AC1032",
+}
+`;
+
 exports[`real-world corpus > suzaka-08HD751 1`] = `
 {
   "binary": false,

@@ -34,6 +34,10 @@ const TOOLBAR: [LucideIcon, MessageKey, MessageKey][] = [
   [Settings, 'settings.title', 'tip.settings'],
 ];
 
+/** GPL: where users get the corresponding source of this build */
+const REPOSITORY = 'https://github.com/KazuhiroTakahashiAQ/dxf-viewer';
+const SOURCE_URL = __SOURCE_COMMIT__ ? `${REPOSITORY}/tree/${__SOURCE_COMMIT__}` : REPOSITORY;
+
 const TIPS: MessageKey[] = ['help.tip.hidden', 'help.tip.handles', 'help.tip.encoding', 'help.tip.drop', 'help.tip.share'];
 const SIDES: DockSide[] = ['left', 'right', 'bottom'];
 
@@ -152,6 +156,13 @@ export function HelpDialog() {
             </dl>
           </div>
         ))}
+
+        <p className="muted small help-license">
+          {t('help.license')}{' '}
+          <a href={SOURCE_URL} target="_blank" rel="noopener noreferrer">
+            {t('help.source')}
+          </a>
+        </p>
       </div>
     </div>
   );

@@ -41,7 +41,7 @@ export function StatusBar() {
       {tab && <span className="muted" {...tip(t('status.scaleTip'), undefined, undefined, { terms: 'units' })}>{t('status.scale', { value: formatScale(1 / scale) + (unit ? ` ${unit}` : '') })}</span>}
       <span className="sb-spacer" />
       {tab?.status === 'loading' && <span>{t('status.loading', { phase: phaseLabel(tab.phase), percent: Math.round(tab.progress * 100) })}</span>}
-      {tab?.status === 'error' && <span className="warn-text">{t('status.error', { message: tab.error ?? '' })}</span>}
+      {tab?.status === 'error' && <span className="warn-text">{t('status.error', { message: tx(tab.error ?? '') })}</span>}
       {s && <span className="muted" {...termTip('entity')}>{t('status.entities', { count: s.entityCount.toLocaleString() })}</span>}
       {s && (
         <span className="muted" {...tip(t('status.encodingTip'), tx(s.encodingReason), undefined, { terms: 'encoding' })}>

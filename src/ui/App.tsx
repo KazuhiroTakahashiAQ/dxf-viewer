@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { BookOpen, CircleHelp, Download, Filter, FolderOpen, Layers, MousePointerClick, Ruler, ScrollText } from 'lucide-react';
 
-import { resolveLocale, setLocale, t, type MessageKey } from '../i18n';
+import { resolveLocale, setLocale, t, tx, type MessageKey } from '../i18n';
 import type { TermId } from '../i18n/glossary';
 import { UpdatePrompt } from '../pwa/UpdatePrompt';
 import { openFiles, openHandles, openSources, sessions } from '../session/DocumentSession';
@@ -92,7 +92,7 @@ function Welcome() {
       <input
         ref={fileRef}
         type="file"
-        accept=".dxf,.DXF"
+        accept=".dxf,.DXF,.dwg,.DWG"
         multiple
         hidden
         onChange={(e) => {
@@ -231,8 +231,8 @@ function useFileDrop(): boolean {
       setOver(false);
       const handlesP = droppedHandles(e.dataTransfer);
       const all = Array.from(e.dataTransfer.files ?? []);
-      const isDxf = (name: string, type = '') => /\.dxf$/i.test(name) || type.includes('dxf');
-      const files = all.filter((f) => isDxf(f.name, f.type));
+      const isDrawing = (name: string, type = '') => /\.(dxf|dwg)$/i.test(name) || /dxf|dwg/.test(type);
+      const files = all.filter((f) => isDrawing(f.name, f.type));
       const fontFiles = all.filter((f) => fontKind(f.name));
       if (fontFiles.length) void addFontFiles(fontFiles);
       const imageFiles = all.filter((f) => /\.(png|jpe?g|gif|webp|bmp|avif)$/i.test(f.name));
@@ -243,7 +243,7 @@ function useFileDrop(): boolean {
       }
       if (!files.length) return;
       void handlesP.then((hs) => {
-        const fileHandles = hs.filter((h): h is FileSystemFileHandle => !!h && h.kind === 'file' && isDxf(h.name));
+        const fileHandles = hs.filter((h): h is FileSystemFileHandle => !!h && h.kind === 'file' && isDrawing(h.name));
         // handles allow reopening from "recent files" later (Chromium)
         if (fileHandles.length === files.length) void openHandles(fileHandles);
         else void openFiles(files);
@@ -474,7 +474,7 @@ export function App() {
                 {tab.status === 'error' && (
                   <div className="canvas-message error">
                     <h3>{t('error.title')}</h3>
-                    <p>{tab.error}</p>
+                    <p>{tx(tab.error ?? '')}</p>
                   </div>
                 )}
               </>

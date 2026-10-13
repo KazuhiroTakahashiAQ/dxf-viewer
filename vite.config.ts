@@ -1,4 +1,6 @@
 /// <reference types="vitest/config" />
+import { execSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
@@ -23,6 +25,16 @@ const CSP = [
   "form-action 'none'",
 ].join('; ');
 
+/** Commit the build is made from: the help dialog links its source (GPL). */
+function sourceCommit(): string {
+  if (process.env.GITHUB_SHA) return process.env.GITHUB_SHA;
+  try {
+    return execSync('git rev-parse HEAD', { encoding: 'utf8' }).trim();
+  } catch {
+    return '';
+  }
+}
+
 function cspPlugin(): Plugin {
   return {
     name: 'dxfv-csp',
@@ -38,6 +50,7 @@ function cspPlugin(): Plugin {
 
 export default defineConfig({
   base: './',
+  define: { __SOURCE_COMMIT__: JSON.stringify(sourceCommit()) },
   plugins: [
     react(),
     cspPlugin(),
@@ -64,7 +77,7 @@ export default defineConfig({
         file_handlers: [
           {
             action: './',
-            accept: { 'application/dxf': ['.dxf'], 'image/vnd.dxf': ['.dxf'], 'image/x-dxf': ['.dxf'] },
+            accept: { 'application/dxf': ['.dxf'], 'image/vnd.dxf': ['.dxf'], 'image/x-dxf': ['.dxf'], 'image/vnd.dwg': ['.dwg'], 'application/acad': ['.dwg'] },
           },
         ],
         launch_handler: { client_mode: 'focus-existing' },
@@ -85,6 +98,16 @@ export default defineConfig({
             },
           },
           {
+            // LibreDWG (~10 MB) is fetched on the first DWG, not precached
+            urlPattern: ({ url }) => /\/assets\/.+\.wasm$/.test(url.pathname),
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'dxfv-wasm',
+              expiration: { maxEntries: 2 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+          {
             urlPattern: ({ url }) => /\/samples\/.+\.dxf$/i.test(url.pathname),
             handler: 'StaleWhileRevalidate',
             options: { cacheName: 'dxfv-samples' },
@@ -94,6 +117,11 @@ export default defineConfig({
       devOptions: { enabled: false },
     }),
   ],
+  resolve: {
+    // the package exports only its wrapper; the raw Emscripten module and its
+    // .wasm (used by src/dwg/convert.ts) live in its wasm/ folder
+    alias: [{ find: /^libredwg-web-wasm\//, replacement: fileURLToPath(new URL('./node_modules/@mlightcad/libredwg-web/wasm/', import.meta.url)) }],
+  },
   worker: { format: 'es' },
   build: { target: 'es2022', sourcemap: true, chunkSizeWarningLimit: 2048 },
   test: {

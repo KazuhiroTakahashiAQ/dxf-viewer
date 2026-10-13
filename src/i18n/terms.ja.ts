@@ -616,6 +616,8 @@ export const JA_TERMS: Record<string, string> = {
   'HATCH without usable boundary paths': '使える境界パスがない HATCH',
   'Block reference expansion exceeds the budget; drawing bounding frames instead': 'ブロック参照の展開数が上限を超えたため、外接枠で表示しています',
   'Viewport with a non-plan view direction is shown as plan view': '平面以外のビュー方向のビューポートを平面ビューとして表示しています',
+  'LibreDWG reads DWG files older than R13 only partly; some entities may be missing': 'LibreDWG は R13 より古い DWG ファイルを一部しか読めません。欠けている要素があるかもしれません',
+  'LibreDWG found no entities in this DWG file': 'LibreDWG はこの DWG ファイルから要素を読み取れませんでした',
 };
 
 /** Templates with variable parts: `$n` inserts a captured part as is, `%n` translates it. */
@@ -641,6 +643,11 @@ export const JA_PATTERNS: [RegExp, string][] = [
   [/^(\S+): no vertices found in ACIS data \(not rendered\)$/, '$1: ACIS データに頂点が見つかりません（描画しません）'],
   [/^(\S+): ACIS solids are shown as bounding frames$/, '$1: ACIS ソリッドは外接枠で表示しています'],
   [/^Text layout failed: (.*)$/s, '文字のレイアウトに失敗しました: $1'],
+  [/^Converted from DWG (.*) with (.*); line numbers and group codes are those of the converted DXF$/, 'DWG $1 を $2 で DXF に変換しました。行番号とグループコードは変換後の DXF のものです'],
+  [/^LibreDWG reported recoverable errors: (.*)$/, 'LibreDWG が回復可能なエラーを報告しました: $1'],
+  [/^On \/ off of (\d+) layers taken from the DWG \(the converted DXF has them wrong\)$/, '$1 個のレイヤーの表示 / 非表示を DWG から読み取りました（変換後の DXF では誤っているため）'],
+  [/^Could not convert the DWG file \(LibreDWG: (.*)\)$/, 'DWG ファイルを変換できませんでした（LibreDWG: $1）'],
+  [/^DWG converter failed: (.*)$/s, 'DWG の変換処理が失敗しました: $1'],
   [/^(\S+) entities are not rendered$/, '$1 要素は描画しません'],
   [/^(\S+) without geometry block: drawn from definition points$/, '$1 に形状ブロックがないため、定義点から描画しました'],
   [/^Block "(.*)" is not defined$/, 'ブロック「$1」が定義されていません'],
@@ -653,5 +660,6 @@ export const JA_PATTERNS: [RegExp, string][] = [
   [/^Manually selected \(detected: (\S+) – (.*)\)$/s, '手動で選択（自動判定: $1 – %2）'],
   // producing application evidence
   [/^comment: (.*)$/s, 'コメント: $1'],
+  [/^DWG (\S+), converted to DXF with (.*)$/, 'DWG $1（$2 で DXF に変換）'],
   [/^CLASSES applications: (.*)$/s, 'CLASSES のアプリケーション: $1'],
 ];

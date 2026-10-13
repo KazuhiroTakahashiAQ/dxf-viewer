@@ -190,6 +190,13 @@ export function guessGenerator(doc: DxfDocument): GeneratorGuess {
   const comments: string[] = [];
   const t = doc.tags;
   for (let i = 0; i < t.count && comments.length < 20; i++) if (t.code(i) === 999) comments.push(t.str(i).trim());
+  // a converted DWG: the converter's comment says nothing about the application that wrote the DWG
+  const dwg = doc.source.dwg;
+  if (dwg) {
+    const own = comments.findIndex((c) => c.startsWith('LibreDWG'));
+    if (own >= 0) comments.splice(own, 1);
+    evidence.push(`DWG ${dwg.version}, converted to DXF with ${dwg.converter}`);
+  }
   for (const c of comments) evidence.push(`comment: ${c}`);
   const appids = doc.tableRecords.filter((r) => r.table === 'APPID').map((r) => r.name);
   if (appids.length) evidence.push(`APPID: ${appids.slice(0, 30).join(', ')}${appids.length > 30 ? ', …' : ''}`);

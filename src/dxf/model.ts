@@ -26,6 +26,20 @@ export interface EncodingInfo {
   overridden: boolean;
 }
 
+/** A DWG file that was converted to DXF before parsing. */
+export interface DwgOrigin {
+  /** DWG signature, e.g. "AC1032" */
+  version: string;
+  release?: string;
+  /** size of the DWG file */
+  size: number;
+  /** e.g. "LibreDWG 0.13.3.7825" */
+  converter: string;
+  /** recoverable LibreDWG errors (Dwg_Error names) */
+  errors: string[];
+  ms: number;
+}
+
 export interface SourceInfo {
   name: string;
   size: number;
@@ -34,6 +48,8 @@ export interface SourceInfo {
   release?: string; // e.g. "R2018"
   encoding: EncodingInfo;
   lineCount: number;
+  /** set for DWG files; everything else here describes the converted DXF */
+  dwg?: DwgOrigin;
 }
 
 export type HeaderValue = { codes: number[]; values: (string | number)[]; tag: number };

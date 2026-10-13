@@ -15,6 +15,10 @@ const GLOSSARY = {
     en: ['DXF', 'A file format for exchanging CAD drawings between programs, defined by Autodesk (the maker of AutoCAD). It is a list of codes and values that describes every shape, layer and setting of the drawing.'],
     ja: ['DXF', 'CAD 図面を別のソフトとやり取りするためのファイル形式です（AutoCAD を作った Autodesk 社が定めたもの）。図形・レイヤー・設定など図面のすべてが、「コード」と「値」の組の並びとして書かれています。'],
   },
+  dwg: {
+    en: ['DWG', 'AutoCAD’s own file format; its specification is not published. This viewer converts a DWG file to DXF inside the browser with the open-source LibreDWG and shows that DXF. Objects the converter does not support are missing, and line numbers and group codes are those of the converted DXF.'],
+    ja: ['DWG', 'AutoCAD 本来のファイル形式です。仕様は公開されていません。このビューアでは、オープンソースの LibreDWG を使ってブラウザ内で DXF に変換し、その DXF を表示します。変換できない要素は表示されず、行番号やグループコードは変換後の DXF のものです。'],
+  },
   entity: {
     en: ['Entity', 'Each individual object a drawing is made of — a line, a circle, a piece of text, a hatch and so on. Every entity has a type name such as LINE, CIRCLE or TEXT.'],
     ja: ['要素（エンティティ）', '線・円・文字・ハッチングなど、図面を構成する 1 つ 1 つの図形のことです。要素には LINE・CIRCLE・TEXT のような型名が付いています。'],
@@ -292,7 +296,7 @@ export const TERM_IDS = Object.keys(GLOSSARY) as TermId[];
 
 /** Sections of the glossary in the help dialog (every term appears once). */
 export const TERM_GROUPS: [group: 'basics' | 'spaces' | 'blocks' | 'appearance' | 'text' | 'file' | 'viewer', terms: TermId[]][] = [
-  ['basics', ['dxf', 'entity', 'layer', 'freeze', 'layerState', 'handle', 'owner', 'groupCode', 'subclass']],
+  ['basics', ['dxf', 'dwg', 'entity', 'layer', 'freeze', 'layerState', 'handle', 'owner', 'groupCode', 'subclass']],
   ['spaces', ['modelSpace', 'paperSpace', 'space', 'viewport', 'namedView', 'viewTwist', 'wcs', 'extrusion', 'thickness', 'units', 'extents']],
   ['blocks', ['block', 'insert', 'nesting', 'insertionPoint', 'attribute', 'anonymousBlock', 'dynamicBlock', 'xref', 'unusedBlock', 'mirrored', 'expansionLimit']],
   ['appearance', ['color', 'byLayer', 'effective', 'linetype', 'lineweight', 'hatch', 'wipeout', 'controlPoint']],

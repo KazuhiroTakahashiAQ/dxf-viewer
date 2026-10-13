@@ -12,6 +12,7 @@
   "include": [
     "src/worker",
     "src/dxf",
+    "src/dwg",
     "src/geom",
     "src/scene",
     "src/render",

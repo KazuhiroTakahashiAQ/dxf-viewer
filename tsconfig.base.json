@@ -17,6 +17,9 @@
     "noEmit": true,
     "jsx": "react-jsx",
     "useDefineForClassFields": true,
-    "allowImportingTsExtensions": true
+    "allowImportingTsExtensions": true,
+    "paths": {
+      "libredwg-web-wasm/*": ["./node_modules/@mlightcad/libredwg-web/wasm/*"]
+    }
   }
 }

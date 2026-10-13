@@ -71,7 +71,7 @@ export function Toolbar() {
       <input
         ref={fileRef}
         type="file"
-        accept=".dxf,.DXF,application/dxf,image/vnd.dxf"
+        accept=".dxf,.DXF,.dwg,.DWG,application/dxf,image/vnd.dxf,image/vnd.dwg"
         multiple
         hidden
         onChange={(e) => {

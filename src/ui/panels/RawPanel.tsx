@@ -16,6 +16,7 @@ export function RawPanel() {
   const jump = useUi((s) => s.rawJump);
   const session = tab ? sessions.get(tab.id) : undefined;
   const total = tab?.summary?.tagCount ?? 0;
+  const converted = !!tab?.summary?.dwg;
   const [pages, setPages] = useState<Map<number, RawRow[]>>(new Map());
   const [current, setCurrent] = useState<number | null>(null);
   const [owner, setOwner] = useState<{ entityId?: number; handle?: string; type: string } | null>(null);
@@ -137,6 +138,7 @@ export function RawPanel() {
           </span>
         )}
       </div>
+      {converted && <p className="raw-note small muted">{t('raw.convertedNote')}</p>}
       <div className="panel-scroll mono raw-scroll" ref={parentRef}>
         <div style={{ height: v.getTotalSize(), position: 'relative' }}>
           {items.map((vi) => {

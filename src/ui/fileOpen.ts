@@ -14,7 +14,7 @@ export async function chooseFiles(fallback: HTMLInputElement | null): Promise<vo
   const w = window as unknown as PickerWindow;
   if (typeof w.showOpenFilePicker === 'function') {
     try {
-      const handles = await w.showOpenFilePicker({ multiple: true, types: [{ description: 'DXF drawing', accept: { 'image/vnd.dxf': ['.dxf', '.DXF'] } }] });
+      const handles = await w.showOpenFilePicker({ multiple: true, types: [{ description: 'DXF / DWG drawing', accept: { 'image/vnd.dxf': ['.dxf', '.DXF'], 'image/vnd.dwg': ['.dwg', '.DWG'] } }] });
       await openHandles(handles);
     } catch (e) {
       if ((e as Error).name !== 'AbortError') fallback?.click();

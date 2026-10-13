@@ -1482,6 +1482,14 @@ label.check {
 .raw-scroll {
   font-size: 12px;
 }
+.raw-note {
+  margin: 0;
+  padding: 4px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.help-license {
+  margin-top: 16px;
+}
 .raw-row {
   display: grid;
   grid-template-columns: 80px 56px minmax(0, 1fr);

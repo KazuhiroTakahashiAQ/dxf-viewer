@@ -1,6 +1,6 @@
 # DXF Viewer
 
-ブラウザだけで動作する、DXF ファイル調査用のビューアです。読み込んだ図面は端末の外に送信されません（サーバー側の処理はありません）。
+ブラウザだけで動作する、DXF ファイル調査用のビューアです。DWG ファイルもブラウザ内で DXF に変換して開けます。読み込んだ図面は端末の外に送信されません（サーバー側の処理はありません）。
 
 公開 URL: https://kazuhirotakahashiaq.github.io/dxf-viewer/
 
@@ -11,6 +11,10 @@
 ### 読み込み
 - ASCII DXF / Binary DXF（R12〜R2018 以降）。全グループコードを行番号付きで保持し、未知のエンティティやコードも生データで確認できます。
 - 文字コードの自動判定（BOM → `$ACADVER` → UTF-8 → `$DWGCODEPAGE` → Shift_JIS / EUC の推定）と手動切り替え。`\U+XXXX`・`\M+nXXXX` のエスケープ、`%%c` などの特殊コード、MTEXT の書式コードに対応します。
+- DWG（R13〜R2018 以降。R12 以前は一部のみ）。[LibreDWG](https://www.gnu.org/software/libredwg/) の WebAssembly 版（[@mlightcad/libredwg-web](https://github.com/mlightcad/libredwg-web)）で DXF に変換してから表示します。拡張子ではなくファイル先頭の署名で判定します。
+  - 変換は DWG を開いたときだけ専用の Worker で行い、終わると Worker ごと破棄してメモリーを解放します。変換モジュール（約 11 MB、gzip で約 2.5 MB）は最初に DWG を開いたときに取得し、以後はキャッシュします。
+  - ドキュメントパネルに変換元の DWG バージョン・変換に使ったバージョンと時間・変換後の DXF のサイズを、診断に変換時の警告を表示します。行番号・グループコード・Raw 表示は変換後の DXF のものです。
+  - 同梱の LibreDWG（0.13.3）は R13 以降の DWG のレイヤーをすべて非表示として DXF に書き出すため、レイヤーの表示 / 非表示は DWG から直接読み取った値で補正します（Raw 表示の 62 は変換後の DXF のままです）。
 - 複数ファイルをタブで開けます。同じ内容のファイルは既存のタブに切り替わります。
 
 ### 表示
@@ -43,7 +47,7 @@
 
 ## 使い方
 
-- 「開く」またはファイルのドラッグ＆ドロップで DXF を開きます。最初の画面からサンプル図面（`public/samples/`）を開くこともできます。
+- 「開く」またはファイルのドラッグ＆ドロップで DXF / DWG を開きます。最初の画面からサンプル図面（`public/samples/`）を開くこともできます。
 - 左・下・右のパネルは開閉とリサイズができます。フォーカスモード（`Ctrl+Shift+F`）ではステータスバー以外を隠します。
 - ボタンやパネルのタブにマウスを合わせると、名前・説明・ショートカットがツールチップで表示されます。`?` キー（または `F1`、ツールバーの「?」）で、操作方法とパネルの一覧をまとめたヘルプを開きます。ヘルプからパネルを直接開けます。
 - CAD に慣れていない人向けに、用語の説明を用意しています。
@@ -78,6 +82,7 @@
 - 図面の解析と描画はすべてブラウザ内（Web Worker）で行います。外部への送信や外部 CDN の利用はありません（フォントも自己ホスト）。
 - 「最近開いたファイル」は既定ではファイル名・サイズ・日時・内容のハッシュだけを記録します（Chromium ではファイルへの参照も保存します。中身は保存しません）。設定で「図面もこのブラウザに保存」を有効にした場合のみ、図面本体を IndexedDB に保存します。共有 PC では有効にしないでください。また、`kazuhirotakahashiaq.github.io` 配下の他のページとは保存領域（オリジン）が共通です。
 - DXF 由来の文字列は常にテキストとして扱い、コードとして評価しません（`eval` や HTML への直接挿入は使いません）。本番ビルドは `unsafe-eval` やインラインスクリプトを許可しない CSP を設定しています。
+- DWG の変換（LibreDWG の WebAssembly）は、ページとは別の Worker の中だけで動きます。この Worker では Emscripten のバインディングが自身の呼び出し用の関数を `new Function` で生成しますが、図面の内容がコードとして評価されることはありません。
 - 共有リンクの条件は形式を検証したうえで、確認後にだけ読み込みます。入れ子の量指定子を含む正規表現など、処理が極端に重くなりうるパターンは評価しません。
 - CSV 出力では `=` `+` `-` `@` で始まるセルを無害化し、SVG 出力では文字列を XML エスケープします。
 
@@ -85,7 +90,8 @@
 
 - 一度開いたあとはオフラインでも起動します。代替フォントは必要な部分だけを都度取得してキャッシュします。
 - 設定メニューの「Download substitute fonts for offline use…」で、ファミリーごとの容量とブラウザの空き容量を確認してから、フォント一式を事前に取得できます（日本語ファミリーは 1 つあたり約 5〜8 MB）。
-- インストールしたアプリ（Chromium）では、`.dxf` ファイルを関連付けて直接開けます。
+- インストールしたアプリ（Chromium）では、`.dxf` / `.dwg` ファイルを関連付けて直接開けます。
+- DWG の変換モジュールは事前キャッシュに含めません。オフラインで DWG を開くには、オンラインのときに一度 DWG を開いておく必要があります。
 - 新しい版が公開されると、再読み込みを促す通知が表示されます。
 
 ## 対応状況
@@ -125,8 +131,8 @@ node tools/e2e/ui.ts [--locale en-US]   # 言語・ツールチップ（用語�
 ### 実ファイルコーパスと参照レンダリング
 
 ```sh
-node tools/corpus/fetch.ts        # tests/real/corpus.json の公開 DXF を tests/real/.cache/ に取得（SHA-256 を検証）
-npm test                          # 取得済みなら実ファイルの不変条件テストも実行
+node tools/corpus/fetch.ts        # tests/real/corpus.json の公開 DXF / DWG を tests/real/.cache/ に取得（SHA-256 を検証）
+npm test                          # 取得済みなら実ファイルの不変条件テストも実行（DWG は LibreDWG で変換してから検査）
 sh tools/reference/render.sh public/samples/*.dxf   # ezdxf・LibreCAD・このビューアの比較画像（macOS）
 ```
 
@@ -144,10 +150,15 @@ sh tools/reference/render.sh public/samples/*.dxf   # ezdxf・LibreCAD・この�
 ## 既知の制限
 
 - 表示は XY 平面（平面図）のみです。3D のビュー方向や ACIS 立体の形状描画には対応していません。
-- DWG は読めません。外部参照（XREF）は枠のみ表示します。
+- DWG は LibreDWG の変換結果に従います。LibreDWG が DXF に書き出さない要素（表 ACAD_TABLE の中身、プロキシ要素、R13 / R14 の WIPEOUT など）は表示されません（[検証結果](docs/coverage.md)）。R12 以前の DWG はポリラインなどが欠けることがあります。DWG を開くと変換モジュールが約 1 GB のメモリー領域を確保するため、スマートフォンなどでは開けない場合があります。
+- 外部参照（XREF）は枠のみ表示します。
 - 印刷スタイル（CTB/STB）は適用しません。複雑線種の文字・図形要素は破線パターンで近似します。
 - 画像（IMAGE）は、画像ファイルを別途ドロップしない限り枠とファイル名のみ表示します。
 
 ## ライセンス
 
-MIT License。同梱フォント（SIL Open Font License）と Hershey フォントデータなど、サードパーティのライセンスは [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) を参照してください。
+Copyright (C) 2026 KazuhiroTakahashiAQ
+
+GNU General Public License v3.0 以降（GPL-3.0-or-later）。このプログラムはフリーソフトウェアで、GPL バージョン 3（または、それ以降の任意のバージョン）の条件のもとで再頒布・改変できます。無保証です。全文は [LICENSE](LICENSE) にあります。DWG の変換に GPLv3 の LibreDWG を使うため、MIT License から変更しました。
+
+同梱フォント（SIL Open Font License）・Hershey フォントデータ・LibreDWG など、サードパーティのライセンスと LibreDWG のソースコードの入手先は [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) を参照してください。
